@@ -82,6 +82,11 @@ fun ChannelsScreen(page: ChannelsPage) {
                     },
                     Modifier.restoreFocus(page, "shorts"),
                 )
+                Pill(
+                    if (store.useYouTubeApp) "Reproductor: app de YouTube" else "Reproductor: Mis Canales",
+                    { store.togglePlayer() },
+                    Modifier.restoreFocus(page, "player"),
+                )
             }
         }
         itemsIndexed(channels, key = { _, channel -> channel.id }) { i, channel ->

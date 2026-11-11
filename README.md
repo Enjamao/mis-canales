@@ -14,7 +14,8 @@ reproductor oficial de YouTube para webs: Atrás te devuelve a tu lista, y al ac
   "Ir al canal" y "Abrir en YouTube" (en la app de YouTube de la tele).
 - Si un vídeo no deja verse fuera de YouTube, se abre solo en la app de YouTube.
 - **Mantener OK** sobre la píldora de un canal: abre la página del canal.
-- **Mis canales**: la lista de canales, el botón para añadir y si se ven o no los Shorts.
+- **Mis canales**: la lista de canales, el botón para añadir, si se ven o no los Shorts y qué
+  reproductor usar (el de Mis Canales o la app de YouTube).
   Al pulsar un canal se ven sus vídeos y el botón **Quitar canal**.
 - **Añadir canal**: escribe el `@nombre` del canal tal como sale en YouTube, o pega su enlace.
 

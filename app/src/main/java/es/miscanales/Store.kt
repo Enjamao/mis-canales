@@ -41,6 +41,10 @@ class Store(context: Context) {
     var hideShorts by mutableStateOf(prefs.getBoolean("hideShorts", true))
         private set
 
+    /** Si los vídeos se ven en la app de YouTube en vez de en el reproductor de Mis Canales. */
+    var useYouTubeApp by mutableStateOf(prefs.getBoolean("useYouTubeApp", false))
+        private set
+
     fun channel(id: String): Channel? = channels.firstOrNull { it.id == id }
 
     fun has(id: String): Boolean = channels.any { it.id == id }
@@ -70,6 +74,11 @@ class Store(context: Context) {
     fun toggleShorts() {
         hideShorts = !hideShorts
         prefs.edit { putBoolean("hideShorts", hideShorts) }
+    }
+
+    fun togglePlayer() {
+        useYouTubeApp = !useYouTubeApp
+        prefs.edit { putBoolean("useYouTubeApp", useYouTubeApp) }
     }
 
     /**
