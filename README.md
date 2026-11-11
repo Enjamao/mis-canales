@@ -1,15 +1,18 @@
 # Mis Canales
 
 App para Android TV y Fire TV que solo enseña los vídeos de los canales de YouTube que tú eliges.
-No hay recomendaciones, ni portada, ni "siguiente vídeo". Al pulsar un vídeo se abre en la app de
-YouTube de la tele, y al acabar vuelves aquí.
+No hay recomendaciones, ni portada, ni "siguiente vídeo". Los vídeos se ven dentro de la app, con el
+reproductor oficial de YouTube para webs: Atrás te devuelve a tu lista, y al acabar el vídeo también.
 
 ## Cómo se usa
 
 - **Inicio**: los últimos vídeos de todos tus canales, del más nuevo al más viejo. Arriba hay una píldora
   por canal para filtrar, **Sin ver** (con el número de vídeos nuevos) y **Actualizar**.
-- **OK** sobre un vídeo: lo pone en YouTube y lo marca como visto.
-- **Mantener OK** sobre un vídeo: abre su ficha, con la descripción, "Marcar como visto/no visto" e "Ir al canal".
+- **OK** sobre un vídeo: lo pone y lo marca como visto. En el reproductor: **OK** pausa,
+  **◀ ▶** salta 10 segundos y **Atrás** vuelve a la lista.
+- **Mantener OK** sobre un vídeo: abre su ficha, con la descripción, "Marcar como visto/no visto",
+  "Ir al canal" y "Abrir en YouTube" (en la app de YouTube de la tele).
+- Si un vídeo no deja verse fuera de YouTube, se abre solo en la app de YouTube.
 - **Mantener OK** sobre la píldora de un canal: abre la página del canal.
 - **Mis canales**: la lista de canales, el botón para añadir y si se ven o no los Shorts.
   Al pulsar un canal se ven sus vídeos y el botón **Quitar canal**.

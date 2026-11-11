@@ -68,6 +68,11 @@ fun DetailsScreen(page: DetailsPage) {
                     { nav.open(ChannelPage(video.channelId)) },
                     Modifier.restoreFocus(page, "channel"),
                 )
+                Pill(
+                    "Abrir en YouTube",
+                    { nav.playOnYouTubeApp(video) },
+                    Modifier.restoreFocus(page, "youtube"),
+                )
             }
             Description(video.description)
         }

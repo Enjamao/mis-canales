@@ -141,7 +141,14 @@ class Navigator(private val context: Context, private val store: Store) {
         page.needsFocus = true
     }
 
+    /** Lo pone en el reproductor de la app, que vuelve aquí con Atrás o al acabar. */
     fun play(video: Video) {
+        store.setWatched(video.vid, true)
+        PlayerActivity.start(context, video)
+    }
+
+    /** Lo abre en la app de YouTube de la tele (con sus recomendaciones al volver). */
+    fun playOnYouTubeApp(video: Video) {
         store.setWatched(video.vid, true)
         context.playOnYouTube(video.vid)
     }
