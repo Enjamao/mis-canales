@@ -1,0 +1,44 @@
+# Compila el APK en cada cambio y lo deja en Releases como "latest".
+name: APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Compilar
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk mis-canales.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mis-canales
+          path: mis-canales.apk
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest mis-canales.apk \
+            --title "Mis Canales (última versión)" \
+            --notes "Compilado desde ${GITHUB_SHA::7}." \
+            --latest
