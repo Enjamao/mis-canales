@@ -27,11 +27,6 @@ jobs:
           ./gradlew assembleRelease --stacktrace
           cp app/build/outputs/apk/release/app-release.apk mis-canales.apk
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mis-canales
-          path: mis-canales.apk
-
       - name: Publicar en Releases
         env:
           GH_TOKEN: ${{ github.token }}
