@@ -19,8 +19,8 @@ android {
         applicationId = "es.miscanales"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.4.0"
+        versionCode = 7
+        versionName = "0.5.0"
     }
 
     signingConfigs {
@@ -54,6 +54,8 @@ dependencies {
     implementation("androidx.tv:tv-material:1.1.0")
     // la interfaz del móvil
     implementation("androidx.compose.material3:material3")
+    // para que el reproductor siga sonando con la pantalla apagada
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     implementation("com.squareup.okhttp3:okhttp:5.5.1")
