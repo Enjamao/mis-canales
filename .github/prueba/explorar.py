@@ -67,26 +67,15 @@ if tokens:
     print("\nclaves arriba de la continuación:", list(more.keys()))
     report(more, "BÚSQUEDA, MÁS RESULTADOS")
 
-# la pestaña Vídeos de un canal y su continuación (la de la cuadrícula), y en qué idioma vienen
-for lang in ("es-ES,es;q=0.9", "en-US,en;q=0.9"):
-    HEAD["Accept-Language"] = lang
-    data = initial(get("https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ/videos?hl=en&gl=ES"))
-    grid = next(v for k, v, p in walk(data) if k == "richGridRenderer")
-    items = grid["contents"]
-    lockups = [v for k, v, p in walk(items) if k == "lockupViewModel"]
-    meta = [[part["text"]["content"] for row in l["metadata"]["lockupMetadataViewModel"]["metadata"]["contentMetadataViewModel"]["metadataRows"] for part in row.get("metadataParts", [])] for l in lockups[:3]]
-    print(f"\n######## CANAL con Accept-Language {lang}: {len(lockups)} vídeos; metadatos {meta}")
-    print("contentType y ids:", [(l.get("contentType"), l.get("contentId")) for l in lockups[:3]])
-    print("badge duración:", [b["thumbnailBadgeViewModel"]["text"] for l in lockups[:3] for o in l["contentImage"]["thumbnailViewModel"].get("overlays", []) for b in o.get("thumbnailBottomOverlayViewModel", {}).get("badges", [])])
-    token = items[-1]["continuationItemRenderer"]["continuationEndpoint"]["continuationCommand"]["token"]
-    ctx = {"client": {"clientName": "WEB", "clientVersion": cfg_version.group(1), "hl": "en", "gl": "ES"}}
-    more = post("https://www.youtube.com/youtubei/v1/browse?prettyPrint=false", {"context": ctx, "continuation": token})
-    lockups = [v for k, v, p in walk(more) if k == "lockupViewModel"]
-    meta = [[part["text"]["content"] for row in l["metadata"]["lockupMetadataViewModel"]["metadata"]["contentMetadataViewModel"]["metadataRows"] for part in row.get("metadataParts", [])] for l in lockups[:3]]
-    nxt = [v for k, v, p in walk(more) if k == "continuationItemRenderer"]
-    print(f"continuación: {len(lockups)} vídeos más; metadatos {meta}; ¿sigue? {bool(nxt)}")
-    sdata = initial(get("https://www.youtube.com/results?search_query=" + urllib.parse.quote(q) + "&hl=en&gl=ES"))
-    vids = [v for k, v, p in walk(sdata) if k == "videoRenderer"]
-    print("búsqueda:", [(v.get("publishedTimeText", {}).get("simpleText"), v.get("viewCountText", {}).get("simpleText")) for v in vids[:4]])
-    ch = [v for k, v, p in walk(sdata) if k == "channelRenderer"]
-    print("canales:", [(c["title"]["simpleText"], c.get("videoCountText", {}).get("simpleText"), c.get("subscriberCountText", {}).get("simpleText")) for c in ch])
+# buscar dentro de un canal (para "Mis canales")
+HEAD["Accept-Language"] = "es-ES,es;q=0.9"
+data = initial(get("https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ/search?query=" + urllib.parse.quote("iphone") + "&hl=es&gl=ES"))
+names = Counter(k for k, v, p in walk(data) if k.endswith(("Renderer", "ViewModel")) and isinstance(v, dict))
+print("\n######## BUSCAR EN UN CANAL «iphone»:", names.most_common(25))
+vids = [(k, v) for k, v, p in walk(data) if k in ("videoRenderer", "lockupViewModel") and isinstance(v, dict)]
+for k, v in vids[:5]:
+    if k == "videoRenderer":
+        print(k, v.get("videoId"), v["title"].get("runs", [{}])[0].get("text"), v.get("publishedTimeText"), v.get("viewCountText"), v.get("lengthText", {}).get("simpleText"), "owner:", "ownerText" in v)
+    else:
+        print(k, v.get("contentId"), v.get("contentType"))
+print("total:", len(vids), "continuaciones:", len([1 for k, v, p in walk(data) if k == "continuationItemRenderer"]))
