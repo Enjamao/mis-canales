@@ -29,6 +29,7 @@ for m in re.finditer(r'<node [^>]*>', xml):
         break
 else:
     print('no está en pantalla:', sys.argv[1])
+    print('textos:', [t for t in re.findall(r' text="([^"]+)"', xml)][:60])
 PY
 }
 
@@ -71,7 +72,8 @@ adb shell am start -W -n $PKG/.MainActivity
 sleep 5
 pulsar "Canales"
 sleep 3
-for i in 1 2 3 4 5 6; do adb shell input swipe 500 1800 500 500 300; sleep 1; done
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}; echo "pantalla $W x $H"
+for i in 1 2 3 4 5 6 7 8; do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/4)) 300; sleep 1; done
 adb exec-out screencap -p > 3-ajustes.png
 pulsar "Probar con el último vídeo"
 sleep 15
