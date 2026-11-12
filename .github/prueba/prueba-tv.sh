@@ -19,18 +19,21 @@ textos() {
 }
 
 pulsar() {
+  # pulsar TEXTO [píxeles más abajo] [ultimo]: el primero con ese texto, o el último (el más bajo)
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-  python3 - "$1" "${2:-0}" <<'PY'
+  python3 - "$1" "${2:-0}" "${3:-primero}" <<'PY'
 import re, subprocess, sys
 xml = open('ui.xml', encoding='utf-8').read()
+found = []
 for m in re.finditer(r'<node [^>]*>', xml):
-    node = m.group(0)
-    if f'text="{sys.argv[1]}"' in node:
-        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
-        x, y = (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2 + int(sys.argv[2])
-        subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
-        print('pulsado', sys.argv[1], x, y)
-        break
+    if f'text="{sys.argv[1]}"' in m.group(0):
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', m.group(0))
+        found.append(((int(b.group(2)) + int(b.group(4))) // 2, (int(b.group(1)) + int(b.group(3))) // 2))
+if found:
+    y, x = sorted(found)[-1] if sys.argv[3] == 'ultimo' else found[0]
+    y += int(sys.argv[2])
+    subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+    print('pulsado', sys.argv[1], x, y)
 else:
     print('no está en pantalla:', sys.argv[1])
 PY
@@ -58,11 +61,9 @@ sleep 3
 textos "buscador de la tele"
 fallos "abrir el buscador"
 
-# escribir en la caja (tiene el foco) y pulsar Buscar
-tecla KEYCODE_DPAD_CENTER
+# escribir en la caja (ya tiene el foco) y pulsar el botón Buscar (el título también se llama así)
 adb shell input text "iphone"; sleep 1
-tecla KEYCODE_BACK
-pulsar "Buscar"
+pulsar "Buscar" 0 ultimo
 sleep 25
 textos "«iphone» en mis canales (tele)"
 fallos "buscar en mis canales (tele)"

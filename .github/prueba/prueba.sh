@@ -33,6 +33,26 @@ else:
 PY
 }
 
+pulsar_abajo() {
+  # el más bajo de la pantalla con ese texto (las pestañas de abajo: "Canales", "Inicio"…)
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 - "$1" <<'PY'
+import re, subprocess, sys
+xml = open('ui.xml', encoding='utf-8').read()
+found = []
+for m in re.finditer(r'<node [^>]*>', xml):
+    if f'text="{sys.argv[1]}"' in m.group(0):
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', m.group(0))
+        found.append(((int(b.group(2)) + int(b.group(4))) // 2, (int(b.group(1)) + int(b.group(3))) // 2))
+if found:
+    y, x = sorted(found)[-1]
+    subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+    print('pulsado (abajo)', sys.argv[1], x, y)
+else:
+    print('no está en pantalla:', sys.argv[1])
+PY
+}
+
 pulsar_arriba() {
   # como pulsar, pero el más alto de la pantalla (la barra de abajo repite "Añadir" y "Canales")
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
@@ -184,7 +204,7 @@ fallos "más resultados"
 
 # 7. Un canal de los resultados: sus vídeos y el botón de añadir
 # arriba del todo (cambiando de pestaña) para tener a mano la caja y su botón de borrar
-pulsar "Inicio"; sleep 2; pulsar "Buscar"; sleep 2
+pulsar_abajo "Inicio"; sleep 2; pulsar_abajo "Buscar"; sleep 2
 pulsar "Borrar"; sleep 1
 escribir "realidad%svirtual"; sleep 15
 textos "«realidad virtual» en todo YouTube"
@@ -202,7 +222,7 @@ fallos "más vídeos del canal encontrado"
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # 8. Los vídeos anteriores de uno de tus canales
-pulsar "Canales"; sleep 3
+pulsar_abajo "Canales"; sleep 3
 pulsar "Marques Brownlee"; sleep 5
 textos "canal Marques Brownlee"
 bajar_hasta "Ver vídeos anteriores"; pulsar "Ver vídeos anteriores"; sleep 15
