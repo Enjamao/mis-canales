@@ -183,6 +183,8 @@ textos "más resultados"
 fallos "más resultados"
 
 # 7. Un canal de los resultados: sus vídeos y el botón de añadir
+# arriba del todo (cambiando de pestaña) para tener a mano la caja y su botón de borrar
+pulsar "Inicio"; sleep 2; pulsar "Buscar"; sleep 2
 pulsar "Borrar"; sleep 1
 escribir "realidad%svirtual"; sleep 15
 textos "«realidad virtual» en todo YouTube"
@@ -200,8 +202,9 @@ fallos "más vídeos del canal encontrado"
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # 8. Los vídeos anteriores de uno de tus canales
-pulsar "Inicio"; sleep 3
+pulsar "Canales"; sleep 3
 pulsar "Marques Brownlee"; sleep 5
+textos "canal Marques Brownlee"
 bajar_hasta "Ver vídeos anteriores"; pulsar "Ver vídeos anteriores"; sleep 15
 textos "vídeos anteriores de Marques Brownlee"
 bajar_hasta "Ver más"; pulsar "Ver más"; sleep 12

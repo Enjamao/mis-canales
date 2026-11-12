@@ -74,7 +74,7 @@ jobs:
       - name: Probar en el emulador de Android TV
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 30
           target: android-tv
           arch: x86
           disable-animations: true
