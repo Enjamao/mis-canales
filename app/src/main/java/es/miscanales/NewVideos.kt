@@ -61,13 +61,16 @@ object NewVideos {
             return
         }
         if (scheduler.getPendingJob(JOB_ID) != null) return
-        scheduler.schedule(
-            JobInfo.Builder(JOB_ID, ComponentName(context, NewVideosJob::class.java))
-                .setPeriodic(TimeUnit.MINUTES.toMillis(30), TimeUnit.MINUTES.toMillis(10))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPersisted(true)
-                .build(),
-        )
+        // si Android no la acepta, la app sigue funcionando (sin avisos)
+        runCatching {
+            scheduler.schedule(
+                JobInfo.Builder(JOB_ID, ComponentName(context, NewVideosJob::class.java))
+                    .setPeriodic(TimeUnit.MINUTES.toMillis(30), TimeUnit.MINUTES.toMillis(10))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setPersisted(true)
+                    .build(),
+            )
+        }
     }
 
     /** Si Android deja que la app ponga avisos (desde Android 13 hay que pedir permiso). */
