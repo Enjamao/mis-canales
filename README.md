@@ -57,6 +57,13 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Aviso de vídeos nuevos por Telegram
+
+`homeassistant/mis_canales.yaml` es un package de Home Assistant: cada 30 minutos lee
+`todo.mis_canales`, mira el feed de cada canal (sin Shorts) y manda por Telegram los vídeos que
+aún no ha avisado. La primera vez solo los apunta. Cómo se envía el aviso está en un solo sitio,
+el script `mis_canales_enviar`. Para probarlo, lanza el evento `mis_canales_probar`.
+
 ## De dónde saca los vídeos
 
 Del feed RSS público de cada canal (`youtube.com/feeds/videos.xml`), que da sus últimos 15 vídeos.

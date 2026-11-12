@@ -1,0 +1,142 @@
+# Mis Canales: aviso por Telegram cuando sale un vídeo nuevo en tus canales.
+#
+# Los canales salen de la lista de tareas todo.mis_canales, la misma que usa la app,
+# así que lo que añadas o quites en la app (o en la propia lista) cuenta también aquí.
+# Cada 30 minutos mira el feed de cada canal (sin Shorts) y avisa de los vídeos que no
+# haya avisado ya. La primera vez solo apunta los que hay, sin avisar.
+#
+# Va en tu carpeta de packages (por ejemplo /config/packages/mis_canales.yaml).
+# Después: Herramientas para desarrolladores → YAML → Comprobar la configuración, y reiniciar.
+#
+# Para probarlo: Herramientas para desarrolladores → Eventos → evento "mis_canales_probar"
+# → Lanzar evento. Manda el último vídeo del primer canal de la lista, aunque ya estuviera avisado.
+
+rest_command:
+  mis_canales_feed:
+    url: "https://www.youtube.com/feeds/videos.xml?{{ consulta }}"
+    method: get
+    timeout: 20
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+
+template:
+  # Los vídeos ya avisados (los 500 últimos). Se guarda entre reinicios.
+  - trigger:
+      - trigger: event
+        event_type: mis_canales_avisados
+    sensor:
+      - name: "Mis Canales avisados"
+        unique_id: mis_canales_avisados
+        icon: mdi:youtube-subscription
+        device_class: timestamp
+        state: "{{ now().isoformat() }}"
+        attributes:
+          ids: >
+            {% set antes = this.attributes.ids if this.attributes.ids is defined else [] %}
+            {{ ((antes + trigger.event.data.ids) | unique | list)[-500:] }}
+
+script:
+  # Cómo te llega el aviso. Si en el aviso de la lavadora usas otra acción
+  # (por ejemplo notify.telegram_tu_chat, o telegram_bot.send_message con chat_id),
+  # cámbialo aquí y solo aquí.
+  mis_canales_enviar:
+    alias: "Mis Canales: enviar aviso"
+    mode: queued
+    fields:
+      mensaje:
+        description: "El texto del aviso (HTML de Telegram)."
+        example: "📺 <b>Canal</b>\nTítulo del vídeo\nhttps://youtu.be/dQw4w9WgXcQ"
+    sequence:
+      - action: telegram_bot.send_message
+        data:
+          message: "{{ mensaje }}"
+          parse_mode: html
+
+automation:
+  - id: mis_canales_videos_nuevos
+    alias: "Mis Canales: aviso de vídeos nuevos"
+    description: "Mira los canales de todo.mis_canales y avisa por Telegram de los vídeos nuevos."
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: time_pattern
+        minutes: "/30"
+        id: revisar
+      - trigger: event
+        event_type: mis_canales_probar
+        id: probar
+    variables:
+      probar: "{{ trigger is defined and (trigger.id | default('')) == 'probar' }}"
+      avisados: "{{ state_attr('sensor.mis_canales_avisados', 'ids') or [] }}"
+      primera_vez: "{{ state_attr('sensor.mis_canales_avisados', 'ids') is none }}"
+    actions:
+      - action: todo.get_items
+        target:
+          entity_id: todo.mis_canales
+        response_variable: lista
+      - repeat:
+          # cada canal de la lista con su ID (en la descripción del elemento)
+          for_each: >
+            {% set ns = namespace(canales=[]) %}
+            {% for item in lista['todo.mis_canales']['items'] %}
+              {% set id = (item.description | default('', true)) | regex_findall('UC[A-Za-z0-9_-]{22}') | first | default('') %}
+              {% if id %}{% set ns.canales = ns.canales + [{'id': id, 'nombre': item.summary}] %}{% endif %}
+            {% endfor %}
+            {{ ns.canales }}
+          sequence:
+            # UULF + el ID sin "UC": los vídeos del canal sin Shorts ni directos
+            - action: rest_command.mis_canales_feed
+              data:
+                consulta: "playlist_id=UULF{{ repeat.item.id[2:] }}"
+              response_variable: feed
+              continue_on_error: true
+            - variables:
+                canal: "{{ repeat.item.nombre }}"
+                primero: "{{ repeat.first }}"
+                videos: >
+                  {% set ns = namespace(videos=[]) %}
+                  {% if feed is defined and feed.status == 200 and repeat.item.id[2:] in (feed.content | string) %}
+                    {% for entrada in (feed.content | string).split('<entry>')[1:] %}
+                      {% set vid = entrada | regex_findall('<yt:videoId>([^<]+)</yt:videoId>') | first | default('') %}
+                      {% set titulo = entrada | regex_findall('<title>([^<]*)</title>') | first | default('') %}
+                      {% set fecha = entrada | regex_findall('<published>([^<]+)</published>') | first | default('') %}
+                      {% if vid %}{% set ns.videos = ns.videos + [{'id': vid, 'titulo': titulo, 'fecha': fecha}] %}{% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {{ ns.videos }}
+            - variables:
+                # los que no se han avisado y son de los dos últimos días
+                # (así, un canal recién añadido no manda todos sus vídeos de golpe)
+                nuevos: >
+                  {% if probar %}
+                    {{ videos[:1] if primero else [] }}
+                  {% elif primera_vez %}
+                    {{ [] }}
+                  {% else %}
+                    {% set limite = now() - timedelta(hours=48) %}
+                    {% set ns = namespace(nuevos=[]) %}
+                    {% for v in videos | reverse %}
+                      {% set cuando = as_datetime(v.fecha, none) %}
+                      {% if v.id not in avisados and cuando is not none and cuando > limite %}
+                        {% set ns.nuevos = ns.nuevos + [v] %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ ns.nuevos }}
+                  {% endif %}
+            - repeat:
+                for_each: "{{ nuevos }}"
+                sequence:
+                  - action: script.mis_canales_enviar
+                    data:
+                      mensaje: |-
+                        📺 <b>{{ canal | replace('&', '&amp;') | replace('<', '&lt;') | replace('>', '&gt;') }}</b>
+                        {{ repeat.item.titulo }}
+                        https://youtu.be/{{ repeat.item.id }}
+            # apunta todos los vídeos del feed como avisados
+            - if:
+                - condition: template
+                  value_template: "{{ videos | count > 0 }}"
+              then:
+                - event: mis_canales_avisados
+                  event_data:
+                    ids: "{{ videos | map(attribute='id') | list }}"
