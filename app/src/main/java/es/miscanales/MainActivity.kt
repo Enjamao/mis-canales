@@ -10,7 +10,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val store = Store(this)
-        feed = Feed(store)
+        feed = Feed(store, filesDir)
         setContent {
             MisCanalesTheme { App(store, feed) }
         }

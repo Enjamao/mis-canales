@@ -6,8 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -62,9 +67,19 @@ class ChannelPage(val channelId: String) : Page() {
 /** La ficha de un vídeo: descripción y botones. */
 class DetailsPage(val video: Video) : Page()
 
-/** Los últimos vídeos de todos tus canales, recién bajados de YouTube. */
-class Feed(private val store: Store) {
-    var videos by mutableStateOf<List<Video>>(emptyList())
+/**
+ * Los últimos vídeos de todos tus canales, recién bajados de YouTube.
+ * Se guardan en [dir], para enseñarlos nada más abrir la app y cuando YouTube no responde.
+ */
+class Feed(private val store: Store, dir: File) {
+    private val cache = File(dir, "videos.json")
+    private val json = Json { ignoreUnknownKeys = true }
+    private val videoList = ListSerializer(Video.serializer())
+
+    var videos by mutableStateOf(
+        runCatching { json.decodeFromString(videoList, cache.readText()) }.getOrDefault(emptyList())
+            .filter { store.has(it.channelId) },
+    )
         private set
     var loading by mutableStateOf(false)
         private set
@@ -118,11 +133,18 @@ class Feed(private val store: Store) {
             return
         }
         try {
-            val (all, bad) = YouTube.everything(channels, store.hideShorts)
-            // un canal que se ha quitado mientras cargaba ya no sale
-            videos = all.filter { store.has(it.channelId) }
+            val (fresh, bad) = YouTube.everything(channels, store.hideShorts)
+            // de los canales que han fallado, se quedan los últimos vídeos que se cargaron
+            val badIds = bad.map { it.id }.toSet()
+            val kept = videos.filter { it.channelId in badIds }
+            videos = (fresh + kept)
+                .distinctBy { it.vid }
+                .sortedByDescending { it.published }
+                // un canal que se ha quitado mientras cargaba ya no sale
+                .filter { store.has(it.channelId) }
             failed = bad
             loadedAt = System.currentTimeMillis()
+            save()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -134,6 +156,14 @@ class Feed(private val store: Store) {
     fun drop(channelId: String) {
         videos = videos.filter { it.channelId != channelId }
         failed = failed.filter { it.id != channelId }
+        scope.launch { save() }
+    }
+
+    private suspend fun save() {
+        val list = videos
+        withContext(Dispatchers.IO) {
+            runCatching { cache.writeText(json.encodeToString(videoList, list)) }
+        }
     }
 
     private companion object {

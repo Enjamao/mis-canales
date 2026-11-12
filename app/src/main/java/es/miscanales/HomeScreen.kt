@@ -68,7 +68,10 @@ fun HomeScreen(page: HomePage) {
                 else -> {}
             }
             if (feed.failed.isNotEmpty()) {
-                Status("No se han podido cargar: " + feed.failed.joinToString(", ") { it.name })
+                Status(
+                    "YouTube no responde ahora para " + feed.failed.joinToString(", ") { it.name } +
+                        ". Se ven los últimos vídeos que se cargaron; prueba a actualizar en un rato.",
+                )
             }
         },
     ) {
