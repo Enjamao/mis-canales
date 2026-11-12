@@ -61,12 +61,15 @@ sleep 3
 textos "buscador de la tele"
 fallos "abrir el buscador"
 
-# escribir en la caja (ya tiene el foco) y pulsar el botón Buscar (el título también se llama así)
+# escribir en la caja (ya tiene el foco) y buscar con Intro, como con el teclado de la tele
 adb shell input text "iphone"; sleep 1
-pulsar "Buscar" 0 ultimo
+tecla KEYCODE_ENTER
 sleep 25
 textos "«iphone» en mis canales (tele)"
 fallos "buscar en mis canales (tele)"
+# fuera de la caja (abajo, a los resultados) para que se vean los botones
+tecla KEYCODE_DPAD_DOWN
+textos "resultados con el foco abajo (tele)"
 
 pulsar "Todo YouTube"
 sleep 15
