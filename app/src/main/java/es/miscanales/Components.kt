@@ -77,14 +77,24 @@ fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean 
     }
 }
 
-/** La miniatura, con "NUEVO" si no lo has visto y "VISTO" (y más apagada) si ya lo viste. */
+/**
+ * La miniatura, con "NUEVO" si no lo has visto, la barra roja de por dónde vas si lo has empezado,
+ * y "VISTO" (y más apagada) si lo acabaste.
+ */
 @Composable
 fun Thumbnail(video: Video, modifier: Modifier = Modifier) {
     val store = LocalStore.current
-    val watched = store.isWatched(video.vid)
+    val progress = store.progress[video.vid]
+    val inProgress = progress != null && progress.started
+    val watched = store.isWatched(video.vid) && !inProgress
     val new = store.isNew(video)
     Box(modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
         YouTubeImage(video.vid, Modifier.fillMaxSize().alpha(if (watched) .45f else 1f))
+        if (progress != null && progress.fraction > 0f) {
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = .35f))) {
+                Box(Modifier.fillMaxWidth(progress.fraction).height(4.dp).background(Colors.accent))
+            }
+        }
         when {
             new -> Badge("NUEVO", Colors.accent, Modifier.align(Alignment.TopStart).padding(8.dp))
             watched -> Row(

@@ -232,7 +232,7 @@ fun playVideo(context: Context, store: Store, video: Video) {
     if (store.useYouTubeApp) {
         context.playOnYouTube(video.vid)
     } else {
-        PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay)
+        PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock)
     }
 }
 

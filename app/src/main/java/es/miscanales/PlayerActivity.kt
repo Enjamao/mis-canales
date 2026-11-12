@@ -27,7 +27,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.math.abs
 
 /**
  * El reproductor propio: el reproductor oficial de YouTube (el de los vídeos insertados en webs)
@@ -46,6 +50,14 @@ class PlayerActivity : ComponentActivity() {
     /** En el móvil: seguir sonando con la pantalla apagada o desde la ventana flotante. */
     private var keepPlaying = false
 
+    // por dónde va el vídeo, para seguir otro día (y en otro aparato) donde lo dejaste
+    private var videoTitle = ""
+    private var lastPos = 0
+    private var lastDur = 0
+    private var lastSaved = 0L
+    private var ended = false
+    private val scope = MainScope()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vid = intent.getStringExtra(EXTRA_VID) ?: run {
@@ -53,6 +65,13 @@ class PlayerActivity : ComponentActivity() {
             return
         }
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+        videoTitle = title
+        val sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
+        // seguir donde lo dejaste (si lo habías empezado y no acabado)
+        val saved = Progresses.get(this, vid)
+        val start = if (saved != null && saved.started) saved.pos else 0
+        lastPos = start
+        if (start > 0) Toast.makeText(this, "Sigues por donde ibas (${clock(start)})", Toast.LENGTH_SHORT).show()
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         val stats = intent.getStringExtra(EXTRA_STATS).orEmpty()
@@ -76,7 +95,7 @@ class PlayerActivity : ComponentActivity() {
             // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
             PlaybackService.start(this, title, channel)
         }
-        val webView = createWebView(title, channel, subtitles, tv, stats, description)
+        val webView = createWebView(title, channel, subtitles, tv, stats, description, start)
         if (tv) {
             // en la tele, la página sola en la ventana (con algo detrás, en Fire TV el vídeo se ve negro)
             setContentView(webView)
@@ -91,6 +110,43 @@ class PlayerActivity : ComponentActivity() {
             }
             setContentView(root)
         }
+        if (sponsorBlock) {
+            scope.launch {
+                val segments = SponsorBlock.segments(vid)
+                if (segments.isNotEmpty()) web?.evaluateJavascript("setSegments(${segments.toJson()})", null)
+            }
+        }
+        // si lo has seguido viendo en otro aparato, salta a donde lo dejaste allí
+        val config = readHaConfig(this)
+        if (config != null) {
+            scope.launch {
+                val remote = runCatching { ProgressSync.fetch(config)[vid] }.getOrNull() ?: return@launch
+                val local = Progresses.get(this@PlayerActivity, vid)
+                if (remote.started && (local == null || remote.at > local.at) && abs(remote.pos - lastPos) > 10) {
+                    web?.evaluateJavascript("jumpTo(${remote.pos})", null)
+                    Toast.makeText(this@PlayerActivity, "Sigues por donde ibas en otro aparato (${clock(remote.pos)})", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun List<List<Double>>.toJson(): String =
+        joinToString(",", "[", "]") { (from, to) -> "[$from,$to]" }
+
+    /** Guarda por dónde vas; con [sync], también en Home Assistant. */
+    private fun saveProgress(sync: Boolean) {
+        if (lastDur <= 0) return
+        val progress = Progress(lastPos, lastDur, System.currentTimeMillis())
+        Progresses.put(this, mapOf(vid to progress))
+        lastSaved = progress.at
+        if (sync) ProgressSync.push(this, vid, videoTitle, progress)
+    }
+
+    /** Cada pocos segundos, mientras suena. */
+    fun onProgress(time: Double, duration: Double) {
+        lastPos = time.toInt()
+        lastDur = duration.toInt()
+        if (System.currentTimeMillis() - lastSaved > 15_000) saveProgress(sync = false)
     }
 
     /** En vertical, con las barras, como en YouTube; en horizontal, a pantalla completa. */
@@ -147,6 +203,7 @@ class PlayerActivity : ComponentActivity() {
         tv: Boolean,
         stats: String,
         description: String,
+        start: Int,
     ): WebView = (if (keepPlaying) AlwaysVisibleWebView(this) else WebView(this)).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
@@ -163,7 +220,7 @@ class PlayerActivity : ComponentActivity() {
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start), "text/html", "utf-8", null)
         web = this
     }
 
@@ -188,6 +245,10 @@ class PlayerActivity : ComponentActivity() {
     }
 
     fun onEnded() {
+        // visto entero: la próxima vez empieza desde el principio, y la barra sale llena
+        if (lastDur > 0) lastPos = lastDur
+        saveProgress(sync = true)
+        ended = true
         if (!isFinishing) finish()
     }
 
@@ -213,6 +274,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        if (!ended) saveProgress(sync = true)
         // En la tele (o en el móvil sin el ajuste) Home o apagar la pantalla lo paran.
         // En el móvil con el ajuste sigue sonando; y en la ventana flotante la actividad no llega a pararse.
         if (!keepPlaying) {
@@ -228,6 +290,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         if (keepPlaying) PlaybackService.stop(this)
         if (current === this) current = null
         web?.destroy()
@@ -242,6 +305,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_SUBTITLES = "subtitles"
         private const val EXTRA_BACKGROUND = "background"
         private const val EXTRA_STATS = "stats"
+        private const val EXTRA_SPONSORBLOCK = "sponsorblock"
         private const val EXTRA_DESCRIPTION = "description"
         private const val ORIGIN = "https://es.miscanales"
 
@@ -267,7 +331,7 @@ class PlayerActivity : ComponentActivity() {
         @SuppressLint("StaticFieldLeak")
         private var current: PlayerActivity? = null
 
-        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean) {
+        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean, sponsorBlock: Boolean) {
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     .putExtra(EXTRA_VID, video.vid)
@@ -276,6 +340,7 @@ class PlayerActivity : ComponentActivity() {
                     .putExtra(EXTRA_SUBTITLES, subtitles)
                     .putExtra(EXTRA_BACKGROUND, background)
                     .putExtra(EXTRA_STATS, video.stats())
+                    .putExtra(EXTRA_SPONSORBLOCK, sponsorBlock)
                     .putExtra(EXTRA_DESCRIPTION, video.description),
             )
         }
@@ -301,6 +366,7 @@ class PlayerActivity : ComponentActivity() {
             tv: Boolean,
             stats: String,
             description: String,
+            start: Int,
         ) = """
             <!DOCTYPE html>
             <html><head>
@@ -321,6 +387,9 @@ class PlayerActivity : ComponentActivity() {
               #fill { height: 100%; width: 0; background: #ff0033; }
               #row { display: flex; margin-top: 10px; font-size: 15px; }
               #hint { margin-left: auto; font-size: 13px; color: #aaa; }
+              /* los avisos cortos (subtítulos, patrocinio saltado), en la tele y en el móvil */
+              #toast { position: absolute; top: 24px; right: 24px; z-index: 3; padding: 8px 14px; border-radius: 18px;
+                       background: rgba(0,0,0,.75); font-size: 15px; pointer-events: none; transition: opacity .3s; }
               /* en el móvil en vertical: el vídeo arriba y debajo el título y la descripción */
               #info { display: none; }
               @media (orientation: portrait) {
@@ -335,6 +404,7 @@ class PlayerActivity : ComponentActivity() {
             </style>
             </head><body>
             <div id="wrap"><div id="p"></div></div>
+            <div id="toast" class="hidden"></div>
             <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
               <div class="desc" id="idesc"></div></div>
             <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
@@ -376,9 +446,13 @@ class PlayerActivity : ComponentActivity() {
                 width: '100%', height: '100%', videoId: '$vid',
                 playerVars: { autoplay: 1, controls: tv ? 0 : 1, rel: 0, playsinline: 1, fs: 0, disablekb: 1,
                               iv_load_policy: 3, cc_load_policy: subs ? 1 : 0, cc_lang_pref: 'es', hl: 'es',
-                              vq: 'hd1080', origin: '$ORIGIN' },
+                              vq: 'hd1080', start: $start, origin: '$ORIGIN' },
                 events: {
-                  onReady: function (e) { applySubs(); e.target.playVideo(); },
+                  onReady: function (e) {
+                    applySubs();
+                    if (pending >= 0) { e.target.seekTo(pending, true); pending = -1; }
+                    e.target.playVideo();
+                  },
                   onStateChange: function (e) {
                     Android.state(e.data);
                     if (e.data == 0) Android.ended();
@@ -391,6 +465,26 @@ class PlayerActivity : ComponentActivity() {
               });
             }
             function ready() { return player && player.getPlayerState; }
+            // ir a un segundo (el progreso de otro aparato); si aún no está listo, al estarlo
+            var pending = -1;
+            function jumpTo(s) { if (ready()) player.seekTo(s, true); else pending = s; }
+            // SponsorBlock: los tramos [inicio, fin] que se saltan, una vez cada uno
+            var segs = [], skipped = {};
+            function setSegments(s) { segs = s; skipped = {}; }
+            function flash(text) { note = text; noteUntil = Date.now() + 2500; }
+            function skipSponsors(t) {
+              for (var i = 0; i < segs.length; i++) {
+                if (!skipped[i] && t >= segs[i][0] && t < segs[i][1] - 0.5) {
+                  skipped[i] = true;
+                  player.seekTo(segs[i][1], true);
+                  flash('Patrocinio saltado');
+                }
+              }
+            }
+            // el progreso, para seguir otro día donde lo dejaste
+            setInterval(function () {
+              if (ready() && player.getPlayerState() == 1) Android.progress(player.getCurrentTime() || 0, player.getDuration() || 0);
+            }, 5000);
             function play() { if (ready()) player.playVideo(); }
             function pause() { if (ready()) player.pauseVideo(); }
             function toggle() { if (!ready()) return; if (player.getPlayerState() == 1) player.pauseVideo(); else player.playVideo(); }
@@ -416,8 +510,7 @@ class PlayerActivity : ComponentActivity() {
               subs = !subs;
               applySubs();
               Android.captions(subs);
-              note = subs ? 'Subtítulos: sí' : 'Subtítulos: no';
-              noteUntil = Date.now() + 2500;
+              flash(subs ? 'Subtítulos: sí' : 'Subtítulos: no');
             }
             function touched() { lastKey = Date.now(); update(); }
             function two(n) { return (n < 10 ? '0' : '') + n; }
@@ -430,10 +523,14 @@ class PlayerActivity : ComponentActivity() {
               var state = ready() ? player.getPlayerState() : -1;
               var t = ready() ? player.getCurrentTime() || 0 : 0;
               var d = ready() ? player.getDuration() || 0 : 0;
-              if (state == 1) started = true;
+              if (state == 1) { started = true; skipSponsors(t); }
               document.getElementById('fill').style.width = (d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
               document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) : '';
-              var msg = Date.now() < noteUntil ? note : (!started ? 'Cargando…' : (state == 2 ? 'En pausa' : ''));
+              var noting = Date.now() < noteUntil;
+              var toast = document.getElementById('toast');
+              toast.textContent = note;
+              toast.className = noting ? '' : 'hidden';
+              var msg = !started ? 'Cargando…' : (state == 2 ? 'En pausa' : '');
               document.getElementById('status').textContent = msg ? (d > 0 ? '   ·   ' : '') + msg : '';
               var show = !started || state != 1 || Date.now() - lastKey < 4000;
               document.getElementById('top').className = show ? 'panel' : 'panel hidden';
@@ -456,6 +553,9 @@ class PlayerBridge(private val activity: PlayerActivity) {
     fun state(code: Int) = activity.runOnUiThread { activity.onPlayerState(code) }
 
     @JavascriptInterface
+    fun progress(time: Double, duration: Double) = activity.runOnUiThread { activity.onProgress(time, duration) }
+
+    @JavascriptInterface
     fun error(code: Int) = activity.runOnUiThread { activity.onPlayerError(code) }
 
     @JavascriptInterface
@@ -471,4 +571,12 @@ private class AlwaysVisibleWebView(context: Context) : WebView(context) {
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(View.VISIBLE)
     }
+}
+
+/** 75 → "1:15"; 3725 → "1:02:05". */
+private fun clock(seconds: Int): String {
+    val h = seconds / 3600
+    val m = seconds % 3600 / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }

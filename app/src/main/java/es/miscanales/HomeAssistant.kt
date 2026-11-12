@@ -58,34 +58,36 @@ object HomeAssistant {
     private val quick = http.newBuilder().connectTimeout(3, TimeUnit.SECONDS).build()
     private val jsonType = "application/json".toMediaType()
 
-    suspend fun items(config: HaConfig): List<HaItem> {
-        val response = call(config, "get_items?return_response", buildJsonObject { put("entity_id", config.entity) })
+    // [list] es la lista de tareas: la de canales salvo que se diga otra (la del progreso)
+
+    suspend fun items(config: HaConfig, list: String = config.entity): List<HaItem> {
+        val response = call(config, "get_items?return_response", buildJsonObject { put("entity_id", list) })
         val items = (response as? JsonObject)
             ?.get("service_response")?.jsonObject
-            ?.get(config.entity)?.jsonObject
+            ?.get(list)?.jsonObject
             ?.get("items")?.jsonArray
-            ?: throw HaError("no ha devuelto la lista ${config.entity}")
+            ?: throw HaError("no ha devuelto la lista $list")
         return items.map { it.jsonObject }.map { HaItem(it.text("uid"), it.text("summary"), it.text("description")) }
     }
 
-    suspend fun add(config: HaConfig, summary: String, description: String) {
+    suspend fun add(config: HaConfig, summary: String, description: String, list: String = config.entity) {
         call(
             config,
             "add_item",
             buildJsonObject {
-                put("entity_id", config.entity)
+                put("entity_id", list)
                 put("item", summary)
                 put("description", description)
             },
         )
     }
 
-    suspend fun update(config: HaConfig, uid: String, rename: String, description: String) {
+    suspend fun update(config: HaConfig, uid: String, rename: String, description: String, list: String = config.entity) {
         call(
             config,
             "update_item",
             buildJsonObject {
-                put("entity_id", config.entity)
+                put("entity_id", list)
                 put("item", uid)
                 put("rename", rename)
                 put("description", description)
@@ -93,12 +95,12 @@ object HomeAssistant {
         )
     }
 
-    suspend fun remove(config: HaConfig, uid: String) {
+    suspend fun remove(config: HaConfig, uid: String, list: String = config.entity) {
         call(
             config,
             "remove_item",
             buildJsonObject {
-                put("entity_id", config.entity)
+                put("entity_id", list)
                 put("item", uid)
             },
         )

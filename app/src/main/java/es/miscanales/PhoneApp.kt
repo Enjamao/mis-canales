@@ -145,9 +145,12 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
     val feed = LocalFeed.current
     val context = LocalContext.current
     val newOnes = feed.videos.filter { store.isNew(it) }
+    val continuing = feed.videos.filter { store.progress[it.vid]?.started == true }
+        .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
     val videos = when (filter) {
         Filter.All -> feed.videos
         Filter.New -> newOnes
+        Filter.Continue -> continuing
         is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -178,6 +181,15 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
                         onClick = { onFilter(Filter.New) },
                         label = { Text(if (newOnes.isEmpty()) "Sin ver" else "Sin ver · ${newOnes.size}") },
                     )
+                }
+                if (continuing.isNotEmpty() || filter == Filter.Continue) {
+                    item(key = "continue") {
+                        FilterChip(
+                            selected = filter == Filter.Continue,
+                            onClick = { onFilter(Filter.Continue) },
+                            label = { Text(if (continuing.isEmpty()) "Seguir viendo" else "Seguir viendo · ${continuing.size}") },
+                        )
+                    }
                 }
                 items(store.channels.sortedBy { it.name.lowercase() }, key = { it.id }) { channel ->
                     FilterChip(
@@ -243,6 +255,7 @@ private fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Uni
 @Composable
 private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> Unit) {
     val store = LocalStore.current
+    val library = LocalLibrary.current
     val context = LocalContext.current
     val watched = store.isWatched(video.vid)
     AlertDialog(
@@ -265,7 +278,7 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
         dismissButton = {
             Row {
                 TextButton(onClick = {
-                    store.setWatched(video.vid, !watched)
+                    library.setWatched(video, !watched)
                     onDismiss()
                 }) { Text(if (watched) "No visto" else "Visto") }
                 TextButton(onClick = onChannel) { Text("Canal") }
@@ -328,6 +341,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Ver en la app de YouTube", store.useYouTubeApp) { store.togglePlayer() }
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
                 SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
+                SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
             }
         }
         item(key = "#ha") { HaSettings() }
@@ -392,7 +406,13 @@ private fun HaSettings() {
             when {
                 config == null -> "Los canales se guardan en una lista de tareas de tu Home Assistant y se comparten entre el móvil y la tele."
                 error != null -> "No responde: $error"
-                else -> "Conectado" + (ago(library.syncedAt)?.let { ", sincronizado $it" } ?: "") + "."
+                else -> "Conectado" + (ago(library.syncedAt)?.let { ", sincronizado $it" } ?: "") + "." +
+                    if (library.progressSynced == false) {
+                        " Para compartir también por dónde vas en cada vídeo, crea en HA otra lista de tareas " +
+                            "llamada \"Mis Canales progreso\" (${config?.let { ProgressSync.list(it) }.orEmpty()})."
+                    } else {
+                        ""
+                    }
             },
         )
         OutlinedTextField(

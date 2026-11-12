@@ -38,9 +38,13 @@ fun HomeScreen(page: HomePage) {
     }
     val filter = page.filter
     val newOnes = feed.videos.filter { store.isNew(it) }
+    // los empezados y sin acabar, el último que viste primero
+    val continuing = feed.videos.filter { store.progress[it.vid]?.started == true }
+        .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
     val videos = when (filter) {
         Filter.All -> feed.videos
         Filter.New -> newOnes
+        Filter.Continue -> continuing
         is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
     }
     // Hasta que llegan los vídeos, el foco está en "Todos" (si no, se lo lleva el menú y lo abre).
@@ -105,6 +109,17 @@ fun HomeScreen(page: HomePage) {
                         selected = filter == Filter.New,
                         trailing = if (newOnes.isNotEmpty()) "${newOnes.size}" else null,
                     )
+                }
+                if (continuing.isNotEmpty() || filter == Filter.Continue) {
+                    item(key = "continue") {
+                        Chip(
+                            "Seguir viendo",
+                            { page.show(Filter.Continue) },
+                            Modifier.restoreFocus(page, "filter:continue"),
+                            selected = filter == Filter.Continue,
+                            trailing = if (continuing.isNotEmpty()) "${continuing.size}" else null,
+                        )
+                    }
                 }
                 item(key = "refresh") {
                     Chip(
