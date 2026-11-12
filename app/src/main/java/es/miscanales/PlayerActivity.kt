@@ -464,10 +464,11 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
 /**
  * Una WebView que no se da por oculta cuando se apaga la pantalla: si no, pausa el vídeo por su
- * cuenta. Solo se usa en el móvil con "Seguir sonando con la pantalla apagada".
+ * cuenta. Al bloquear el móvil, Android avisa a la ventana con GONE (no con INVISIBLE), así que
+ * se ignoran los dos. Solo se usa en el móvil con "Seguir sonando con la pantalla apagada".
  */
 private class AlwaysVisibleWebView(context: Context) : WebView(context) {
     override fun onWindowVisibilityChanged(visibility: Int) {
-        super.onWindowVisibilityChanged(if (visibility == View.GONE) visibility else View.VISIBLE)
+        super.onWindowVisibilityChanged(View.VISIBLE)
     }
 }
