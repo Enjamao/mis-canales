@@ -210,6 +210,9 @@ class PlayerActivity : ComponentActivity() {
         isFocusableInTouchMode = false
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        // En la tele, como el Chrome de un PC: con el de una app Android, YouTube da su reproductor
+        // de móvil, que no pasa de poca calidad aunque la pantalla sea grande.
+        if (tv) settings.userAgentString = DESKTOP_UA
         settings.mediaPlaybackRequiresUserGesture = false
         webChromeClient = WebChromeClient()
         addJavascriptInterface(PlayerBridge(this@PlayerActivity), "Android")
@@ -308,6 +311,8 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_SPONSORBLOCK = "sponsorblock"
         private const val EXTRA_DESCRIPTION = "description"
         private const val ORIGIN = "https://es.miscanales"
+        private const val DESKTOP_UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
         // Se ejecuta al empezar a cargar la página de YouTube (dentro del reproductor insertado):
         // la página siempre "se ve", y no se entera de que se ha apagado la pantalla.
@@ -514,6 +519,10 @@ class PlayerActivity : ComponentActivity() {
             }
             function touched() { lastKey = Date.now(); update(); }
             function two(n) { return (n < 10 ? '0' : '') + n; }
+            function quality(q) {
+              return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
+                       hd1440: '1440p', hd2160: '4K', highres: '8K' }[q] || '';
+            }
             function clock(s) {
               s = Math.max(0, Math.floor(s));
               var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
@@ -525,7 +534,9 @@ class PlayerActivity : ComponentActivity() {
               var d = ready() ? player.getDuration() || 0 : 0;
               if (state == 1) { started = true; skipSponsors(t); }
               document.getElementById('fill').style.width = (d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
-              document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) : '';
+              // la calidad a la que está sonando de verdad, junto al tiempo
+              var q = ready() && player.getPlaybackQuality ? quality(player.getPlaybackQuality()) : '';
+              document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) + (q ? '   ·   ' + q : '') : '';
               var noting = Date.now() < noteUntil;
               var toast = document.getElementById('toast');
               toast.textContent = note;
