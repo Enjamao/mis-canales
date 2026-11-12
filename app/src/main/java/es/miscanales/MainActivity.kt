@@ -24,7 +24,8 @@ class MainActivity : ComponentActivity() {
         store = Store(this)
         feed = Feed(store, filesDir)
         library = Library(store, feed)
-        handle(intent)
+        // al volver a crearse (al girar, por ejemplo) no se vuelve a poner el vídeo que llegó de fuera
+        handle(intent, fresh = savedInstanceState == null)
         val tv = isTv()
         setContent {
             if (tv) {
@@ -37,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handle(intent)
+        handle(intent, fresh = true)
     }
 
     override fun onResume() {
@@ -48,8 +49,18 @@ class MainActivity : ComponentActivity() {
         store.reloadSettings()
     }
 
-    private fun handle(intent: Intent?) {
+    private fun handle(intent: Intent?, fresh: Boolean) {
         if (intent == null) return
+        // "Ver en la tele" desde el móvil (ver Tele): Home Assistant, por ADB, abre la app con
+        // --es play ID_DEL_VIDEO --ei start SEGUNDO
+        val play = intent.getStringExtra("play")
+        if (fresh && play != null && Regex("[\\w-]{11}").matches(play)) {
+            val start = intent.getIntExtra("start", -1)
+            scope.launch {
+                val video = feed.videos.firstOrNull { it.vid == play } ?: YouTube.info(play) ?: Video(play, "", "", "", 0)
+                playVideo(this@MainActivity, store, video, start)
+            }
+        }
         if (intent.action == Intent.ACTION_SEND) shared.value = intent.getStringExtra(Intent.EXTRA_TEXT)
         // Home Assistant en la tele, por ADB (escribir el token con el mando es imposible):
         // adb shell am start -n es.miscanales/.MainActivity --es ha_url URL --es ha_token TOKEN [--es ha_local_url URL]

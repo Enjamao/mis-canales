@@ -70,11 +70,19 @@ class PlayerActivity : ComponentActivity() {
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         videoTitle = title
         val sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
-        // seguir donde lo dejaste (si lo habías empezado y no acabado)
+        // desde un momento concreto (mandado desde el móvil) o donde lo dejaste (si no lo acabaste)
+        val forced = intent.getIntExtra(EXTRA_START, -1)
         val saved = Progresses.get(this, vid)
-        val start = if (saved != null && saved.started) saved.pos else 0
+        val start = when {
+            forced >= 0 -> forced
+            saved != null && saved.started -> saved.pos
+            else -> 0
+        }
         lastPos = start
-        if (start > 0) Toast.makeText(this, "Sigues por donde ibas (${clock(start)})", Toast.LENGTH_SHORT).show()
+        if (start > 0) {
+            val text = if (forced >= 0) "Desde el móvil (${clock(start)})" else "Sigues por donde ibas (${clock(start)})"
+            Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+        }
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         val stats = intent.getStringExtra(EXTRA_STATS).orEmpty()
@@ -98,7 +106,7 @@ class PlayerActivity : ComponentActivity() {
             // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
             PlaybackService.start(this, title, channel)
         }
-        val webView = createWebView(title, channel, subtitles, tv, stats, description, start)
+        val webView = createWebView(title, channel, subtitles, tv, stats, description, start, cast = !tv && readHaConfig(this) != null)
         if (tv) {
             // en la tele, la página sola en la ventana (con algo detrás, en Fire TV el vídeo se ve negro)
             setContentView(webView)
@@ -121,7 +129,7 @@ class PlayerActivity : ComponentActivity() {
         }
         // si lo has seguido viendo en otro aparato, salta a donde lo dejaste allí
         val config = readHaConfig(this)
-        if (config != null) {
+        if (config != null && forced < 0) {
             scope.launch {
                 val remote = runCatching { ProgressSync.fetch(config)[vid] }.getOrNull() ?: return@launch
                 val local = Progresses.get(this@PlayerActivity, vid)
@@ -195,7 +203,18 @@ class PlayerActivity : ComponentActivity() {
         if (newVid != null && newVid != vid) {
             setIntent(intent)
             recreate()
+        } else if (newVid == vid && intent.getIntExtra(EXTRA_START, -1) >= 0) {
+            // el mismo vídeo, mandado otra vez desde el móvil: al momento en que va allí
+            web?.evaluateJavascript("jumpTo(${intent.getIntExtra(EXTRA_START, 0)})", null)
         }
+    }
+
+    /** "Ver en la tele": se para aquí y se manda a la tele por Home Assistant, desde este momento. */
+    fun sendToTv(start: Int) {
+        val config = readHaConfig(this) ?: return
+        lastPos = start
+        saveProgress(sync = true)
+        Tele.sendAndTell(this, config, vid, start) { tv -> saveHaConfig(this, config.copy(tv = tv)) }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -207,6 +226,7 @@ class PlayerActivity : ComponentActivity() {
         stats: String,
         description: String,
         start: Int,
+        cast: Boolean,
     ): WebView = (if (keepPlaying) AlwaysVisibleWebView(this) else WebView(this)).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
@@ -239,7 +259,7 @@ class PlayerActivity : ComponentActivity() {
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start, cast), "text/html", "utf-8", null)
         web = this
     }
 
@@ -326,6 +346,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_STATS = "stats"
         private const val EXTRA_SPONSORBLOCK = "sponsorblock"
         private const val EXTRA_DESCRIPTION = "description"
+        private const val EXTRA_START = "start"
         private const val ORIGIN = "https://es.miscanales"
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -471,9 +492,10 @@ class PlayerActivity : ComponentActivity() {
         @SuppressLint("StaticFieldLeak")
         private var current: PlayerActivity? = null
 
-        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean, sponsorBlock: Boolean) {
+        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean, sponsorBlock: Boolean, startAt: Int = -1) {
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
+                    .putExtra(EXTRA_START, startAt)
                     .putExtra(EXTRA_VID, video.vid)
                     .putExtra(EXTRA_TITLE, video.title)
                     .putExtra(EXTRA_CHANNEL, video.channelName)
@@ -507,6 +529,7 @@ class PlayerActivity : ComponentActivity() {
             stats: String,
             description: String,
             start: Int,
+            cast: Boolean,
         ) = """
             <!DOCTYPE html>
             <html><head>
@@ -539,6 +562,8 @@ class PlayerActivity : ComponentActivity() {
               }
               #info h1 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
               #info .sub { font-size: 13px; color: #aaa; }
+              #totv { display: none; margin-top: 12px; padding: 8px 16px; border: 0; border-radius: 18px;
+                      background: #272727; color: #fff; font-size: 14px; }
               #info .desc { white-space: pre-wrap; font-size: 14px; line-height: 1.45; color: #ddd; margin-top: 16px;
                             overflow-wrap: anywhere; }
             </style>
@@ -546,6 +571,7 @@ class PlayerActivity : ComponentActivity() {
             <div id="wrap"><div id="p"></div></div>
             <div id="toast" class="hidden"></div>
             <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
+              <button id="totv" onclick="toTv()">📺 Ver en la tele</button>
               <div class="desc" id="idesc"></div></div>
             <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
             <div id="bottom" class="panel">
@@ -568,6 +594,12 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('ichannel').textContent = ${js(channel)};
               document.getElementById('istats').textContent = ${js(stats)};
               document.getElementById('idesc').textContent = ${js(description)};
+              if ($cast) document.getElementById('totv').style.display = 'inline-block';
+            }
+            function toTv() {
+              var t = ready() ? Math.floor(player.getCurrentTime() || 0) : 0;
+              pause();
+              Android.toTv(t);
             }
             // La tele dice tener menos píxeles de los que tiene (la mitad, en un Fire TV), y YouTube
             // elige la calidad por el tamaño del reproductor: se hace del tamaño real y se reduce para que quepa.
@@ -706,6 +738,9 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
+
+    @JavascriptInterface
+    fun toTv(start: Int) = activity.runOnUiThread { activity.sendToTv(start) }
 }
 
 /**
@@ -717,12 +752,4 @@ private class AlwaysVisibleWebView(context: Context) : WebView(context) {
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(View.VISIBLE)
     }
-}
-
-/** 75 → "1:15"; 3725 → "1:02:05". */
-private fun clock(seconds: Int): String {
-    val h = seconds / 3600
-    val m = seconds % 3600 / 60
-    val s = seconds % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }

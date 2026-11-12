@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -264,6 +265,19 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(listOf(video.channelName, fullDate(video.published)).filter { it.isNotEmpty() }.joinToString(" • "), color = Colors.muted)
+                val config = store.ha
+                if (config != null) {
+                    OutlinedButton(
+                        onClick = {
+                            onDismiss()
+                            store.setWatched(video.vid, true)
+                            // desde donde ibas, si lo habías empezado y no acabado
+                            val start = store.progress[video.vid]?.takeIf { it.started && !it.finished }?.pos ?: 0
+                            Tele.sendAndTell(context, config, video.vid, start) { tv -> store.saveHa(config.copy(tv = tv)) }
+                        },
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) { Text("📺 Ver en la tele") }
+                }
                 if (video.description.isNotBlank()) {
                     Text(video.description, modifier = Modifier.padding(top = 12.dp))
                 }
@@ -397,6 +411,8 @@ private fun HaSettings() {
     var localUrl by rememberSaveable { mutableStateOf(config?.localUrl.orEmpty()) }
     var token by rememberSaveable { mutableStateOf(config?.token.orEmpty()) }
     var entity by rememberSaveable { mutableStateOf(config?.entity ?: HaConfig.DEFAULT_ENTITY) }
+    var tv by rememberSaveable { mutableStateOf(config?.tv.orEmpty()) }
+    var tvs by remember { mutableStateOf<List<HaTv>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -446,6 +462,56 @@ private fun HaSettings() {
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Text("Ver en la tele", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+        Hint(
+            "Mantén pulsado un vídeo (o, mientras lo ves, toca \"Ver en la tele\") y Home Assistant lo abre en el " +
+                "Fire TV desde donde ibas. Hace falta el Fire TV en HA con la integración Android Debug Bridge " +
+                "(la IP del Fire TV y el puerto 5555; la primera vez, en la tele, acepta \"Permitir siempre\"). " +
+                "Si HA tiene una sola tele, déjalo vacío y se busca sola.",
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                tv,
+                { tv = it },
+                label = { Text("Tele") },
+                placeholder = { Text("media_player.fire_tv") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                enabled = !busy && url.isNotBlank() && token.isNotBlank(),
+                onClick = {
+                    busy = true
+                    message = "Buscando teles…"
+                    scope.launch {
+                        message = try {
+                            val found = HomeAssistant.tvs(HaConfig(url.trim(), token.trim(), localUrl.trim()))
+                            tvs = found
+                            if (found.size == 1) tv = found[0].entity
+                            when (found.size) {
+                                0 -> "Home Assistant no tiene ninguna tele con Android Debug Bridge."
+                                1 -> "Encontrada: ${found[0].name}. Toca Guardar."
+                                else -> "Elige cuál:"
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            "No se ha podido buscar: ${e.message}"
+                        }
+                        busy = false
+                    }
+                },
+            ) { Text("Buscar") }
+        }
+        if (tvs.size > 1) {
+            tvs.forEach { found ->
+                TextButton(onClick = {
+                    tv = found.entity
+                    tvs = emptyList()
+                    message = "Elegida: ${found.name}. Toca Guardar."
+                }) { Text("${found.name}  (${found.entity})") }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(
                 enabled = !busy && url.isNotBlank() && token.isNotBlank(),
@@ -455,7 +521,7 @@ private fun HaSettings() {
                     scope.launch {
                         message = try {
                             library.connect(
-                                HaConfig(url.trim(), token.trim(), localUrl.trim(), entity.trim().ifBlank { HaConfig.DEFAULT_ENTITY }),
+                                HaConfig(url.trim(), token.trim(), localUrl.trim(), entity.trim().ifBlank { HaConfig.DEFAULT_ENTITY }, tv.trim()),
                             )
                         } catch (e: CancellationException) {
                             throw e
