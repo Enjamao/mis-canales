@@ -232,7 +232,7 @@ class PlayerActivity : ComponentActivity() {
         if (tv) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 if (EmbedPatch.isEmbed(request)) {
-                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN)
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
                 } else {
                     null
                 }
@@ -358,12 +358,64 @@ class PlayerActivity : ComponentActivity() {
               var mc = navigator.mediaCapabilities;
               if (!mc || !mc.decodingInfo) return;
               var original = mc.decodingInfo.bind(mc);
+              var yes = function (result, config) {
+                return { supported: true, smooth: true, powerEfficient: true,
+                         keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
+              };
               mc.decodingInfo = function (config) {
                 return original(config).then(function (result) {
-                  if (!result || !result.supported) return result;
-                  return { supported: true, smooth: true, powerEfficient: true,
-                           keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
+                  if (result && result.supported) return yes(result, config);
+                  var v = config && config.video;
+                  if (!v || !(v.framerate > 30)) return result;
+                  var slower = JSON.parse(JSON.stringify(config));
+                  slower.video.framerate = 30;
+                  return original(slower).then(function (r30) {
+                    if (!r30 || !r30.supported) return result;
+                    if (window.__mcRejected) window.__mcRejected.push('mc ' + v.contentType + ' ' + v.height + 'p' + v.framerate);
+                    return yes(r30, config);
+                  });
                 });
+              };
+            })();
+        """
+
+        // La WebView del Fire TV dice que no puede con los formatos de 60 imágenes por segundo cuando
+        // YouTube pregunta con detalles (resolución, fps…), aunque sí puede con el formato en sí, y
+        // YouTube los quita todos (y en muchos vídeos, de 1080p para arriba solo hay a 60).
+        // Se contesta como el Chrome de un PC: mirando solo el formato. Se apunta qué se ha corregido.
+        private const val HFR_FIX = """
+            (function () {
+              var rejected = window.__mcRejected || [];
+              function base(t) {
+                var parts = String(t).split(';'), out = [parts[0].trim()];
+                for (var i = 1; i < parts.length; i++) {
+                  var p = parts[i].trim();
+                  if (/^codecs\s*=/i.test(p)) out.push(p);
+                }
+                return out.join('; ');
+              }
+              function note(t) { if (rejected.length < 100) rejected.push(t); }
+              ['MediaSource', 'ManagedMediaSource', 'WebKitMediaSource'].forEach(function (name) {
+                var MS = window[name];
+                if (!MS || !MS.isTypeSupported) return;
+                var original = MS.isTypeSupported.bind(MS);
+                MS.isTypeSupported = function (t) {
+                  if (original(t)) return true;
+                  var b = base(t);
+                  if (b != String(t) && original(b)) { note(String(t)); return true; }
+                  return false;
+                };
+              });
+              var canPlay = HTMLMediaElement.prototype.canPlayType;
+              HTMLMediaElement.prototype.canPlayType = function (t) {
+                var r = canPlay.call(this, t);
+                if (r) return r;
+                var b = base(t);
+                if (b != String(t)) {
+                  var r2 = canPlay.call(this, b);
+                  if (r2) { note('canPlay ' + t); return r2; }
+                }
+                return r;
               };
             })();
         """
@@ -420,19 +472,28 @@ class PlayerActivity : ComponentActivity() {
                 if (isPlayer(url)) this.addEventListener('load', function () { try { look(this.responseText); } catch (e) {} });
                 return open.apply(this, arguments);
               };
-              var last = '', n = 0;
-              var timer = setInterval(function () {
+              window.__mcRejected = [];
+              function short(t) {
+                var m = /codecs="?([a-z0-9]+)/i.exec(t), w = /width=(\d+)/.exec(t), h = /height=(\d+)/.exec(t),
+                    f = /framerate=([\d.]+)/.exec(t);
+                return (m ? m[1] : t.slice(0, 20)) + (w && h ? ' ' + w[1] + '×' + h[1] : '') + (f ? ' ' + f[1] + 'fps' : '');
+              }
+              var last = '';
+              setInterval(function () {
                 try {
-                  var d = navigator.userAgentData;
-                  var t = 'YouTube ve ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1) +
-                          (d ? ' ' + d.platform : '') + ' · servidor: ' + server + ' · tope guardado: ' + cap +
-                          ' · puente ' + (window.Android ? 'visible' : 'oculto');
+                  var v = document.querySelector('video'), q = v && v.getVideoPlaybackQuality && v.getVideoPlaybackQuality();
+                  var r = window.__mcRejected;
+                  var t = 'servidor: ' + server +
+                          ' · vídeo ' + (v && v.videoWidth ? v.videoWidth + '×' + v.videoHeight : '?') +
+                          (q ? ', perdidos ' + q.droppedVideoFrames + '/' + q.totalVideoFrames : '') +
+                          ' · corregidos ' + r.length + (r.length ? ' (' + short(r[r.length - 1]) + ')' : '') +
+                          ' · cpu ' + navigator.hardwareConcurrency + ', mem ' + (navigator.deviceMemory || '?') +
+                          (cap != 'no' ? ' · tope borrado' : '');
                   if (t != last) {
                     last = t;
                     if (bridge && bridge.ytInfo) bridge.ytInfo(t); else parent.postMessage('miscanales:' + t, '*');
                   }
                 } catch (e) {}
-                if (++n >= 20) clearInterval(timer);
               }, 2000);
             })();
         """
@@ -660,10 +721,7 @@ class PlayerActivity : ComponentActivity() {
             })();
             function diagnosis() {
               var levels = ready() && player.getAvailableQualityLevels ? player.getAvailableQualityLevels().map(quality).filter(function (q) { return q; }) : [];
-              var c = Object.keys(caps).map(function (k) { return k + ': ' + caps[k]; }).join(', ');
-              return 'Calidades: ' + (levels.join(' ') || '?') + '   ·   1080p60 → ' + (c || '?') +
-                     '   ·   pantalla ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1) +
-                     '   ·   ' + ytInfo;
+              return 'Calidades: ' + (levels.join(' ') || '?') + '   ·   ' + ytInfo;
             }
             function quality(q) {
               return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
