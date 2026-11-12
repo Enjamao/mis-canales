@@ -215,10 +215,10 @@ fun AddChannelScreen(page: AddChannelPage) {
                 throw e
             } catch (e: ChannelNotFound) {
                 page.failed = true
-                page.message = "No encuentro ese canal. Escribe su @nombre tal como sale en YouTube, o pega su enlace."
+                page.message = "No encuentro ese canal: ${e.message}. Escribe su @nombre tal como sale en YouTube, o pega su enlace."
             } catch (e: IOException) {
                 page.failed = true
-                page.message = "No se ha podido conectar con YouTube. Mira la conexión a internet de la tele."
+                page.message = "No se ha podido conectar con YouTube (${e.message}). Mira la conexión a internet de la tele."
             } catch (e: Exception) {
                 page.failed = true
                 page.message = "Algo ha fallado al buscar el canal (${e.javaClass.simpleName}). Prueba con su enlace."
