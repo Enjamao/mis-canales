@@ -87,6 +87,11 @@ fun ChannelsScreen(page: ChannelsPage) {
                     { store.togglePlayer() },
                     Modifier.restoreFocus(page, "player"),
                 )
+                Pill(
+                    if (store.subtitles) "Subtítulos: sí" else "Subtítulos: no",
+                    { store.toggleSubtitles() },
+                    Modifier.restoreFocus(page, "subtitles"),
+                )
             }
         }
         itemsIndexed(channels, key = { _, channel -> channel.id }) { i, channel ->

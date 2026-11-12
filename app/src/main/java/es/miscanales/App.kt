@@ -145,7 +145,7 @@ class Navigator(private val context: Context, private val store: Store) {
     fun play(video: Video) {
         if (store.useYouTubeApp) return playOnYouTubeApp(video)
         store.setWatched(video.vid, true)
-        PlayerActivity.start(context, video)
+        PlayerActivity.start(context, video, store.subtitles)
     }
 
     /** Lo abre en la app de YouTube de la tele (con sus recomendaciones al volver). */

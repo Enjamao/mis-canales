@@ -12,6 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # la contraseña de keystore/mis-canales.p12, en Settings → Secrets and variables → Actions
+      SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
 
@@ -26,6 +29,16 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --stacktrace
           cp app/build/outputs/apk/release/app-release.apk mis-canales.apk
+          # la huella de la firma, que tiene que ser siempre la misma
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs mis-canales.apk | grep -i "SHA-256" || true
+
+      # Sin la clave fija no se publica: un APK con otra firma no se puede instalar encima.
+      - name: Comprobar la clave
+        if: env.SIGNING_PASSWORD == ''
+        run: |
+          echo "::error::Falta el secreto SIGNING_PASSWORD (la contraseña de la clave de firma). Compila, pero no se publica."
+          exit 1
 
       - name: Publicar en Releases
         env:
