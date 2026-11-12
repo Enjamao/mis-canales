@@ -16,7 +16,10 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -221,12 +224,18 @@ class PlayerActivity : ComponentActivity() {
         if (this@PlayerActivity.keepPlaying && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(this, KEEP_VISIBLE, setOf("https://www.youtube.com"))
         }
-        // En la tele, YouTube pregunta si se puede reproducir 1080p (o más) con soltura, y la WebView
-        // del Fire TV dice que no aunque el aparato pueda: se le dice que sí a todo formato compatible.
-        // Y la pantalla: la tele dice ser de 960×540 con escala ×4 (o 960×540 ×2 en 1080p), y YouTube,
-        // creyéndose en un PC, mira el tamaño sin la escala y no ofrece más de 720p. Se le da el real.
-        if (tv && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(this, SMOOTH_DECODING + REAL_SCREEN, setOf("https://www.youtube.com"))
+        // En la tele, para que YouTube ofrezca más de 720p, a su reproductor se le cuenta que está en
+        // el Chrome de un PC (también en las pistas que da el navegador, no solo en el nombre), que
+        // puede con 1080p o más con soltura (la WebView del Fire TV dice que no aunque pueda) y el
+        // tamaño real de la pantalla (dice ser de 960×540 con escala ×4). La WebView del Fire TV no
+        // sabe meter scripts al empezar una página, así que la app pide ella la del reproductor.
+        if (tv) webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                if (EmbedPatch.isEmbed(request)) {
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + REPORT)
+                } else {
+                    null
+                }
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
@@ -273,6 +282,11 @@ class PlayerActivity : ComponentActivity() {
     /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
     fun onCaptions(on: Boolean) {
         saveSubtitles(this, on)
+    }
+
+    /** Lo que ve el reproductor de YouTube por dentro, para el diagnóstico de calidad de la tele. */
+    fun onYtInfo(text: String) {
+        web?.evaluateJavascript("ytInfo = ${js(text)};", null)
     }
 
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
@@ -351,6 +365,37 @@ class PlayerActivity : ComponentActivity() {
                            keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
                 });
               };
+            })();
+        """
+
+        private const val DESKTOP_HINTS = """
+            (function () {
+              var brands = [{ brand: 'Chromium', version: '131' }, { brand: 'Google Chrome', version: '131' },
+                            { brand: 'Not_A Brand', version: '24' }];
+              var full = brands.map(function (b) { return { brand: b.brand, version: b.version + '.0.0.0' }; });
+              var high = { architecture: 'x86', bitness: '64', brands: brands, fullVersionList: full, mobile: false,
+                           model: '', platform: 'Windows', platformVersion: '15.0.0', uaFullVersion: '131.0.0.0',
+                           wow64: false, formFactors: ['Desktop'] };
+              var data = { brands: brands, mobile: false, platform: 'Windows',
+                           getHighEntropyValues: function () { return Promise.resolve(high); },
+                           toJSON: function () { return { brands: brands, mobile: false, platform: 'Windows' }; } };
+              var get = function (v) { return { configurable: true, get: function () { return v; } }; };
+              try { Object.defineProperty(Navigator.prototype, 'userAgentData', get(data)); } catch (e) {}
+              try { Object.defineProperty(Navigator.prototype, 'platform', get('Win32')); } catch (e) {}
+            })();
+        """
+
+        // Cuenta al panel de la app qué ve el reproductor de YouTube por dentro (diagnóstico).
+        private const val REPORT = """
+            (function () {
+              setTimeout(function () {
+                try {
+                  var d = navigator.userAgentData;
+                  var t = 'YouTube ve ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1) +
+                          ', marco ' + innerWidth + '×' + innerHeight + (d ? ', ' + d.platform : '');
+                  if (window.Android && Android.ytInfo) Android.ytInfo(t); else parent.postMessage('miscanales:' + t, '*');
+                } catch (e) {}
+              }, 3000);
             })();
         """
 
@@ -560,6 +605,10 @@ class PlayerActivity : ComponentActivity() {
             // Diagnóstico de calidad (provisional): qué calidades ofrece YouTube y qué dice el aparato
             // que puede reproducir con soltura a 1080p y 60 imágenes por segundo.
             var caps = {};
+            var ytInfo = 'YouTube: sin datos';
+            window.addEventListener('message', function (e) {
+              if (typeof e.data == 'string' && e.data.indexOf('miscanales:') == 0) ytInfo = e.data.substring(11);
+            });
             (function () {
               var mc = navigator.mediaCapabilities;
               if (!mc || !mc.decodingInfo) { caps.info = 'sin MediaCapabilities'; return; }
@@ -575,7 +624,8 @@ class PlayerActivity : ComponentActivity() {
               var levels = ready() && player.getAvailableQualityLevels ? player.getAvailableQualityLevels().map(quality).filter(function (q) { return q; }) : [];
               var c = Object.keys(caps).map(function (k) { return k + ': ' + caps[k]; }).join(', ');
               return 'Calidades: ' + (levels.join(' ') || '?') + '   ·   1080p60 → ' + (c || '?') +
-                     '   ·   pantalla ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1);
+                     '   ·   pantalla ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1) +
+                     '   ·   ' + ytInfo;
             }
             function quality(q) {
               return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
@@ -630,6 +680,9 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
+
+    @JavascriptInterface
+    fun ytInfo(text: String) = activity.runOnUiThread { activity.onYtInfo(text) }
 }
 
 /**
