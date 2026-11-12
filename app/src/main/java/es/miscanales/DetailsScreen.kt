@@ -40,7 +40,7 @@ fun DetailsScreen(page: DetailsPage) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Avatar(store.channel(video.channelId), 40.dp)
+                Avatar(store.channel(video.channelId) ?: Channel(video.channelId, video.channelName), 40.dp)
                 Column {
                     Text(video.channelName, style = Type.title.copy(fontSize = 16.sp))
                     Text(video.stats(), style = Type.sub)
@@ -65,8 +65,15 @@ fun DetailsScreen(page: DetailsPage) {
                     icon = if (watched) null else R.drawable.ic_check,
                 )
                 Pill(
-                    "Ir al canal",
-                    { nav.open(ChannelPage(video.channelId)) },
+                    if (store.has(video.channelId)) "Ir al canal" else "Ver su canal",
+                    {
+                        // un vídeo de la búsqueda, de un canal que no es tuyo: sus vídeos y el botón de añadirlo
+                        if (store.has(video.channelId)) {
+                            nav.open(ChannelPage(video.channelId))
+                        } else {
+                            nav.open(FoundChannelPage(FoundChannel(video.channelId, video.channelName, null, "", "")))
+                        }
+                    },
                     Modifier.restoreFocus(page, "channel"),
                 )
                 Pill(

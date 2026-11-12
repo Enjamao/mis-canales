@@ -32,8 +32,10 @@ class Library(val store: Store, val feed: Feed) {
     }
 
     /** Busca el canal de lo que se ha escrito o compartido y lo añade. Devuelve el canal y si ya estaba. */
-    suspend fun add(input: String): Pair<Channel, Boolean> {
-        val channel = YouTube.resolve(input)
+    suspend fun add(input: String): Pair<Channel, Boolean> = add(YouTube.resolve(input))
+
+    /** Añade un canal ya conocido (uno que ha salido al buscar). */
+    suspend fun add(channel: Channel): Pair<Channel, Boolean> {
         val already = store.has(channel.id)
         val config = store.ha
         if (config != null && !already) HomeAssistant.add(config, channel.name, describe(channel))

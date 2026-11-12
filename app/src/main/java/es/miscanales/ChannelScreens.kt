@@ -171,16 +171,31 @@ fun ChannelScreen(page: ChannelPage) {
     val context = LocalContext.current
     val channel = store.channel(page.channelId)
     val videos = feed.videos.filter { it.channelId == page.channelId }
+    // y sus vídeos anteriores, más allá de los últimos 15, si los pides
+    val older = channel?.let { OlderVideos.of(it) }
+    val shown = videos.map { it.vid }.toSet()
+    val all = videos + older?.videos.orEmpty().filter { it.vid !in shown }
     VideoGrid(
         page,
-        videos,
+        all,
         page.grid,
         showChannel = false,
         status = {
             when {
-                feed.loading && videos.isEmpty() -> Status("Cargando…")
-                videos.isEmpty() -> Status("No hay vídeos recientes de este canal.")
+                feed.loading && all.isEmpty() -> Status("Cargando…")
+                all.isEmpty() -> Status("No hay vídeos recientes de este canal.")
                 else -> {}
+            }
+            if (older != null) {
+                MoreFooter(
+                    page,
+                    loading = older.loading,
+                    done = older.done,
+                    label = if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más",
+                    doneText = "Ya están todos los vídeos de ${older.channel.name}.",
+                    error = older.error,
+                    onClick = { older.load() },
+                )
             }
         },
     ) {

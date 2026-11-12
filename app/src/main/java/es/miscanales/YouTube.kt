@@ -15,10 +15,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
 import java.io.IOException
 import java.time.OffsetDateTime
@@ -36,6 +40,8 @@ data class Video(
     val published: Long,
     val description: String = "",
     val views: Long? = null,
+    /** "12:34", "EN DIRECTO" o vacío (en el feed RSS no viene). */
+    val duration: String = "",
 )
 
 class HttpError(val code: Int) : IOException("HTTP $code")
@@ -144,59 +150,9 @@ object YouTube {
 
     /** Plan B: los vídeos de la pestaña "Vídeos" del canal, sacados de los datos de la página. */
     private suspend fun pageVideos(channel: Channel): List<Video> {
-        // en inglés, para entender "2 days ago"
-        val html = get("https://www.youtube.com/channel/${channel.id}/videos?hl=en&gl=ES")
-        val now = System.currentTimeMillis()
-        val videos = mutableListOf<Video>()
-        // el formato de siempre, y el nuevo con el que YouTube va cambiando sus listas
-        for (part in parts(html, "\"videoRenderer\":{")) {
-            val vid = grab(part, "^\"videoRenderer\":\\{\"videoId\":\"([\\w-]{11})\"") ?: continue
-            val title = grab(part, "\"title\":\\{\"runs\":\\[\\{\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"")?.let(::unescape) ?: continue
-            val ago = grab(part, "\"publishedTimeText\":\\{\"simpleText\":\"([^\"]*)\"")
-            val views = grab(part, "\"viewCountText\":\\{\"simpleText\":\"([\\d,.]+) views")?.filter { it.isDigit() }?.toLongOrNull()
-            videos += Video(vid, title, channel.id, channel.name, ago?.let { agoToMillis(it, now) } ?: 0L, "", views)
-        }
-        for (part in parts(html, "\"lockupViewModel\":{")) {
-            val vid = grab(part, "\"contentId\":\"([\\w-]{11})\",\"contentType\":\"LOCKUP_CONTENT_TYPE_VIDEO\"") ?: continue
-            val title = grab(part, "\"lockupMetadataViewModel\":\\{\"title\":\\{\"content\":\"((?:[^\"\\\\]|\\\\.)*)\"")?.let(::unescape) ?: continue
-            val ago = grab(part, "\"content\":\"((?:Streamed )?\\d+ (?:second|minute|hour|day|week|month|year)s? ago)\"")
-            videos += Video(vid, title, channel.id, channel.name, ago?.let { agoToMillis(it, now) } ?: 0L)
-        }
-        val unique = videos.distinctBy { it.vid }.take(15)
-        if (unique.isEmpty()) throw IOException("La página del canal no trae vídeos")
-        return unique
-    }
-
-    /** Los trozos de [html] que empiezan en cada [marker], hasta el siguiente. */
-    private fun parts(html: String, marker: String): List<String> {
-        val starts = generateSequence(html.indexOf(marker).takeIf { it >= 0 }) { from ->
-            html.indexOf(marker, from + marker.length).takeIf { it >= 0 }
-        }.toList()
-        return starts.mapIndexed { i, start ->
-            html.substring(start, starts.getOrNull(i + 1) ?: minOf(html.length, start + 20_000))
-        }
-    }
-
-    private fun grab(text: String, pattern: String): String? = Regex(pattern).find(text)?.groupValues?.get(1)
-
-    /** Un texto tal como va dentro de una cadena JSON ("\u0026", "\"") a texto normal. */
-    private fun unescape(raw: String): String =
-        runCatching { Json.parseToJsonElement("\"$raw\"").jsonPrimitive.content }.getOrDefault(raw)
-
-    /** "3 days ago" → la fecha aproximada. */
-    private fun agoToMillis(text: String, now: Long): Long? {
-        val match = Regex("(\\d+) (second|minute|hour|day|week|month|year)s? ago").find(text) ?: return null
-        val n = match.groupValues[1].toLong()
-        val unit = when (match.groupValues[2]) {
-            "second" -> 1_000L
-            "minute" -> 60_000L
-            "hour" -> 3_600_000L
-            "day" -> 86_400_000L
-            "week" -> 7 * 86_400_000L
-            "month" -> 30 * 86_400_000L
-            else -> 365 * 86_400_000L
-        }
-        return now - n * unit
+        val videos = Search.channelVideos(channel, null).videos.take(15)
+        if (videos.isEmpty()) throw IOException("La página del canal no trae vídeos")
+        return videos
     }
 
     /**
@@ -327,7 +283,39 @@ object YouTube {
     private fun date(text: String): Long =
         runCatching { OffsetDateTime.parse(text.trim()).toInstant().toEpochMilli() }.getOrDefault(0L)
 
-    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+    /** La versión del cliente web de YouTube, para pedir más resultados (se actualiza al leer una página). */
+    @Volatile
+    internal var clientVersion = "2.20261111.01.00"
+
+    /**
+     * Pide a la API interna de la web de YouTube la continuación de una lista (más resultados de una
+     * búsqueda con [endpoint] "search", más vídeos de un canal con "browse").
+     */
+    internal suspend fun post(endpoint: String, continuation: String): String = withContext(Dispatchers.IO) {
+        val body = buildJsonObject {
+            put("context", buildJsonObject {
+                put("client", buildJsonObject {
+                    put("clientName", "WEB")
+                    put("clientVersion", clientVersion)
+                    put("hl", "es")
+                    put("gl", "ES")
+                })
+            })
+            put("continuation", continuation)
+        }
+        val request = Request.Builder().url("https://www.youtube.com/youtubei/v1/$endpoint?prettyPrint=false")
+            .header("User-Agent", BROWSER)
+            .header("Accept-Language", "es-ES,es;q=0.9")
+            .header("Cookie", "SOCS=CAI; CONSENT=YES+1")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw HttpError(response.code)
+            response.body.string()
+        }
+    }
+
+    internal suspend fun get(url: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .header("User-Agent", BROWSER)
             .header("Accept-Language", "es-ES,es;q=0.9")

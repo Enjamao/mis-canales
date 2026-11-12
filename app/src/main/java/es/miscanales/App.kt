@@ -58,6 +58,7 @@ val LocalLibrary = staticCompositionLocalOf<Library> { error("No Library") }
 /** El menú lateral. Como en YouTube, el icono va relleno en la sección en la que estás. */
 enum class Section(val label: String, @DrawableRes val icon: Int, @DrawableRes val currentIcon: Int) {
     Home("Inicio", R.drawable.ic_home, R.drawable.ic_home_filled),
+    Search("Buscar", R.drawable.ic_search, R.drawable.ic_search),
     Channels("Mis canales", R.drawable.ic_smart_display, R.drawable.ic_smart_display_filled),
     Add("Añadir canal", R.drawable.ic_add, R.drawable.ic_add),
 }
@@ -106,6 +107,8 @@ fun App(store: Store, feed: Feed, library: Library) {
                         is AddChannelPage -> AddChannelScreen(page)
                         is ChannelPage -> ChannelScreen(page)
                         is DetailsPage -> DetailsScreen(page)
+                        is SearchPage -> SearchScreen(page)
+                        is FoundChannelPage -> FoundChannelScreen(page)
                     }
                 }
             }
@@ -115,6 +118,9 @@ fun App(store: Store, feed: Feed, library: Library) {
 
 class Navigator(private val context: Context, private val store: Store) {
     val home = HomePage()
+
+    /** El buscador, que guarda lo buscado mientras vas a otras pantallas. */
+    val search = SearchState()
     val stack = mutableStateListOf<Page>(home)
     val page get() = stack.last()
 
@@ -131,6 +137,7 @@ class Navigator(private val context: Context, private val store: Store) {
         stack.removeRange(1, stack.size)
         when (section) {
             Section.Home -> Unit
+            Section.Search -> stack += SearchPage()
             Section.Channels -> stack += ChannelsPage()
             Section.Add -> stack += AddChannelPage()
         }
