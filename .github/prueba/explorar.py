@@ -36,27 +36,39 @@ def report(data, title):
     print("renderers:", names.most_common(40))
     shown = set()
     for k, v, p in walk(data):
-        if k in ("videoRenderer", "channelRenderer", "lockupViewModel", "shortsLockupViewModel", "reelItemRenderer") and k not in shown:
+        if k in ("channelRenderer",) and k not in shown:
             shown.add(k)
             print(f"\n--- {k} (ruta {p[-160:]})\n{cut(v)}")
-    tokens = [v.get("token") for k, v, p in walk(data) if k == "continuationCommand" and isinstance(v, dict)]
+    tokens = [v["continuationEndpoint"]["continuationCommand"]["token"] for k, v, p in walk(data)
+              if k == "continuationItemRenderer" and isinstance(v, dict) and "continuationEndpoint" in v
+              and "continuationCommand" in v["continuationEndpoint"]]
+    for k, v, p in walk(data):
+        if k == "lockupMetadataViewModel":
+            print("\n--- lockupMetadataViewModel\n" + cut(v, 3000))
+            break
+    vids = [v for k, v, p in walk(data) if k == "videoRenderer" and isinstance(v, dict)]
+    for v in vids[:6]:
+        short = "reelWatchEndpoint" in v.get("navigationEndpoint", {})
+        print("vídeo:", v.get("videoId"), "| short" if short else "", "|", v.get("publishedTimeText"), "|", v.get("lengthText", {}).get("simpleText"),
+              "|", v.get("viewCountText"), "|", [b.get("metadataBadgeRenderer", {}).get("label") for b in v.get("badges", [])],
+              "| canal", v.get("ownerText", {}).get("runs", [{}])[0].get("navigationEndpoint", {}).get("browseEndpoint", {}).get("browseId"))
     print("\ncontinuaciones:", [t[:40] if t else t for t in tokens][:5])
     return tokens
 
 q = sys.argv[1] if len(sys.argv) > 1 else "realidad virtual"
-html = get("https://www.youtube.com/results?search_query=" + urllib.parse.quote(q) + "&hl=es&gl=ES")
+html = get("https://www.youtube.com/results?search_query=" + urllib.parse.quote(q) + "&hl=en&gl=ES")
 cfg_version = re.search(r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"', html)
 cfg_key = re.search(r'"INNERTUBE_API_KEY":"([^"]+)"', html)
 print("clientVersion:", cfg_version and cfg_version.group(1), "apiKey:", bool(cfg_key))
 tokens = report(initial(html), f"BÚSQUEDA «{q}»")
-context = {"client": {"clientName": "WEB", "clientVersion": cfg_version.group(1), "hl": "es", "gl": "ES"}}
+context = {"client": {"clientName": "WEB", "clientVersion": cfg_version.group(1), "hl": "en", "gl": "ES"}}
 if tokens:
     more = post("https://www.youtube.com/youtubei/v1/search?prettyPrint=false", {"context": context, "continuation": tokens[-1]})
     print("\nclaves arriba de la continuación:", list(more.keys()))
     report(more, "BÚSQUEDA, MÁS RESULTADOS")
 
 # la pestaña Vídeos de un canal y su continuación
-html = get("https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ/videos?hl=es&gl=ES")
+html = get("https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ/videos?hl=en&gl=ES")
 tokens = report(initial(html), "CANAL /videos (hl=es)")
 if tokens:
     more = post("https://www.youtube.com/youtubei/v1/browse?prettyPrint=false", {"context": context, "continuation": tokens[-1]})
