@@ -27,7 +27,7 @@ data class FoundChannel(
 }
 
 /** Una página de resultados. Con [more] se pide la siguiente (null: no hay más). */
-data class SearchPage(
+data class Results(
     val channels: List<FoundChannel> = emptyList(),
     val videos: List<Video> = emptyList(),
     val more: String? = null,
@@ -42,13 +42,13 @@ object Search {
     private val json = Json { ignoreUnknownKeys = true }
 
     /** Busca [query] en todo YouTube: canales y vídeos (sin Shorts si [hideShorts]). */
-    suspend fun youtube(query: String, hideShorts: Boolean): SearchPage {
+    suspend fun youtube(query: String, hideShorts: Boolean): Results {
         val html = YouTube.get("https://www.youtube.com/results?search_query=${Uri.encode(query.trim())}&hl=es&gl=ES")
         return page(initialData(html), hideShorts)
     }
 
     /** La página siguiente de una búsqueda en todo YouTube. */
-    suspend fun youtubeMore(token: String, hideShorts: Boolean): SearchPage =
+    suspend fun youtubeMore(token: String, hideShorts: Boolean): Results =
         page(json.parseToJsonElement(YouTube.post("search", token)), hideShorts)
 
     /**
@@ -95,9 +95,9 @@ object Search {
 
     /**
      * Los vídeos de la pestaña Vídeos de [channel], de 30 en 30, del más nuevo al más viejo:
-     * la primera página con [token] null, y las siguientes con el [SearchPage.more] de la anterior.
+     * la primera página con [token] null, y las siguientes con el [Results.more] de la anterior.
      */
-    suspend fun channelVideos(channel: Channel, token: String?): SearchPage {
+    suspend fun channelVideos(channel: Channel, token: String?): Results {
         val data = if (token == null) {
             val all = initialData(YouTube.get("https://www.youtube.com/channel/${channel.id}/videos?hl=es&gl=ES"))
             // solo la cuadrícula de vídeos (la página trae otras continuaciones, como los comentarios)
@@ -127,7 +127,7 @@ object Search {
     private val wanted = setOf("videoRenderer", "channelRenderer", "lockupViewModel", "continuationItemRenderer")
 
     /** Lo que interesa de unos datos, en orden: vídeos, canales y la continuación. */
-    private fun page(data: JsonElement, hideShorts: Boolean): SearchPage {
+    private fun page(data: JsonElement, hideShorts: Boolean): Results {
         val found = mutableListOf<Pair<String, JsonObject>>()
         collect(data, found)
         val now = System.currentTimeMillis()
@@ -146,7 +146,7 @@ object Search {
                     item.at("continuationEndpoint", "continuationCommand", "token").str()?.let { more = it }
             }
         }
-        return SearchPage(channels.distinctBy { it.id }, videos.distinctBy { it.vid }, more)
+        return Results(channels.distinctBy { it.id }, videos.distinctBy { it.vid }, more)
     }
 
     /** Recorre los datos y apunta cada objeto que interesa (sin entrar dentro de ellos). */
