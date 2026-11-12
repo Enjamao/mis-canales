@@ -73,8 +73,12 @@ sleep 5
 pulsar "Canales"
 sleep 3
 SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}; echo "pantalla $W x $H"
-for i in 1 2 3 4 5 6 7 8; do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/4)) 300; sleep 1; done
-adb exec-out screencap -p > 3-ajustes.png
+# baja poco a poco hasta que aparezca el botón (los ajustes de HA van después)
+for i in $(seq 1 20); do
+  adb shell input swipe $((W/2)) $((H*2/3)) $((W/2)) $((H/3)) 400; sleep 1
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  grep -q 'Probar con el último vídeo' ui.xml && break
+done
 pulsar "Probar con el último vídeo"
 sleep 15
 fallos "probar aviso"
