@@ -77,7 +77,8 @@ fun ChannelsScreen(page: ChannelsPage) {
                     if (error != null) {
                         "Home Assistant no responde: $error. Se ven los canales de la última vez."
                     } else {
-                        "Sincronizado con Home Assistant (${ha.entity})" + (ago(library.syncedAt)?.let { ", $it" } ?: "") + "."
+                        "Sincronizado con Home Assistant (${ha.entity})" + (ago(library.syncedAt)?.let { ", $it" } ?: "") + "." +
+                            if (library.progressSynced == false) " Falta la lista ${ProgressSync.list(ha)} para compartir por dónde vas." else ""
                     },
                     style = Type.sub.copy(fontSize = 14.sp, color = if (error != null) Colors.accent else Colors.muted),
                     modifier = Modifier.padding(bottom = 12.dp),
@@ -109,6 +110,11 @@ fun ChannelsScreen(page: ChannelsPage) {
                     if (store.subtitles) "Subtítulos: sí" else "Subtítulos: no",
                     { store.toggleSubtitles() },
                     Modifier.restoreFocus(page, "subtitles"),
+                )
+                Pill(
+                    if (store.sponsorBlock) "Patrocinios: se saltan" else "Patrocinios: se ven",
+                    { store.toggleSponsorBlock() },
+                    Modifier.restoreFocus(page, "sponsorblock"),
                 )
             }
         }

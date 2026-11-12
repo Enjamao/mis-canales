@@ -32,6 +32,7 @@ sealed class Page {
 sealed interface Filter {
     data object All : Filter
     data object New : Filter
+    data object Continue : Filter
     data class OneChannel(val id: String) : Filter
 }
 

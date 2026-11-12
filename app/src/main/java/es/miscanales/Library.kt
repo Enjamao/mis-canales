@@ -14,6 +14,10 @@ import kotlin.coroutines.cancellation.CancellationException
  * un canal se hace primero allí (si HA no responde, no se hace, para no tener listas distintas).
  */
 class Library(val store: Store, val feed: Feed) {
+    /** Si el progreso se sincroniza: null sin probar, false si falta la lista en Home Assistant. */
+    var progressSynced by mutableStateOf<Boolean?>(null)
+        private set
+
     /** El último error al sincronizar, o null si fue bien. */
     var syncError by mutableStateOf<String?>(null)
         private set
@@ -82,6 +86,15 @@ class Library(val store: Store, val feed: Feed) {
             }
             syncError = null
             syncedAt = System.currentTimeMillis()
+            // por dónde vas en cada vídeo, de todos los aparatos
+            try {
+                store.mergeProgress(ProgressSync.fetch(config))
+                progressSynced = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                progressSynced = false
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -100,6 +113,20 @@ class Library(val store: Store, val feed: Feed) {
         feed.reload()
         val uploaded = if (missing.isEmpty()) "" else " He subido ${missing.size} ${if (missing.size == 1) "canal" else "canales"}."
         return "Conectado con Home Assistant.$uploaded Hay ${store.channels.size} en la lista."
+    }
+
+    /** Marca un vídeo como visto o no visto aquí y en los demás aparatos. */
+    fun setWatched(video: Video, value: Boolean) {
+        store.setWatched(video.vid, value)
+        if (value) {
+            val done = Progress(1, 1, System.currentTimeMillis())
+            Progresses.put(store.appContextForSync(), mapOf(video.vid to done))
+            store.reloadProgress()
+            ProgressSync.push(store.appContextForSync(), video.vid, video.title, done)
+        } else {
+            store.forgetProgress(video.vid)
+            ProgressSync.forget(store.appContextForSync(), video.vid)
+        }
     }
 
     /** Deja de sincronizar. Los canales se quedan en este aparato. */

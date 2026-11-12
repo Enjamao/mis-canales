@@ -3,6 +3,7 @@ package es.miscanales
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
@@ -24,6 +25,7 @@ data class Channel(
 
 /** Tus canales, los vídeos que ya has visto y los ajustes, guardados en el aparato. */
 class Store(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
     private val channelList = ListSerializer(Channel.serializer())
@@ -49,6 +51,13 @@ class Store(context: Context) {
     var ha by mutableStateOf(
         prefs.getString("ha", null)?.let { saved -> runCatching { json.decodeFromString(HaConfig.serializer(), saved) }.getOrNull() },
     )
+        private set
+
+    /** Por dónde vas en cada vídeo. Lo escribe el reproductor; aquí se lee para las barras de progreso. */
+    val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context)) }
+
+    /** Saltar los patrocinios con SponsorBlock. */
+    var sponsorBlock by mutableStateOf(prefs.getBoolean("sponsorBlock", true))
         private set
 
     /** En el móvil: si los vídeos siguen sonando con la pantalla apagada. */
@@ -115,6 +124,39 @@ class Store(context: Context) {
         prefs.edit { putBoolean("backgroundPlay", backgroundPlay) }
     }
 
+    fun toggleSponsorBlock() {
+        sponsorBlock = !sponsorBlock
+        prefs.edit { putBoolean("sponsorBlock", sponsorBlock) }
+    }
+
+    fun appContextForSync(): Context = appContext
+
+    /** Vuelve a leer el progreso, que el reproductor escribe por su cuenta. */
+    fun reloadProgress() {
+        val all = Progresses.all(appContext)
+        progress.keys.filter { it !in all }.forEach { progress.remove(it) }
+        progress.putAll(all)
+    }
+
+    /** El progreso que llega de otros aparatos: se queda lo más reciente, y esos vídeos cuentan como vistos. */
+    fun mergeProgress(remote: Map<String, Progress>) {
+        if (remote.isEmpty()) return
+        Progresses.put(appContext, remote)
+        reloadProgress()
+        val nuevos = remote.keys.filter { it !in watched }
+        if (nuevos.isNotEmpty()) {
+            watched.addAll(nuevos)
+            if (watched.size > MAX_WATCHED) watched.removeRange(0, watched.size - MAX_WATCHED)
+            prefs.edit { putString("watched", watched.joinToString(",")) }
+        }
+    }
+
+    /** "Marcar como no visto" también olvida por dónde ibas. */
+    fun forgetProgress(vid: String) {
+        Progresses.remove(appContext, vid)
+        progress.remove(vid)
+    }
+
     fun toggleSubtitles() {
         subtitles = !subtitles
         prefs.edit { putBoolean(SUBTITLES, subtitles) }
@@ -123,6 +165,7 @@ class Store(context: Context) {
     /** Vuelve a leer los ajustes que puede cambiar el reproductor. */
     fun reloadSettings() {
         subtitles = prefs.getBoolean(SUBTITLES, false)
+        reloadProgress()
     }
 
     /**
@@ -144,10 +187,16 @@ class Store(context: Context) {
     }
 }
 
-private const val PREFS = "store"
+internal const val PREFS = "store"
 private const val SUBTITLES = "subtitles"
 
 /** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
 fun saveSubtitles(context: Context, on: Boolean) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
 }
+
+/** La configuración de Home Assistant, para el reproductor (que no tiene el [Store]). */
+fun readHaConfig(context: Context): HaConfig? =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("ha", null)?.let { saved ->
+        runCatching { Json { ignoreUnknownKeys = true }.decodeFromString(HaConfig.serializer(), saved) }.getOrNull()
+    }

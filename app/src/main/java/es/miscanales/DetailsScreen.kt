@@ -26,6 +26,7 @@ import androidx.tv.material3.Text
 fun DetailsScreen(page: DetailsPage) {
     val video = page.video
     val store = LocalStore.current
+    val library = LocalLibrary.current
     val nav = LocalNavigator.current
     val watched = store.isWatched(video.vid)
     Row(
@@ -59,7 +60,7 @@ fun DetailsScreen(page: DetailsPage) {
                 )
                 Pill(
                     if (watched) "Marcar como no visto" else "Marcar como visto",
-                    { store.setWatched(video.vid, !watched) },
+                    { library.setWatched(video, !watched) },
                     Modifier.restoreFocus(page, "watched"),
                     icon = if (watched) null else R.drawable.ic_check,
                 )
