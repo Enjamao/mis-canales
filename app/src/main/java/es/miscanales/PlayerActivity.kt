@@ -40,7 +40,7 @@ class PlayerActivity : ComponentActivity() {
     private var tv = false
 
     /** En el móvil: seguir sonando con la pantalla apagada o desde la ventana flotante. */
-    private var background = false
+    private var keepPlaying = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +54,7 @@ class PlayerActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         tv = isTv()
-        background = !tv && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
+        keepPlaying = !tv && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
         if (!tv) {
             // en el móvil, a pantalla completa (las barras salen deslizando)
             WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -64,7 +64,7 @@ class PlayerActivity : ComponentActivity() {
             // al salir de la app (Home), el vídeo sigue en una ventana flotante
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setPictureInPictureParams(pipParams())
         }
-        if (background) {
+        if (keepPlaying) {
             // el aviso con los controles necesita permiso a partir de Android 13
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -118,7 +118,7 @@ class PlayerActivity : ComponentActivity() {
         addJavascriptInterface(PlayerBridge(this@PlayerActivity), "Android")
         // El reproductor de YouTube se para solo cuando la página deja de verse (pantalla apagada).
         // Para seguir sonando, a la página de YouTube se le dice que siempre está a la vista.
-        if (background && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        if (this@PlayerActivity.keepPlaying && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(this, KEEP_VISIBLE, setOf("https://www.youtube.com"))
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
@@ -175,7 +175,7 @@ class PlayerActivity : ComponentActivity() {
     override fun onStop() {
         // En la tele (o en el móvil sin el ajuste) Home o apagar la pantalla lo paran.
         // En el móvil con el ajuste sigue sonando; y en la ventana flotante la actividad no llega a pararse.
-        if (!background) {
+        if (!keepPlaying) {
             web?.evaluateJavascript("pause()", null)
             web?.onPause()
         }
@@ -188,7 +188,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (background) PlaybackService.stop(this)
+        if (keepPlaying) PlaybackService.stop(this)
         if (current === this) current = null
         web?.destroy()
         web = null
