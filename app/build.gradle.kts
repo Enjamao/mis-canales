@@ -19,8 +19,8 @@ android {
         applicationId = "es.miscanales"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.7.0"
+        versionCode = 20
+        versionName = "0.8.0"
     }
 
     signingConfigs {

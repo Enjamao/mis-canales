@@ -56,6 +56,10 @@ class Store(context: Context) {
     /** Por dónde vas en cada vídeo. Lo escribe el reproductor; aquí se lee para las barras de progreso. */
     val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context)) }
 
+    /** En el móvil: avisar de los vídeos nuevos (ver [NewVideos]). */
+    var notifyNew by mutableStateOf(prefs.getBoolean("notifyNew", true))
+        private set
+
     /** Saltar los patrocinios con SponsorBlock. */
     var sponsorBlock by mutableStateOf(prefs.getBoolean("sponsorBlock", true))
         private set
@@ -122,6 +126,11 @@ class Store(context: Context) {
     fun toggleBackgroundPlay() {
         backgroundPlay = !backgroundPlay
         prefs.edit { putBoolean("backgroundPlay", backgroundPlay) }
+    }
+
+    fun toggleNotifyNew() {
+        notifyNew = !notifyNew
+        prefs.edit { putBoolean("notifyNew", notifyNew) }
     }
 
     fun toggleSponsorBlock() {
