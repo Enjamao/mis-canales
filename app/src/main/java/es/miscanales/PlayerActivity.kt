@@ -223,8 +223,10 @@ class PlayerActivity : ComponentActivity() {
         }
         // En la tele, YouTube pregunta si se puede reproducir 1080p (o más) con soltura, y la WebView
         // del Fire TV dice que no aunque el aparato pueda: se le dice que sí a todo formato compatible.
+        // Y la pantalla: la tele dice ser de 960×540 con escala ×4 (o 960×540 ×2 en 1080p), y YouTube,
+        // creyéndose en un PC, mira el tamaño sin la escala y no ofrece más de 720p. Se le da el real.
         if (tv && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(this, SMOOTH_DECODING, setOf("https://www.youtube.com"))
+            WebViewCompat.addDocumentStartJavaScript(this, SMOOTH_DECODING + REAL_SCREEN, setOf("https://www.youtube.com"))
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
@@ -349,6 +351,20 @@ class PlayerActivity : ComponentActivity() {
                            keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
                 });
               };
+            })();
+        """
+
+        private const val REAL_SCREEN = """
+            (function () {
+              var k = window.devicePixelRatio || 1;
+              if (k <= 1) return;
+              var w = Math.round(screen.width * k), h = Math.round(screen.height * k);
+              ['width', 'availWidth'].forEach(function (p) {
+                try { Object.defineProperty(screen, p, { configurable: true, get: function () { return w; } }); } catch (e) {}
+              });
+              ['height', 'availHeight'].forEach(function (p) {
+                try { Object.defineProperty(screen, p, { configurable: true, get: function () { return h; } }); } catch (e) {}
+              });
             })();
         """
 
