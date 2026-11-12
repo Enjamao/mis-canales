@@ -165,6 +165,8 @@ class Store(context: Context) {
     /** Vuelve a leer los ajustes que puede cambiar el reproductor. */
     fun reloadSettings() {
         subtitles = prefs.getBoolean(SUBTITLES, false)
+        // el reproductor puede haber guardado la tele de "Ver en la tele"
+        ha = readHaConfig(appContext)
         reloadProgress()
     }
 
@@ -193,6 +195,13 @@ private const val SUBTITLES = "subtitles"
 /** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
 fun saveSubtitles(context: Context, on: Boolean) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
+}
+
+/** Guarda la configuración de Home Assistant desde el reproductor (que no tiene el [Store]). */
+fun saveHaConfig(context: Context, config: HaConfig) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+        putString("ha", Json.encodeToString(HaConfig.serializer(), config))
+    }
 }
 
 /** La configuración de Home Assistant, para el reproductor (que no tiene el [Store]). */

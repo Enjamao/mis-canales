@@ -44,3 +44,11 @@ private val longDate = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy, HH:mm
 /** "10 de noviembre de 2026, 17:00". */
 fun fullDate(millis: Long): String =
     if (millis <= 0) "" else longDate.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+
+/** 75 → "1:15"; 3725 → "1:02:05". */
+fun clock(seconds: Int): String {
+    val h = seconds / 3600
+    val m = seconds % 3600 / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}

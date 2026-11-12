@@ -59,6 +59,17 @@ object YouTube {
     private val idInText = Regex("(?:^|/channel/)(UC[\\w-]{22})")
     private val videoInText = Regex("(?:youtu\\.be/|[?&]v=|/shorts/|/live/|/embed/)([\\w-]{11})")
 
+    /** El título y el canal de un vídeo suelto (oEmbed), para cuando llega de fuera. Null si falla. */
+    suspend fun info(videoId: String): Video? = try {
+        val watch = Uri.encode("https://www.youtube.com/watch?v=$videoId")
+        val o = Json.parseToJsonElement(get("https://www.youtube.com/oembed?format=json&url=$watch")).jsonObject
+        Video(videoId, o["title"]?.jsonPrimitive?.content.orEmpty(), "", o["author_name"]?.jsonPrimitive?.content.orEmpty(), 0)
+    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
     /** La dirección del canal que ha subido un vídeo, según el oEmbed de YouTube. */
     private suspend fun authorOf(videoId: String): String {
         val watch = Uri.encode("https://www.youtube.com/watch?v=$videoId")

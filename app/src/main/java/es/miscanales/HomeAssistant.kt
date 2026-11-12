@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -30,6 +31,8 @@ data class HaConfig(
     val localUrl: String = "",
     /** La lista de tareas donde se guardan los canales. */
     val entity: String = DEFAULT_ENTITY,
+    /** La tele para "Ver en la tele" (un media_player de la integración Android Debug Bridge). Vacío: buscarla. */
+    val tv: String = "",
 ) {
     companion object {
         const val DEFAULT_ENTITY = "todo.mis_canales"
@@ -38,6 +41,9 @@ data class HaConfig(
 
 /** Un elemento de la lista: el nombre del canal y, en la descripción, su ID y su foto. */
 data class HaItem(val uid: String, val summary: String, val description: String)
+
+/** Una tele de Home Assistant: un Fire TV o Android TV de la integración Android Debug Bridge. */
+data class HaTv(val entity: String, val name: String)
 
 /** Home Assistant ha contestado, pero con un error (token, lista que no existe…). */
 class HaError(message: String) : IOException(message)
@@ -106,8 +112,60 @@ object HomeAssistant {
         )
     }
 
-    /** Llama a una acción de la lista, primero por la dirección de casa (si hay) y luego por la de fuera. */
-    private suspend fun call(config: HaConfig, action: String, body: JsonObject): JsonElement = withContext(Dispatchers.IO) {
+    /**
+     * Las teles que Home Assistant maneja por ADB (la integración Android Debug Bridge): sus
+     * media_player tienen el atributo adb_response. Si alguna está desconectada, ese atributo no
+     * sale, así que también valen las que se llaman como un Fire TV.
+     */
+    suspend fun tvs(config: HaConfig): List<HaTv> {
+        val states = request(config, "states", null) as? JsonArray ?: return emptyList()
+        return states.mapNotNull { it as? JsonObject }.mapNotNull { state ->
+            val id = state.text("entity_id")
+            val attributes = state["attributes"] as? JsonObject
+            val adb = attributes?.containsKey("adb_response") == true
+            val named = id.contains("fire_tv") || id.contains("firetv")
+            if (!id.startsWith("media_player.") || !(adb || named)) return@mapNotNull null
+            HaTv(id, attributes?.text("friendly_name").orEmpty().ifBlank { id })
+        }
+    }
+
+    /** Un comando de ADB para la tele [tv] (la acción androidtv.adb_command). */
+    suspend fun adb(config: HaConfig, tv: String, command: String) {
+        // si HA no está conectado con la tele, la acción no da error pero no hace nada
+        val state = try {
+            (request(config, "states/$tv", null) as? JsonObject)?.text("state")
+        } catch (e: HaError) {
+            if ("404" in e.message.orEmpty()) throw HaError("Home Assistant no tiene la tele $tv") else throw e
+        }
+        if (state == "unavailable") throw HaError("Home Assistant no está conectado con la tele ahora mismo")
+        try {
+            request(
+                config,
+                "services/androidtv/adb_command",
+                buildJsonObject {
+                    put("entity_id", tv)
+                    put("command", command)
+                },
+            )
+        } catch (e: HaError) {
+            val message = e.message.orEmpty()
+            throw when {
+                "400" in message && "adb_command" in message ->
+                    HaError("Home Assistant no tiene la integración Android Debug Bridge (ADB)")
+                "400" in message || "404" in message -> HaError("Home Assistant no encuentra la tele $tv")
+                else -> e
+            }
+        }
+    }
+
+    private suspend fun call(config: HaConfig, action: String, body: JsonObject): JsonElement =
+        request(config, "services/todo/$action", body)
+
+    /**
+     * Llama a la API de Home Assistant ([path] va detrás de /api/), con POST si hay [body] y con GET
+     * si no; primero por la dirección de casa (si hay) y luego por la de fuera.
+     */
+    private suspend fun request(config: HaConfig, path: String, body: JsonObject?): JsonElement = withContext(Dispatchers.IO) {
         val bases = listOf(config.localUrl, config.url)
             .map { it.trim().trimEnd('/') }
             .filter { it.isNotEmpty() }
@@ -117,9 +175,9 @@ object HomeAssistant {
             val client = if (i < bases.lastIndex) quick else http
             val request = try {
                 Request.Builder()
-                    .url("$base/api/services/todo/$action")
+                    .url("$base/api/$path")
                     .header("Authorization", "Bearer ${config.token.trim()}")
-                    .post(body.toString().toRequestBody(jsonType))
+                    .apply { if (body != null) post(body.toString().toRequestBody(jsonType)) }
                     .build()
             } catch (e: IllegalArgumentException) {
                 last = HaError("la dirección $base no es válida (tiene que empezar por http:// o https://)")

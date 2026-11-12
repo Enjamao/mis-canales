@@ -61,6 +61,27 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Ver en la tele desde el móvil
+
+En el móvil, mantén pulsado un vídeo y toca **📺 Ver en la tele**, o tócalo debajo del vídeo
+mientras lo ves: Home Assistant despierta el Fire TV y le abre Mis Canales con ese vídeo, desde
+donde ibas (el móvil se pone en pausa). Funciona también fuera de casa.
+
+Lo que hace falta en Home Assistant:
+
+1. En el Fire TV: Ajustes → Mi Fire TV → Opciones para desarrolladores → **Depuración ADB** activada.
+2. En HA: Ajustes → Dispositivos y servicios → Añadir integración → **Android Debug Bridge**,
+   con la IP del Fire TV y el puerto 5555. La primera vez sale en la tele un aviso de depuración:
+   marca "Permitir siempre desde este ordenador" y acepta.
+3. En la app del móvil, en Canales → Ajustes → Ver en la tele, toca **Buscar** y luego **Guardar**
+   (si HA solo tiene una tele, se encuentra sola la primera vez).
+
+Por dentro, HA ejecuta en la tele (acción `androidtv.adb_command`):
+
+```
+input keyevent KEYCODE_WAKEUP; am start -n es.miscanales/.MainActivity --activity-clear-top --activity-single-top --es play ID_DEL_VIDEO --ei start SEGUNDO
+```
+
 ## Aviso de vídeos nuevos por Telegram
 
 `homeassistant/mis_canales.yaml` es un package de Home Assistant: cada 30 minutos lee
