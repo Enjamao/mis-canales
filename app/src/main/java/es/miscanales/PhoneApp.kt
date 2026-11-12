@@ -3,6 +3,7 @@
 package es.miscanales
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -69,6 +70,7 @@ import kotlin.coroutines.cancellation.CancellationException
 
 private enum class Tab(val label: String, @DrawableRes val icon: Int, @DrawableRes val currentIcon: Int) {
     Home("Inicio", R.drawable.ic_home, R.drawable.ic_home_filled),
+    Search("Buscar", R.drawable.ic_search, R.drawable.ic_search),
     Channels("Canales", R.drawable.ic_smart_display, R.drawable.ic_smart_display_filled),
     Add("Añadir", R.drawable.ic_add, R.drawable.ic_add),
 }
@@ -94,6 +96,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
             var tab by rememberSaveable { mutableStateOf(Tab.Home) }
             var filter by remember { mutableStateOf<Filter>(Filter.All) }
             var details by remember { mutableStateOf<Video?>(null) }
+            val search = remember { SearchState() }
             // al compartir un vídeo o un canal con la app, a "Añadir"
             val sharedText = shared.value
             LaunchedEffect(sharedText) {
@@ -117,6 +120,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     when (tab) {
                         Tab.Home -> PhoneHome(filter, onFilter = { filter = it }, onDetails = { details = it })
+                        Tab.Search -> PhoneSearch(search, onDetails = { details = it })
                         Tab.Channels -> PhoneChannels(onOpen = { id ->
                             filter = Filter.OneChannel(id)
                             tab = Tab.Home
@@ -223,6 +227,246 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
         items(videos, key = { it.vid }) { video ->
             PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
         }
+        // en un canal: sus vídeos anteriores, más allá de los últimos 15
+        val channel = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
+        if (channel != null && store.channels.isNotEmpty()) {
+            val older = OlderVideos.of(channel)
+            val shown = videos.map { it.vid }.toSet()
+            items(older.videos.filter { it.vid !in shown }, key = { "older-" + it.vid }) { video ->
+                PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+            }
+            item(key = "#older") {
+                MoreButton(
+                    loading = older.loading,
+                    done = older.done,
+                    label = if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más",
+                    doneText = "Ya están todos los vídeos de ${channel.name}.",
+                    error = older.error,
+                    onClick = { older.load() },
+                )
+            }
+        }
+    }
+}
+
+/** El botón del final de una lista para cargar más, con su "cargando" y su "no hay más". */
+@Composable
+private fun MoreButton(loading: Boolean, done: Boolean, label: String, doneText: String, error: String?, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        when {
+            loading -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+            done -> Hint(doneText)
+            else -> OutlinedButton(onClick = onClick) { Text(label) }
+        }
+        if (error != null) Hint(error, Modifier.padding(top = 8.dp))
+    }
+}
+
+/** El buscador: en tus canales (también lo antiguo) o en todo YouTube. */
+@Composable
+private fun PhoneSearch(search: SearchState, onDetails: (Video) -> Unit) {
+    val store = LocalStore.current
+    val feed = LocalFeed.current
+    val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    fun go() {
+        keyboard?.hide()
+        search.run(store, feed)
+    }
+
+    val preview = search.preview
+    if (preview != null) {
+        BackHandler { search.preview = null }
+        ChannelPreview(preview, onBack = { search.preview = null }, onDetails = onDetails)
+        return
+    }
+
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        item(key = "#box") {
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)) {
+                OutlinedTextField(
+                    search.query,
+                    { search.query = it },
+                    placeholder = { Text(if (search.mode == SearchMode.Mine) "Buscar en mis canales" else "Buscar en YouTube") },
+                    singleLine = true,
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
+                    trailingIcon = {
+                        if (search.query.isNotEmpty()) {
+                            IconButton(onClick = { search.clear() }) {
+                                Icon(painterResource(R.drawable.ic_close), contentDescription = "Borrar")
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { go() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (mode in SearchMode.entries) {
+                        FilterChip(
+                            selected = search.mode == mode,
+                            onClick = {
+                                search.mode = mode
+                                if (search.query.isNotBlank()) go()
+                            },
+                            label = { Text(mode.label) },
+                        )
+                    }
+                }
+            }
+        }
+        val message = when {
+            search.loading && search.videos.isEmpty() -> null
+            search.error != null && search.videos.isEmpty() && search.channels.isEmpty() -> search.error
+            search.searched.isEmpty() -> if (search.mode == SearchMode.Mine) {
+                "Busca entre los vídeos de tus canales, también los antiguos. Escribe y pulsa la lupa del teclado."
+            } else {
+                "Busca vídeos y canales en todo YouTube. Solo salen los resultados: ni recomendaciones ni vídeos relacionados. " +
+                    "Puedes ver un vídeo sin añadir su canal, o añadir el canal."
+            }
+            else -> null
+        }
+        if (message != null) item(key = "#message") { Hint(message, Modifier.padding(16.dp)) }
+        if (search.loading && search.videos.isEmpty()) {
+            item(key = "#loading") {
+                Searching(
+                    if (search.searchedMode == SearchMode.Mine) "Buscando en tus ${store.channels.size} canales…" else "Buscando en YouTube…",
+                )
+            }
+        }
+        if (search.channels.isNotEmpty()) {
+            item(key = "#channels") { SectionTitle("Canales") }
+            items(search.channels, key = { "c-" + it.id }) { found ->
+                FoundChannelRow(found, onOpen = { search.preview = found })
+            }
+            item(key = "#videos") { SectionTitle("Vídeos") }
+        }
+        items(search.videos, key = { it.vid }) { video ->
+            PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+        }
+        if (search.loading && search.videos.isNotEmpty()) {
+            item(key = "#loading-more") { Searching("Buscando también los vídeos antiguos de tus canales…") }
+        }
+        if (search.searchedMode == SearchMode.YouTube && search.searched.isNotEmpty() && !search.loading) {
+            item(key = "#more") {
+                MoreButton(
+                    loading = search.loadingMore,
+                    done = search.more == null && search.videos.isNotEmpty(),
+                    label = "Más resultados",
+                    doneText = "No hay más resultados.",
+                    error = search.error.takeIf { search.videos.isNotEmpty() },
+                    onClick = { search.loadMore(store) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Searching(text: String) {
+    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        Hint(text, Modifier.padding(start = 12.dp))
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+    )
+}
+
+/** Un canal de los resultados: tocarlo enseña sus vídeos; el botón lo añade a tus canales. */
+@Composable
+private fun FoundChannelRow(found: FoundChannel, onOpen: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(Channel(found.id, found.name, found.avatar), 48.dp)
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(found.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOf(found.handle, found.subscribers).filter { it.isNotEmpty() }.joinToString(" • "),
+                style = MaterialTheme.typography.bodySmall,
+                color = Colors.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        AddChannelButton(found)
+    }
+}
+
+/** "Añadir" (o "Añadido" si ya es tuyo). */
+@Composable
+private fun AddChannelButton(found: FoundChannel) {
+    val store = LocalStore.current
+    val library = LocalLibrary.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var adding by remember { mutableStateOf(false) }
+    if (store.has(found.id)) {
+        Text("Añadido", color = Colors.muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp))
+    } else {
+        Button(
+            enabled = !adding,
+            onClick = {
+                adding = true
+                scope.launch {
+                    try {
+                        // sin foto (un canal sacado de un vídeo): se busca su página para tenerla
+                        if (found.avatar == null) library.add(found.id) else library.add(found.toChannel())
+                        Toast.makeText(context, "Añadido: ${found.name}", Toast.LENGTH_SHORT).show()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Toast.makeText(context, Library.addError(e), Toast.LENGTH_LONG).show()
+                    } finally {
+                        adding = false
+                    }
+                }
+            },
+        ) { Text(if (adding) "Añadiendo…" else "Añadir") }
+    }
+}
+
+/** Los vídeos de un canal de los resultados, para ver qué sube antes de añadirlo. */
+@Composable
+private fun ChannelPreview(found: FoundChannel, onBack: () -> Unit, onDetails: (Video) -> Unit) {
+    val store = LocalStore.current
+    val context = LocalContext.current
+    val older = remember(found.id) { OlderVideos.of(found.toChannel()) }
+    LaunchedEffect(found.id) { if (older.videos.isEmpty()) older.load() }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        item(key = "#head") {
+            Row(Modifier.fillMaxWidth().padding(end = 12.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Volver") }
+                Avatar(Channel(found.id, found.name, found.avatar), 40.dp)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(found.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(found.subscribers, style = MaterialTheme.typography.bodySmall, color = Colors.muted, maxLines = 1)
+                }
+                AddChannelButton(found)
+            }
+        }
+        items(older.videos, key = { it.vid }) { video ->
+            PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+        }
+        item(key = "#older") {
+            MoreButton(
+                loading = older.loading,
+                done = older.done,
+                label = "Ver más",
+                doneText = "Ya están todos sus vídeos.",
+                error = older.error,
+                onClick = { older.load() },
+            )
+        }
     }
 }
 
@@ -237,7 +481,7 @@ private fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Uni
     ) {
         Thumbnail(video)
         Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp)) {
-            Avatar(store.channel(video.channelId), 36.dp)
+            Avatar(store.channel(video.channelId) ?: Channel(video.channelId, video.channelName), 36.dp)
             Column(Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(video.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
@@ -278,6 +522,13 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
                         modifier = Modifier.padding(top = 12.dp),
                     ) { Text("📺 Ver en la tele") }
                 }
+                // un vídeo de la búsqueda, de un canal que no es tuyo
+                if (video.channelId.isNotBlank() && !store.has(video.channelId)) {
+                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Su canal no está en los tuyos", color = Colors.muted, modifier = Modifier.weight(1f))
+                        AddChannelButton(FoundChannel(video.channelId, video.channelName, null, "", ""))
+                    }
+                }
                 if (video.description.isNotBlank()) {
                     Text(video.description, modifier = Modifier.padding(top = 12.dp))
                 }
@@ -295,7 +546,7 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
                     library.setWatched(video, !watched)
                     onDismiss()
                 }) { Text(if (watched) "No visto" else "Visto") }
-                TextButton(onClick = onChannel) { Text("Canal") }
+                if (store.has(video.channelId)) TextButton(onClick = onChannel) { Text("Canal") }
                 TextButton(onClick = {
                     onDismiss()
                     store.setWatched(video.vid, true)

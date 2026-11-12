@@ -61,6 +61,22 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Buscar
+
+En el móvil, la pestaña **Buscar**; en la tele, **Buscar** en el menú de la izquierda.
+
+- **Mis canales**: busca entre los vídeos de tus canales, también los antiguos (lo ya cargado sale
+  al momento, y además se busca dentro de cada canal en YouTube).
+- **Todo YouTube**: vídeos y canales de todo YouTube, y nada más: ni recomendaciones ni vídeos
+  relacionados. Un vídeo se puede ver sin añadir su canal. Al tocar un canal se ven sus vídeos
+  (de 30 en 30) y el botón para añadirlo. Al final, **Más resultados**.
+- En un canal tuyo, al final de sus vídeos, **Ver vídeos anteriores** carga los más antiguos que los
+  15 últimos.
+
+Todo sale de las páginas de YouTube, sin clave ni cuenta (`Search.kt`). Si YouTube cambia su web y
+deja de funcionar, ahí es donde hay que tocar; `.github/workflows/explorar.yml` enseña cómo vienen
+los datos ahora.
+
 ## Avisos de vídeos nuevos en el móvil
 
 La app del móvil mira tus canales cada media hora, más o menos (Android junta estas tareas para

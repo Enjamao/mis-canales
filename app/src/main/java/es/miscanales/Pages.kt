@@ -65,6 +65,16 @@ class ChannelPage(val channelId: String) : Page() {
     var confirmRemove by mutableStateOf(false)
 }
 
+/** El buscador (lo buscado y los resultados están en [Navigator.search]). */
+class SearchPage : Page() {
+    val grid = LazyGridState()
+}
+
+/** Los vídeos de un canal que ha salido al buscar (o que no es tuyo), con el botón para añadirlo. */
+class FoundChannelPage(val found: FoundChannel) : Page() {
+    val grid = LazyGridState()
+}
+
 /** La ficha de un vídeo: descripción y botones. */
 class DetailsPage(val video: Video) : Page()
 

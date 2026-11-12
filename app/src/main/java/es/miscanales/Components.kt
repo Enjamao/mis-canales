@@ -108,6 +108,19 @@ fun Thumbnail(video: Video, modifier: Modifier = Modifier) {
             }
             else -> {}
         }
+        // la duración (en los resultados de búsqueda y en los vídeos anteriores de un canal)
+        if (video.duration.isNotBlank() && !watched) {
+            Text(
+                video.duration,
+                style = Type.badge,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                    .background(
+                        if (video.duration == "EN DIRECTO") Colors.accent else Color.Black.copy(alpha = .8f),
+                        RoundedCornerShape(4.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 
