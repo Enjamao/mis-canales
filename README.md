@@ -13,6 +13,10 @@ reproductor oficial de YouTube para webs: Atrás te devuelve a tu lista, y al ac
 - **Mantener OK** sobre un vídeo: abre su ficha, con la descripción, "Marcar como visto/no visto",
   "Ir al canal" y "Abrir en YouTube" (en la app de YouTube de la tele).
 - Si un vídeo no deja verse fuera de YouTube, se abre solo en la app de YouTube.
+- Calidad en la tele: hasta 1440p a 60 fps. El reproductor de YouTube dentro de una WebView del Fire TV se
+  quedaba en 720p (descartaba todo lo de 60 fps); la app le pide ella la página del reproductor y le
+  añade unos scripts para que se comporte como el Chrome de un PC. El tope está en `MAX_LINES`
+  (`PlayerActivity.kt`): a 2160p60 el Fire TV Stick 4K va a saltos.
 - **Mantener OK** sobre la píldora de un canal: abre la página del canal.
 - **Mis canales**: la lista de canales, el botón para añadir, si se ven o no los Shorts y qué
   reproductor usar (el de Mis Canales o la app de YouTube).
