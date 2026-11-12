@@ -232,7 +232,7 @@ class PlayerActivity : ComponentActivity() {
         if (tv) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 if (EmbedPatch.isEmbed(request)) {
-                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
                 } else {
                     null
                 }
@@ -363,6 +363,10 @@ class PlayerActivity : ComponentActivity() {
                          keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
               };
               mc.decodingInfo = function (config) {
+                var cv = config && config.video, max = window.__mcMax || 100000;
+                if (cv && cv.width && cv.height && Math.min(cv.width, cv.height) > max) {
+                  return Promise.resolve({ supported: false, smooth: false, powerEfficient: false, configuration: config });
+                }
                 return original(config).then(function (result) {
                   if (result && result.supported) return yes(result, config);
                   var v = config && config.video;
@@ -395,11 +399,16 @@ class PlayerActivity : ComponentActivity() {
                 return out.join('; ');
               }
               function note(t) { if (rejected.length < 100) rejected.push(t); }
+              function tooBig(t) {
+                var w = /width=(\d+)/.exec(t), h = /height=(\d+)/.exec(t);
+                return !!(w && h && Math.min(+w[1], +h[1]) > (window.__mcMax || 100000));
+              }
               ['MediaSource', 'ManagedMediaSource', 'WebKitMediaSource'].forEach(function (name) {
                 var MS = window[name];
                 if (!MS || !MS.isTypeSupported) return;
                 var original = MS.isTypeSupported.bind(MS);
                 MS.isTypeSupported = function (t) {
+                  if (tooBig(String(t))) return false;
                   if (original(t)) return true;
                   var b = base(t);
                   if (b != String(t) && original(b)) { note(String(t)); return true; }
@@ -408,6 +417,7 @@ class PlayerActivity : ComponentActivity() {
               });
               var canPlay = HTMLMediaElement.prototype.canPlayType;
               HTMLMediaElement.prototype.canPlayType = function (t) {
+                if (tooBig(String(t))) return '';
                 var r = canPlay.call(this, t);
                 if (r) return r;
                 var b = base(t);
@@ -498,11 +508,20 @@ class PlayerActivity : ComponentActivity() {
             })();
         """
 
+        /**
+         * Lo más alto que se deja reproducir en la tele (en líneas, el lado corto del vídeo). Con 2160p60
+         * el Fire TV va a saltos: los formatos más altos se contestan como no compatibles.
+         */
+        private const val MAX_LINES = 1440
+        private const val QUALITY_CAP = "window.__mcMax = $MAX_LINES;"
+
         private const val REAL_SCREEN = """
             (function () {
               var k = window.devicePixelRatio || 1;
               if (k <= 1) return;
               var w = Math.round(screen.width * k), h = Math.round(screen.height * k);
+              var max = window.__mcMax || 100000;
+              if (Math.min(w, h) > max) { var f = max / Math.min(w, h); w = Math.round(w * f); h = Math.round(h * f); }
               ['width', 'availWidth'].forEach(function (p) {
                 try { Object.defineProperty(screen, p, { configurable: true, get: function () { return w; } }); } catch (e) {}
               });
