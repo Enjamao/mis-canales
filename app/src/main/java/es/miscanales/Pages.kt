@@ -95,6 +95,9 @@ class Feed(private val store: Store, dir: File) {
     // las cargas siguen aunque cambies de pantalla
     private val scope = MainScope()
 
+    /** Lo que se hace antes de cada carga: traer la lista de canales de Home Assistant. */
+    var beforeLoad: (suspend () -> Unit)? = null
+
     /** Vuelve a bajar los feeds de todos los canales. */
     fun reload() {
         scope.launch { refresh() }
@@ -125,6 +128,7 @@ class Feed(private val store: Store, dir: File) {
     }
 
     private suspend fun load() {
+        beforeLoad?.invoke()
         val channels = store.channels.toList()
         error = null
         if (channels.isEmpty()) {

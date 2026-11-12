@@ -15,6 +15,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -56,6 +57,21 @@ object YouTube {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     private val idInText = Regex("(?:^|/channel/)(UC[\\w-]{22})")
+    private val videoInText = Regex("(?:youtu\\.be/|[?&]v=|/shorts/|/live/|/embed/)([\\w-]{11})")
+
+    /** La dirección del canal que ha subido un vídeo, según el oEmbed de YouTube. */
+    private suspend fun authorOf(videoId: String): String {
+        val watch = Uri.encode("https://www.youtube.com/watch?v=$videoId")
+        val body = try {
+            get("https://www.youtube.com/oembed?format=json&url=$watch")
+        } catch (e: HttpError) {
+            throw ChannelNotFound("no encuentro ese vídeo (${e.code})")
+        }
+        val author = runCatching {
+            Json.parseToJsonElement(body).jsonObject["author_url"]?.jsonPrimitive?.content
+        }.getOrNull()
+        return author?.takeIf { "youtube.com/" in it } ?: throw ChannelNotFound("no sé de qué canal es ese vídeo")
+    }
 
     // Dónde aparece el ID en la página de un canal, de más a menos fiable.
     private val idInPage = listOf(
@@ -180,6 +196,9 @@ object YouTube {
         val text = input.trim()
         if (text.isEmpty()) throw ChannelNotFound("no has escrito nada")
         val typedId = idInText.find(text)?.groupValues?.get(1)
+        // un vídeo (lo normal al compartir desde la app de YouTube): se busca el canal de quien lo ha subido
+        val videoId = if (typedId == null) videoInText.find(text)?.groupValues?.get(1) else null
+        if (videoId != null) return resolve(authorOf(videoId))
         val html: String? = if (typedId != null) {
             // con el ID ya basta; la página solo hace falta para el nombre y la foto
             try {

@@ -11,6 +11,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
@@ -36,11 +39,19 @@ class PlayerActivity : ComponentActivity() {
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(createWebView(title, channel, subtitles))
+        val tv = isTv()
+        if (!tv) {
+            // en el móvil, a pantalla completa (las barras salen deslizando)
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        setContentView(createWebView(title, channel, subtitles, tv))
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createWebView(title: String, channel: String, subtitles: Boolean): WebView = WebView(this).apply {
+    private fun createWebView(title: String, channel: String, subtitles: Boolean, tv: Boolean): WebView = WebView(this).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
         isFocusableInTouchMode = false
@@ -51,7 +62,7 @@ class PlayerActivity : ComponentActivity() {
         addJavascriptInterface(PlayerBridge(this@PlayerActivity), "Android")
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv), "text/html", "utf-8", null)
         web = this
     }
 
@@ -130,7 +141,7 @@ class PlayerActivity : ComponentActivity() {
         /** Un texto como cadena de JavaScript, sin que pueda cerrar la etiqueta <script>. */
         private fun js(text: String) = JsonPrimitive(text).toString().replace("</", "<\\/")
 
-        private fun playerHtml(vid: String, title: String, channel: String, subtitles: Boolean) = """
+        private fun playerHtml(vid: String, title: String, channel: String, subtitles: Boolean, tv: Boolean) = """
             <!DOCTYPE html>
             <html><head>
             <meta charset="utf-8">
@@ -164,11 +175,15 @@ class PlayerActivity : ComponentActivity() {
             document.getElementById('channel').textContent = ${js(channel)};
             var player = null, started = false, lastKey = Date.now();
             var subs = $subtitles, subsDone = false, note = '', noteUntil = 0;
+            // en el móvil: los controles táctiles de YouTube, sin el panel del mando
+            var tv = $tv;
+            if (!tv) { document.getElementById('top').style.display = 'none'; document.getElementById('bottom').style.display = 'none'; }
             // La tele dice tener menos píxeles de los que tiene (la mitad, en un Fire TV), y YouTube
             // elige la calidad por el tamaño del reproductor: se hace del tamaño real y se reduce para que quepa.
             (function () {
               var k = window.devicePixelRatio || 1;
-              if (k > 1) {
+              // en el móvil no: los controles táctiles se quedarían diminutos
+              if (tv && k > 1) {
                 var w = document.getElementById('wrap');
                 w.style.width = (100 * k) + '%';
                 w.style.height = (100 * k) + '%';
@@ -178,7 +193,7 @@ class PlayerActivity : ComponentActivity() {
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('p', {
                 width: '100%', height: '100%', videoId: '$vid',
-                playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1,
+                playerVars: { autoplay: 1, controls: tv ? 0 : 1, rel: 0, playsinline: 1, fs: 0, disablekb: 1,
                               iv_load_policy: 3, cc_load_policy: subs ? 1 : 0, cc_lang_pref: 'es', hl: 'es',
                               vq: 'hd1080', origin: '$ORIGIN' },
                 events: {

@@ -22,7 +22,7 @@ data class Channel(
     val addedAt: Long = 0,
 )
 
-/** Tus canales, los vídeos que ya has visto y los ajustes. Todo se guarda en la tele. */
+/** Tus canales, los vídeos que ya has visto y los ajustes, guardados en el aparato. */
 class Store(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
@@ -45,6 +45,12 @@ class Store(context: Context) {
     var useYouTubeApp by mutableStateOf(prefs.getBoolean("useYouTubeApp", false))
         private set
 
+    /** Dónde está tu Home Assistant, si los canales se sincronizan con él. */
+    var ha by mutableStateOf(
+        prefs.getString("ha", null)?.let { saved -> runCatching { json.decodeFromString(HaConfig.serializer(), saved) }.getOrNull() },
+    )
+        private set
+
     /** Si los vídeos empiezan con subtítulos. En el reproductor se cambia con abajo en el mando. */
     var subtitles by mutableStateOf(prefs.getBoolean(SUBTITLES, false))
         private set
@@ -64,6 +70,21 @@ class Store(context: Context) {
     fun remove(id: String) {
         channels.removeAll { it.id == id }
         saveChannels()
+    }
+
+    /** Deja los canales como [list] (la lista que viene de Home Assistant). */
+    fun replaceChannels(list: List<Channel>) {
+        if (list == channels.toList()) return
+        channels.clear()
+        channels.addAll(list)
+        saveChannels()
+    }
+
+    fun setHa(config: HaConfig?) {
+        ha = config
+        prefs.edit {
+            if (config == null) remove("ha") else putString("ha", json.encodeToString(HaConfig.serializer(), config))
+        }
     }
 
     fun isWatched(vid: String): Boolean = vid in watched

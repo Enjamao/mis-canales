@@ -1,6 +1,9 @@
 package es.miscanales
 
+import android.app.UiModeManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateDpAsState
@@ -50,6 +53,7 @@ import androidx.tv.material3.Text
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("No Navigator") }
 val LocalStore = staticCompositionLocalOf<Store> { error("No Store") }
 val LocalFeed = staticCompositionLocalOf<Feed> { error("No Feed") }
+val LocalLibrary = staticCompositionLocalOf<Library> { error("No Library") }
 
 /** El menú lateral. Como en YouTube, el icono va relleno en la sección en la que estás. */
 enum class Section(val label: String, @DrawableRes val icon: Int, @DrawableRes val currentIcon: Int) {
@@ -59,11 +63,16 @@ enum class Section(val label: String, @DrawableRes val icon: Int, @DrawableRes v
 }
 
 @Composable
-fun App(store: Store, feed: Feed) {
+fun App(store: Store, feed: Feed, library: Library) {
     val context = LocalContext.current
     val nav = remember { Navigator(context, store) }
     BackHandler(nav.stack.size > 1) { nav.back() }
-    CompositionLocalProvider(LocalNavigator provides nav, LocalStore provides store, LocalFeed provides feed) {
+    CompositionLocalProvider(
+        LocalNavigator provides nav,
+        LocalStore provides store,
+        LocalFeed provides feed,
+        LocalLibrary provides library,
+    ) {
         ModalNavigationDrawer(drawerContent = { value ->
             val open = value == DrawerValue.Open
             val current = remember { FocusRequester() }
@@ -142,11 +151,7 @@ class Navigator(private val context: Context, private val store: Store) {
     }
 
     /** Lo pone en el reproductor de la app, que vuelve aquí con Atrás o al acabar (o en YouTube, si lo has elegido). */
-    fun play(video: Video) {
-        if (store.useYouTubeApp) return playOnYouTubeApp(video)
-        store.setWatched(video.vid, true)
-        PlayerActivity.start(context, video, store.subtitles)
-    }
+    fun play(video: Video) = playVideo(context, store, video)
 
     /** Lo abre en la app de YouTube de la tele (con sus recomendaciones al volver). */
     fun playOnYouTubeApp(video: Video) {
@@ -219,4 +224,18 @@ private fun Logo(open: Boolean) {
             Wordmark()
         }
     }
+}
+
+/** Pone [video] en el reproductor elegido (el de la app o la app de YouTube) y lo marca como visto. */
+fun playVideo(context: Context, store: Store, video: Video) {
+    store.setWatched(video.vid, true)
+    if (store.useYouTubeApp) context.playOnYouTube(video.vid) else PlayerActivity.start(context, video, store.subtitles)
+}
+
+/** Si es una tele (Android TV, Google TV o Fire TV) y no un móvil o una tableta. */
+fun Context.isTv(): Boolean {
+    val ui = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
+    return ui.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+        packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+        packageManager.hasSystemFeature("amazon.hardware.fire_tv")
 }
