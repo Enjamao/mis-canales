@@ -232,7 +232,7 @@ class PlayerActivity : ComponentActivity() {
         if (tv) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 if (EmbedPatch.isEmbed(request)) {
-                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + HIDE_BRIDGE + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
                 } else {
                     null
                 }
@@ -282,11 +282,6 @@ class PlayerActivity : ComponentActivity() {
     /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
     fun onCaptions(on: Boolean) {
         saveSubtitles(this, on)
-    }
-
-    /** Lo que ve el reproductor de YouTube por dentro, para el diagnóstico de calidad de la tele. */
-    fun onYtInfo(text: String) {
-        web?.evaluateJavascript("ytInfo = ${js(text)};", null)
     }
 
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
@@ -375,7 +370,6 @@ class PlayerActivity : ComponentActivity() {
                   slower.video.framerate = 30;
                   return original(slower).then(function (r30) {
                     if (!r30 || !r30.supported) return result;
-                    if (window.__mcRejected) window.__mcRejected.push('mc ' + v.contentType + ' ' + v.height + 'p' + v.framerate);
                     return yes(r30, config);
                   });
                 });
@@ -389,7 +383,6 @@ class PlayerActivity : ComponentActivity() {
         // Se contesta como el Chrome de un PC: mirando solo el formato. Se apunta qué se ha corregido.
         private const val HFR_FIX = """
             (function () {
-              var rejected = window.__mcRejected || [];
               function base(t) {
                 var parts = String(t).split(';'), out = [parts[0].trim()];
                 for (var i = 1; i < parts.length; i++) {
@@ -398,7 +391,6 @@ class PlayerActivity : ComponentActivity() {
                 }
                 return out.join('; ');
               }
-              function note(t) { if (rejected.length < 100) rejected.push(t); }
               function tooBig(t) {
                 var w = /width=(\d+)/.exec(t), h = /height=(\d+)/.exec(t);
                 return !!(w && h && Math.min(+w[1], +h[1]) > (window.__mcMax || 100000));
@@ -411,8 +403,7 @@ class PlayerActivity : ComponentActivity() {
                   if (tooBig(String(t))) return false;
                   if (original(t)) return true;
                   var b = base(t);
-                  if (b != String(t) && original(b)) { note(String(t)); return true; }
-                  return false;
+                  return b != String(t) && original(b);
                 };
               });
               var canPlay = HTMLMediaElement.prototype.canPlayType;
@@ -423,7 +414,7 @@ class PlayerActivity : ComponentActivity() {
                 var b = base(t);
                 if (b != String(t)) {
                   var r2 = canPlay.call(this, b);
-                  if (r2) { note('canPlay ' + t); return r2; }
+                  if (r2) return r2;
                 }
                 return r;
               };
@@ -447,65 +438,10 @@ class PlayerActivity : ComponentActivity() {
             })();
         """
 
-        // Diagnóstico (provisional) desde dentro del reproductor de YouTube: qué pantalla ve, qué
-        // calidades le manda el servidor de YouTube y si tenía guardado un tope por tirones de otras
-        // veces (que se borra). Además le esconde el puente con la app, que delata una WebView.
-        private const val FRAME_DIAG = """
-            (function () {
-              var bridge = window.Android;
-              try { delete window.Android; } catch (e) {}
-              var server = 'sin respuesta', cap = 'no';
-              try {
-                var saved = localStorage.getItem('yt-player-performance-cap');
-                if (saved) { cap = 'sí, borrado'; localStorage.removeItem('yt-player-performance-cap'); }
-              } catch (e) {}
-              function look(text) {
-                try {
-                  var r = JSON.parse(text), sd = r && r.streamingData;
-                  if (!sd) { server = (r && r.playabilityStatus && r.playabilityStatus.status) || 'sin formatos'; return; }
-                  var seen = {}, list = [];
-                  (sd.adaptiveFormats || []).forEach(function (f) {
-                    if (f.qualityLabel && !seen[f.qualityLabel]) { seen[f.qualityLabel] = 1; list.push(f.qualityLabel); }
-                  });
-                  server = (list.join(' ') || 'ninguna') + (sd.serverAbrStreamingUrl ? ' (SABR)' : '');
-                } catch (e) {}
-              }
-              function isPlayer(u) { return String(u && u.url ? u.url : u).indexOf('/youtubei/v1/player') >= 0; }
-              var originalFetch = window.fetch;
-              if (originalFetch) window.fetch = function (input) {
-                var p = originalFetch.apply(this, arguments);
-                if (isPlayer(input)) p.then(function (res) { res.clone().text().then(look); }).catch(function () {});
-                return p;
-              };
-              var open = XMLHttpRequest.prototype.open;
-              XMLHttpRequest.prototype.open = function (method, url) {
-                if (isPlayer(url)) this.addEventListener('load', function () { try { look(this.responseText); } catch (e) {} });
-                return open.apply(this, arguments);
-              };
-              window.__mcRejected = [];
-              function short(t) {
-                var m = /codecs="?([a-z0-9]+)/i.exec(t), w = /width=(\d+)/.exec(t), h = /height=(\d+)/.exec(t),
-                    f = /framerate=([\d.]+)/.exec(t);
-                return (m ? m[1] : t.slice(0, 20)) + (w && h ? ' ' + w[1] + '×' + h[1] : '') + (f ? ' ' + f[1] + 'fps' : '');
-              }
-              var last = '';
-              setInterval(function () {
-                try {
-                  var v = document.querySelector('video'), q = v && v.getVideoPlaybackQuality && v.getVideoPlaybackQuality();
-                  var r = window.__mcRejected;
-                  var t = 'servidor: ' + server +
-                          ' · vídeo ' + (v && v.videoWidth ? v.videoWidth + '×' + v.videoHeight : '?') +
-                          (q ? ', perdidos ' + q.droppedVideoFrames + '/' + q.totalVideoFrames : '') +
-                          ' · corregidos ' + r.length + (r.length ? ' (' + short(r[r.length - 1]) + ')' : '') +
-                          ' · cpu ' + navigator.hardwareConcurrency + ', mem ' + (navigator.deviceMemory || '?') +
-                          (cap != 'no' ? ' · tope borrado' : '');
-                  if (t != last) {
-                    last = t;
-                    if (bridge && bridge.ytInfo) bridge.ytInfo(t); else parent.postMessage('miscanales:' + t, '*');
-                  }
-                } catch (e) {}
-              }, 2000);
-            })();
+        // El puente con la app (window.Android) aparece también dentro del reproductor de YouTube y
+        // delata una WebView: ahí se quita.
+        private const val HIDE_BRIDGE = """
+            (function () { try { delete window.Android; } catch (e) {} })();
         """
 
         /**
@@ -591,7 +527,6 @@ class PlayerActivity : ComponentActivity() {
               #fill { height: 100%; width: 0; background: #ff0033; }
               #row { display: flex; margin-top: 10px; font-size: 15px; }
               #hint { margin-left: auto; font-size: 13px; color: #aaa; }
-              #diag { margin-top: 6px; font-size: 12px; color: #8a8a8a; }
               /* los avisos cortos (subtítulos, patrocinio saltado), en la tele y en el móvil */
               #toast { position: absolute; top: 24px; right: 24px; z-index: 3; padding: 8px 14px; border-radius: 18px;
                        background: rgba(0,0,0,.75); font-size: 15px; pointer-events: none; transition: opacity .3s; }
@@ -617,7 +552,6 @@ class PlayerActivity : ComponentActivity() {
               <div id="bar"><div id="fill"></div></div>
               <div id="row"><span id="time"></span><span id="status"></span>
                 <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; ▼: subtítulos &nbsp; Atrás: salir</span></div>
-              <div id="diag"></div>
             </div>
             <script>
             document.getElementById('title').textContent = ${js(title)};
@@ -720,28 +654,6 @@ class PlayerActivity : ComponentActivity() {
             }
             function touched() { lastKey = Date.now(); update(); }
             function two(n) { return (n < 10 ? '0' : '') + n; }
-            // Diagnóstico de calidad (provisional): qué calidades ofrece YouTube y qué dice el aparato
-            // que puede reproducir con soltura a 1080p y 60 imágenes por segundo.
-            var caps = {};
-            var ytInfo = 'YouTube: sin datos';
-            window.addEventListener('message', function (e) {
-              if (typeof e.data == 'string' && e.data.indexOf('miscanales:') == 0) ytInfo = e.data.substring(11);
-            });
-            (function () {
-              var mc = navigator.mediaCapabilities;
-              if (!mc || !mc.decodingInfo) { caps.info = 'sin MediaCapabilities'; return; }
-              [['VP9', 'video/webm; codecs="vp09.00.41.08"'], ['AV1', 'video/mp4; codecs="av01.0.09M.08"'],
-               ['H.264', 'video/mp4; codecs="avc1.64002A"']].forEach(function (t) {
-                mc.decodingInfo({ type: 'media-source',
-                                  video: { contentType: t[1], width: 1920, height: 1080, bitrate: 6000000, framerate: 60 } })
-                  .then(function (r) { caps[t[0]] = !r.supported ? 'no' : (r.smooth ? 'fluido' : 'lento') + (r.powerEfficient ? '' : ' sin hw'); })
-                  .catch(function () { caps[t[0]] = '?'; });
-              });
-            })();
-            function diagnosis() {
-              var levels = ready() && player.getAvailableQualityLevels ? player.getAvailableQualityLevels().map(quality).filter(function (q) { return q; }) : [];
-              return 'Calidades: ' + (levels.join(' ') || '?') + '   ·   ' + ytInfo;
-            }
             function quality(q) {
               return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
                        hd1440: '1440p', hd2160: '4K', highres: '8K' }[q] || '';
@@ -759,7 +671,6 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('fill').style.width = (d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
               // la calidad a la que está sonando de verdad, junto al tiempo
               var q = ready() && player.getPlaybackQuality ? quality(player.getPlaybackQuality()) : '';
-              if (tv) document.getElementById('diag').textContent = diagnosis();
               document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) + (q ? '   ·   ' + q : '') : '';
               var noting = Date.now() < noteUntil;
               var toast = document.getElementById('toast');
@@ -795,9 +706,6 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
-
-    @JavascriptInterface
-    fun ytInfo(text: String) = activity.runOnUiThread { activity.onYtInfo(text) }
 }
 
 /**
