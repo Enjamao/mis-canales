@@ -36,7 +36,8 @@ template:
             {{ ((antes + trigger.event.data.ids) | unique | list)[-500:] }}
 
 script:
-  # Cómo te llega el aviso: tu bot de Telegram, a tu chat (el de notify.telegram_bot_1150989188_302631718).
+  # Cómo te llega el aviso: tu bot de Telegram, a tu chat (la entidad notify.telegram_bot_1150989188_302631718;
+  # el antiguo parámetro target, con el número del chat, deja de funcionar en HA 2026.9).
   # Se usa telegram_bot.send_message y no notify.send_message porque así el formato es HTML fijo:
   # con el Markdown que el bot usa por defecto, un "_" en un título o en el enlace hace que
   # Telegram rechace el mensaje.
@@ -50,7 +51,7 @@ script:
     sequence:
       - action: telegram_bot.send_message
         data:
-          target: 302631718
+          entity_id: notify.telegram_bot_1150989188_302631718
           message: "{{ mensaje }}"
           parse_mode: html
 
