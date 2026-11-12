@@ -33,6 +33,11 @@ Los canales, los vídeos vistos y los ajustes se guardan en la tele.
 Al subir el código a GitHub, el workflow `.github/workflows/apk.yml` compila el APK y lo deja en
 **Releases → latest** como `mis-canales.apk`.
 
+El APK se firma siempre con la misma clave (`keystore/mis-canales.p12`), para que cada versión
+se pueda instalar encima de la anterior sin perder los canales. Su contraseña va en el secreto
+`SIGNING_PASSWORD` del repositorio (Settings → Secrets and variables → Actions). Sin ese secreto
+el workflow compila, pero no publica.
+
 Para compilar en un PC hace falta JDK 21 y el Android SDK (plataforma 37):
 
 ```sh

@@ -24,7 +24,7 @@ data class Channel(
 
 /** Tus canales, los vídeos que ya has visto y los ajustes. Todo se guarda en la tele. */
 class Store(context: Context) {
-    private val prefs = context.getSharedPreferences("store", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
     private val channelList = ListSerializer(Channel.serializer())
 
@@ -43,6 +43,10 @@ class Store(context: Context) {
 
     /** Si los vídeos se ven en la app de YouTube en vez de en el reproductor de Mis Canales. */
     var useYouTubeApp by mutableStateOf(prefs.getBoolean("useYouTubeApp", false))
+        private set
+
+    /** Si los vídeos empiezan con subtítulos. En el reproductor se cambia con abajo en el mando. */
+    var subtitles by mutableStateOf(prefs.getBoolean(SUBTITLES, false))
         private set
 
     fun channel(id: String): Channel? = channels.firstOrNull { it.id == id }
@@ -81,6 +85,16 @@ class Store(context: Context) {
         prefs.edit { putBoolean("useYouTubeApp", useYouTubeApp) }
     }
 
+    fun toggleSubtitles() {
+        subtitles = !subtitles
+        prefs.edit { putBoolean(SUBTITLES, subtitles) }
+    }
+
+    /** Vuelve a leer los ajustes que puede cambiar el reproductor. */
+    fun reloadSettings() {
+        subtitles = prefs.getBoolean(SUBTITLES, false)
+    }
+
     /**
      * Nuevo: no lo has visto y salió como mucho una semana antes de añadir el canal.
      * Así, al añadir un canal solo salen como nuevos los de esa semana, y luego todos los que vayan saliendo.
@@ -98,4 +112,12 @@ class Store(context: Context) {
         const val MAX_WATCHED = 3000
         const val WEEK = 7L * 24 * 60 * 60 * 1000
     }
+}
+
+private const val PREFS = "store"
+private const val SUBTITLES = "subtitles"
+
+/** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
+fun saveSubtitles(context: Context, on: Boolean) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
 }

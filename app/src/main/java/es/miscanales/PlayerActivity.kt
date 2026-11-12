@@ -34,12 +34,13 @@ class PlayerActivity : ComponentActivity() {
         }
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
+        val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(createWebView(title, channel))
+        setContentView(createWebView(title, channel, subtitles))
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createWebView(title: String, channel: String): WebView = WebView(this).apply {
+    private fun createWebView(title: String, channel: String, subtitles: Boolean): WebView = WebView(this).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
         isFocusableInTouchMode = false
@@ -50,7 +51,7 @@ class PlayerActivity : ComponentActivity() {
         addJavascriptInterface(PlayerBridge(this@PlayerActivity), "Android")
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles), "text/html", "utf-8", null)
         web = this
     }
 
@@ -63,8 +64,10 @@ class PlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_MEDIA_PAUSE -> "pause()"
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> "seek(-10)"
             KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "seek(10)"
-            // arriba y abajo solo enseñan el panel
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> ""
+            // abajo (o el botón de subtítulos, si el mando lo tiene) los pone o los quita
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CAPTIONS -> "toggleSubs()"
+            // arriba solo enseña el panel
+            KeyEvent.KEYCODE_DPAD_UP -> ""
             // Atrás, Home, volumen…: lo normal
             else -> return super.dispatchKeyEvent(event)
         }
@@ -74,6 +77,11 @@ class PlayerActivity : ComponentActivity() {
 
     fun onEnded() {
         if (!isFinishing) finish()
+    }
+
+    /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
+    fun onCaptions(on: Boolean) {
+        saveSubtitles(this, on)
     }
 
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
@@ -106,21 +114,23 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_VID = "vid"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_CHANNEL = "channel"
+        private const val EXTRA_SUBTITLES = "subtitles"
         private const val ORIGIN = "https://es.miscanales"
 
-        fun start(context: Context, video: Video) {
+        fun start(context: Context, video: Video, subtitles: Boolean) {
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     .putExtra(EXTRA_VID, video.vid)
                     .putExtra(EXTRA_TITLE, video.title)
-                    .putExtra(EXTRA_CHANNEL, video.channelName),
+                    .putExtra(EXTRA_CHANNEL, video.channelName)
+                    .putExtra(EXTRA_SUBTITLES, subtitles),
             )
         }
 
         /** Un texto como cadena de JavaScript, sin que pueda cerrar la etiqueta <script>. */
         private fun js(text: String) = JsonPrimitive(text).toString().replace("</", "<\\/")
 
-        private fun playerHtml(vid: String, title: String, channel: String) = """
+        private fun playerHtml(vid: String, title: String, channel: String, subtitles: Boolean) = """
             <!DOCTYPE html>
             <html><head>
             <meta charset="utf-8">
@@ -128,7 +138,7 @@ class PlayerActivity : ComponentActivity() {
             <style>
               html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden;
                            font-family: sans-serif; color: #fff; }
-              #p { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+              #wrap { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; }
               .panel { position: absolute; left: 0; right: 0; padding: 32px 48px; z-index: 2;
                        pointer-events: none; transition: opacity .4s; }
               .hidden { opacity: 0; }
@@ -142,25 +152,43 @@ class PlayerActivity : ComponentActivity() {
               #hint { margin-left: auto; font-size: 13px; color: #aaa; }
             </style>
             </head><body>
-            <div id="p"></div>
+            <div id="wrap"><div id="p"></div></div>
             <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
             <div id="bottom" class="panel">
               <div id="bar"><div id="fill"></div></div>
               <div id="row"><span id="time"></span><span id="status"></span>
-                <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; Atrás: salir</span></div>
+                <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; ▼: subtítulos &nbsp; Atrás: salir</span></div>
             </div>
             <script>
             document.getElementById('title').textContent = ${js(title)};
             document.getElementById('channel').textContent = ${js(channel)};
             var player = null, started = false, lastKey = Date.now();
+            var subs = $subtitles, subsDone = false, note = '', noteUntil = 0;
+            // La tele dice tener menos píxeles de los que tiene (la mitad, en un Fire TV), y YouTube
+            // elige la calidad por el tamaño del reproductor: se hace del tamaño real y se reduce para que quepa.
+            (function () {
+              var k = window.devicePixelRatio || 1;
+              if (k > 1) {
+                var w = document.getElementById('wrap');
+                w.style.width = (100 * k) + '%';
+                w.style.height = (100 * k) + '%';
+                w.style.transform = 'scale(' + (1 / k) + ')';
+              }
+            })();
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('p', {
                 width: '100%', height: '100%', videoId: '$vid',
                 playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, fs: 0, disablekb: 1,
-                              iv_load_policy: 3, cc_load_policy: 0, hl: 'es', origin: '$ORIGIN' },
+                              iv_load_policy: 3, cc_load_policy: subs ? 1 : 0, cc_lang_pref: 'es', hl: 'es',
+                              vq: 'hd1080', origin: '$ORIGIN' },
                 events: {
-                  onReady: function (e) { e.target.playVideo(); },
-                  onStateChange: function (e) { if (e.data == 0) Android.ended(); update(); },
+                  onReady: function (e) { applySubs(); e.target.playVideo(); },
+                  onStateChange: function (e) {
+                    if (e.data == 0) Android.ended();
+                    // al empezar, otra vez: YouTube a veces los pone por su cuenta
+                    if (e.data == 1 && !subsDone) { subsDone = true; applySubs(); }
+                    update();
+                  },
                   onError: function (e) { Android.error(e.data); }
                 }
               });
@@ -170,6 +198,30 @@ class PlayerActivity : ComponentActivity() {
             function pause() { if (ready()) player.pauseVideo(); }
             function toggle() { if (!ready()) return; if (player.getPlayerState() == 1) player.pauseVideo(); else player.playVideo(); }
             function seek(s) { if (ready()) player.seekTo(Math.max(0, player.getCurrentTime() + s), true); }
+            function applySubs() {
+              if (!ready()) return;
+              try {
+                if (subs) {
+                  player.loadModule('captions');
+                  // en español, si el vídeo los tiene
+                  var list = player.getOption('captions', 'tracklist') || [];
+                  for (var i = 0; i < list.length; i++) {
+                    if (list[i].languageCode == 'es') { player.setOption('captions', 'track', list[i]); break; }
+                  }
+                } else {
+                  player.setOption('captions', 'track', {});
+                  player.unloadModule('captions');
+                  player.unloadModule('cc');
+                }
+              } catch (err) {}
+            }
+            function toggleSubs() {
+              subs = !subs;
+              applySubs();
+              Android.captions(subs);
+              note = subs ? 'Subtítulos: sí' : 'Subtítulos: no';
+              noteUntil = Date.now() + 2500;
+            }
             function touched() { lastKey = Date.now(); update(); }
             function two(n) { return (n < 10 ? '0' : '') + n; }
             function clock(s) {
@@ -184,8 +236,8 @@ class PlayerActivity : ComponentActivity() {
               if (state == 1) started = true;
               document.getElementById('fill').style.width = (d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
               document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) : '';
-              document.getElementById('status').textContent =
-                !started ? 'Cargando…' : (state == 2 ? (d > 0 ? '   ·   ' : '') + 'En pausa' : '');
+              var msg = Date.now() < noteUntil ? note : (!started ? 'Cargando…' : (state == 2 ? 'En pausa' : ''));
+              document.getElementById('status').textContent = msg ? (d > 0 ? '   ·   ' : '') + msg : '';
               var show = !started || state != 1 || Date.now() - lastKey < 4000;
               document.getElementById('top').className = show ? 'panel' : 'panel hidden';
               document.getElementById('bottom').className = show ? 'panel' : 'panel hidden';
@@ -205,4 +257,7 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun error(code: Int) = activity.runOnUiThread { activity.onPlayerError(code) }
+
+    @JavascriptInterface
+    fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
 }

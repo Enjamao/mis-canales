@@ -4,6 +4,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// La clave fija de la app está en keystore/mis-canales.p12, cifrada con la contraseña que
+// GitHub pasa en SIGNING_PASSWORD (un secreto del repositorio). Sin ella (en un PC, por
+// ejemplo) se firma con la clave de depuración, y ese APK no actualiza al de GitHub.
+val signingPassword: String? = System.getenv("SIGNING_PASSWORD")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "es.miscanales"
     compileSdk {
@@ -14,8 +19,18 @@ android {
         applicationId = "es.miscanales"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.2"
+        versionCode = 5
+        versionName = "0.3.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/mis-canales.p12")
+            storeType = "pkcs12"
+            storePassword = signingPassword
+            keyAlias = "miscanales"
+            keyPassword = signingPassword
+        }
     }
 
     buildTypes {
@@ -23,8 +38,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Firmado con la clave de depuración, para instalarlo con adb sin más configuración.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (signingPassword != null) "release" else "debug")
         }
     }
 
