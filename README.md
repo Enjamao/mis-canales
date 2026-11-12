@@ -1,6 +1,6 @@
 # Mis Canales
 
-App para Android TV y Fire TV que solo enseña los vídeos de los canales de YouTube que tú eliges.
+App para Android TV, Fire TV y móviles Android que solo enseña los vídeos de los canales de YouTube que tú eliges.
 No hay recomendaciones, ni portada, ni "siguiente vídeo". Los vídeos se ven dentro de la app, con el
 reproductor oficial de YouTube para webs: Atrás te devuelve a tu lista, y al acabar el vídeo también.
 
@@ -21,6 +21,34 @@ reproductor oficial de YouTube para webs: Atrás te devuelve a tu lista, y al ac
 
 "NUEVO" sale en los vídeos que no has visto y que se publicaron después de añadir el canal
 (o en la semana de antes). La app vuelve a mirar los canales al abrirse si hace más de 15 minutos.
+
+## En el móvil
+
+El mismo APK, instalado en un móvil o una tableta, enseña una interfaz táctil: Inicio con los
+vídeos, Canales (con los ajustes) y Añadir. En la app de YouTube, en cualquier vídeo,
+**Compartir → Mis Canales** añade su canal.
+
+## Sincronizar con Home Assistant
+
+Los canales pueden vivir en una lista de tareas de Home Assistant, compartida entre la tele y el
+móvil. Añadir o quitar un canal en uno lo hace en el otro, y también se pueden añadir desde la
+propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
+
+1. En HA: Ajustes → Dispositivos y servicios → Añadir integración → **Local To-do**, con el nombre
+   **Mis Canales** (queda como `todo.mis_canales`).
+2. En HA: tu perfil → Seguridad → **Tokens de acceso de larga duración** → Crear token.
+3. En el móvil: Canales → Sincronizar con Home Assistant: la dirección de fuera (DuckDNS), la de
+   casa si quieres (se prueba primero) y el token. Al conectar, sube los canales que ya tenías.
+4. En la tele, por ADB (escribir el token con el mando no es práctico):
+
+   ```sh
+   adb shell am start -n es.miscanales/.MainActivity \
+     --es ha_url "https://micasa.duckdns.org:8123" \
+     --es ha_local_url "http://192.168.1.10:8123" \
+     --es ha_token "EL_TOKEN"
+   ```
+
+En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
 ## De dónde saca los vídeos
 

@@ -1,5 +1,6 @@
 package es.miscanales
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,6 +67,22 @@ fun ChannelsScreen(page: ChannelsPage) {
                     else -> "${channels.size} canales. Pulsa uno para ver sus vídeos o quitarlo."
                 },
             )
+        }
+        val ha = store.ha
+        if (ha != null) {
+            item(key = "#sync") {
+                val library = LocalLibrary.current
+                val error = library.syncError
+                Text(
+                    if (error != null) {
+                        "Home Assistant no responde: $error. Se ven los canales de la última vez."
+                    } else {
+                        "Sincronizado con Home Assistant (${ha.entity})" + (ago(library.syncedAt)?.let { ", $it" } ?: "") + "."
+                    },
+                    style = Type.sub.copy(fontSize = 14.sp, color = if (error != null) Colors.accent else Colors.muted),
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+            }
         }
         item(key = "#buttons") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
@@ -142,6 +160,9 @@ fun ChannelScreen(page: ChannelPage) {
     val store = LocalStore.current
     val feed = LocalFeed.current
     val nav = LocalNavigator.current
+    val library = LocalLibrary.current
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val channel = store.channel(page.channelId)
     val videos = feed.videos.filter { it.channelId == page.channelId }
     VideoGrid(
@@ -175,9 +196,17 @@ fun ChannelScreen(page: ChannelPage) {
                     if (page.confirmRemove) "¿Seguro? Pulsa otra vez" else "Quitar canal",
                     {
                         if (page.confirmRemove) {
-                            store.remove(page.channelId)
-                            feed.drop(page.channelId)
-                            nav.back()
+                            scope.launch {
+                                try {
+                                    library.remove(page.channelId)
+                                    nav.back()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    page.confirmRemove = false
+                                    Toast.makeText(context, "No se ha podido quitar: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
                         } else {
                             page.confirmRemove = true
                         }
@@ -197,7 +226,7 @@ fun ChannelScreen(page: ChannelPage) {
 @Composable
 fun AddChannelScreen(page: AddChannelPage) {
     val store = LocalStore.current
-    val feed = LocalFeed.current
+    val library = LocalLibrary.current
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -210,23 +239,14 @@ fun AddChannelScreen(page: AddChannelPage) {
         page.failed = false
         scope.launch {
             try {
-                val channel = YouTube.resolve(text)
-                val again = store.has(channel.id)
-                store.add(channel)
-                feed.reload()
+                val (channel, again) = library.add(text)
                 page.query = ""
                 page.message = if (again) "${channel.name} ya estaba en tus canales." else "Añadido: ${channel.name}"
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: ChannelNotFound) {
-                page.failed = true
-                page.message = "No encuentro ese canal: ${e.message}. Escribe su @nombre tal como sale en YouTube, o pega su enlace."
-            } catch (e: IOException) {
-                page.failed = true
-                page.message = "No se ha podido conectar con YouTube (${e.message}). Mira la conexión a internet de la tele."
             } catch (e: Exception) {
                 page.failed = true
-                page.message = "Algo ha fallado al buscar el canal (${e.javaClass.simpleName}). Prueba con su enlace."
+                page.message = Library.addError(e)
             } finally {
                 page.busy = false
             }
