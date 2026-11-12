@@ -39,10 +39,11 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 2. En HA: tu perfil → Seguridad → **Tokens de acceso de larga duración** → Crear token.
 3. En el móvil: Canales → Sincronizar con Home Assistant: la dirección de fuera (DuckDNS), la de
    casa si quieres (se prueba primero) y el token. Al conectar, sube los canales que ya tenías.
-4. En la tele, por ADB (escribir el token con el mando no es práctico):
+4. En la tele, por ADB (escribir el token con el mando no es práctico). El `-S` cierra la app antes,
+   para que reciba los datos aunque estuviera abierta:
 
    ```sh
-   adb shell am start -n es.miscanales/.MainActivity \
+   adb shell am start -S -n es.miscanales/.MainActivity \
      --es ha_url "https://micasa.duckdns.org:8123" \
      --es ha_local_url "http://192.168.1.10:8123" \
      --es ha_token "EL_TOKEN"
