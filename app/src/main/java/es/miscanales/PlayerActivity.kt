@@ -232,7 +232,7 @@ class PlayerActivity : ComponentActivity() {
         if (tv) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 if (EmbedPatch.isEmbed(request)) {
-                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + REPORT)
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", FRAME_DIAG + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN)
                 } else {
                     null
                 }
@@ -385,17 +385,55 @@ class PlayerActivity : ComponentActivity() {
             })();
         """
 
-        // Cuenta al panel de la app qué ve el reproductor de YouTube por dentro (diagnóstico).
-        private const val REPORT = """
+        // Diagnóstico (provisional) desde dentro del reproductor de YouTube: qué pantalla ve, qué
+        // calidades le manda el servidor de YouTube y si tenía guardado un tope por tirones de otras
+        // veces (que se borra). Además le esconde el puente con la app, que delata una WebView.
+        private const val FRAME_DIAG = """
             (function () {
-              setTimeout(function () {
+              var bridge = window.Android;
+              try { delete window.Android; } catch (e) {}
+              var server = 'sin respuesta', cap = 'no';
+              try {
+                var saved = localStorage.getItem('yt-player-performance-cap');
+                if (saved) { cap = 'sí, borrado'; localStorage.removeItem('yt-player-performance-cap'); }
+              } catch (e) {}
+              function look(text) {
+                try {
+                  var r = JSON.parse(text), sd = r && r.streamingData;
+                  if (!sd) { server = (r && r.playabilityStatus && r.playabilityStatus.status) || 'sin formatos'; return; }
+                  var seen = {}, list = [];
+                  (sd.adaptiveFormats || []).forEach(function (f) {
+                    if (f.qualityLabel && !seen[f.qualityLabel]) { seen[f.qualityLabel] = 1; list.push(f.qualityLabel); }
+                  });
+                  server = (list.join(' ') || 'ninguna') + (sd.serverAbrStreamingUrl ? ' (SABR)' : '');
+                } catch (e) {}
+              }
+              function isPlayer(u) { return String(u && u.url ? u.url : u).indexOf('/youtubei/v1/player') >= 0; }
+              var originalFetch = window.fetch;
+              if (originalFetch) window.fetch = function (input) {
+                var p = originalFetch.apply(this, arguments);
+                if (isPlayer(input)) p.then(function (res) { res.clone().text().then(look); }).catch(function () {});
+                return p;
+              };
+              var open = XMLHttpRequest.prototype.open;
+              XMLHttpRequest.prototype.open = function (method, url) {
+                if (isPlayer(url)) this.addEventListener('load', function () { try { look(this.responseText); } catch (e) {} });
+                return open.apply(this, arguments);
+              };
+              var last = '', n = 0;
+              var timer = setInterval(function () {
                 try {
                   var d = navigator.userAgentData;
                   var t = 'YouTube ve ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1) +
-                          ', marco ' + innerWidth + '×' + innerHeight + (d ? ', ' + d.platform : '');
-                  if (window.Android && Android.ytInfo) Android.ytInfo(t); else parent.postMessage('miscanales:' + t, '*');
+                          (d ? ' ' + d.platform : '') + ' · servidor: ' + server + ' · tope guardado: ' + cap +
+                          ' · puente ' + (window.Android ? 'visible' : 'oculto');
+                  if (t != last) {
+                    last = t;
+                    if (bridge && bridge.ytInfo) bridge.ytInfo(t); else parent.postMessage('miscanales:' + t, '*');
+                  }
                 } catch (e) {}
-              }, 3000);
+                if (++n >= 20) clearInterval(timer);
+              }, 2000);
             })();
         """
 
