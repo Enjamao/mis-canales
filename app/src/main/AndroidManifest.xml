@@ -43,7 +43,7 @@
             android:supportsPictureInPicture="true"
             android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
             android:exported="false"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="fullSensor" />
         <service
             android:name=".PlaybackService"
             android:exported="false"
