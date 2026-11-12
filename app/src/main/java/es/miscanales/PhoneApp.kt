@@ -327,6 +327,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 }
                 SettingSwitch("Ver en la app de YouTube", store.useYouTubeApp) { store.togglePlayer() }
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
+                SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
             }
         }
         item(key = "#ha") { HaSettings() }

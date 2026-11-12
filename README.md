@@ -28,6 +28,12 @@ El mismo APK, instalado en un móvil o una tableta, enseña una interfaz táctil
 vídeos, Canales (con los ajustes) y Añadir. En la app de YouTube, en cualquier vídeo,
 **Compartir → Mis Canales** añade su canal.
 
+En el móvil, el vídeo sigue sonando con la pantalla apagada (con play y pausa en el aviso y en la
+pantalla de bloqueo), y al salir de la app queda en una ventana flotante. Se quita en Canales →
+"Seguir sonando con la pantalla apagada". Ojo: las normas de YouTube para desarrolladores no
+permiten la reproducción en segundo plano del reproductor insertado; es una app para uso propio,
+y YouTube puede cambiar su reproductor y romperlo.
+
 ## Sincronizar con Home Assistant
 
 Los canales pueden vivir en una lista de tareas de Home Assistant, compartida entre la tele y el

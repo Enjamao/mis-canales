@@ -51,6 +51,10 @@ class Store(context: Context) {
     )
         private set
 
+    /** En el móvil: si los vídeos siguen sonando con la pantalla apagada. */
+    var backgroundPlay by mutableStateOf(prefs.getBoolean("backgroundPlay", true))
+        private set
+
     /** Si los vídeos empiezan con subtítulos. En el reproductor se cambia con abajo en el mando. */
     var subtitles by mutableStateOf(prefs.getBoolean(SUBTITLES, false))
         private set
@@ -104,6 +108,11 @@ class Store(context: Context) {
     fun togglePlayer() {
         useYouTubeApp = !useYouTubeApp
         prefs.edit { putBoolean("useYouTubeApp", useYouTubeApp) }
+    }
+
+    fun toggleBackgroundPlay() {
+        backgroundPlay = !backgroundPlay
+        prefs.edit { putBoolean("backgroundPlay", backgroundPlay) }
     }
 
     fun toggleSubtitles() {

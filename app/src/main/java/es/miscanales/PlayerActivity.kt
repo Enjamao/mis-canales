@@ -1,9 +1,15 @@
 package es.miscanales
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -14,6 +20,9 @@ import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
@@ -28,6 +37,10 @@ import kotlinx.serialization.json.JsonPrimitive
 class PlayerActivity : ComponentActivity() {
     private var web: WebView? = null
     private var vid = ""
+    private var tv = false
+
+    /** En el móvil: seguir sonando con la pantalla apagada o desde la ventana flotante. */
+    private var background = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,15 +52,58 @@ class PlayerActivity : ComponentActivity() {
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val tv = isTv()
+        current = this
+        tv = isTv()
+        background = !tv && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
         if (!tv) {
             // en el móvil, a pantalla completa (las barras salen deslizando)
             WindowCompat.getInsetsController(window, window.decorView).apply {
                 systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 hide(WindowInsetsCompat.Type.systemBars())
             }
+            // al salir de la app (Home), el vídeo sigue en una ventana flotante
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setPictureInPictureParams(pipParams())
+        }
+        if (background) {
+            // el aviso con los controles necesita permiso a partir de Android 13
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            }
+            // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
+            PlaybackService.start(this, title, channel)
         }
         setContentView(createWebView(title, channel, subtitles, tv))
+    }
+
+    private fun pipParams(): PictureInPictureParams = PictureInPictureParams.Builder()
+        .setAspectRatio(Rational(16, 9))
+        .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAutoEnterEnabled(true) }
+        .build()
+
+    // antes de Android 12 la ventana flotante no se abre sola
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (!tv && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            runCatching { enterPictureInPictureMode(pipParams()) }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // cerrar la ventana flotante (deslizándola fuera) para el vídeo
+        if (!isInPictureInPictureMode && lifecycle.currentState == Lifecycle.State.CREATED) finish()
+    }
+
+    // al tocar el aviso: si es el mismo vídeo, se vuelve a él; si es otro, se carga
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val newVid = intent.getStringExtra(EXTRA_VID)
+        if (newVid != null && newVid != vid) {
+            setIntent(intent)
+            recreate()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -60,6 +116,11 @@ class PlayerActivity : ComponentActivity() {
         settings.mediaPlaybackRequiresUserGesture = false
         webChromeClient = WebChromeClient()
         addJavascriptInterface(PlayerBridge(this@PlayerActivity), "Android")
+        // El reproductor de YouTube se para solo cuando la página deja de verse (pantalla apagada).
+        // Para seguir sonando, a la página de YouTube se le dice que siempre está a la vista.
+        if (background && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(this, KEEP_VISIBLE, setOf("https://www.youtube.com"))
+        }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
         loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv), "text/html", "utf-8", null)
@@ -90,6 +151,14 @@ class PlayerActivity : ComponentActivity() {
         if (!isFinishing) finish()
     }
 
+    /** El estado del reproductor de YouTube: 1 en marcha, 2 en pausa, 3 cargando. */
+    fun onPlayerState(code: Int) {
+        when (code) {
+            1, 3 -> PlaybackService.setPlaying(true)
+            2 -> PlaybackService.setPlaying(false)
+        }
+    }
+
     /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
     fun onCaptions(on: Boolean) {
         saveSubtitles(this, on)
@@ -103,19 +172,24 @@ class PlayerActivity : ComponentActivity() {
         finish()
     }
 
-    override fun onPause() {
-        // con Home, que no siga sonando de fondo
-        web?.evaluateJavascript("pause()", null)
-        web?.onPause()
-        super.onPause()
+    override fun onStop() {
+        // En la tele (o en el móvil sin el ajuste) Home o apagar la pantalla lo paran.
+        // En el móvil con el ajuste sigue sonando; y en la ventana flotante la actividad no llega a pararse.
+        if (!background) {
+            web?.evaluateJavascript("pause()", null)
+            web?.onPause()
+        }
+        super.onStop()
     }
 
-    override fun onResume() {
-        super.onResume()
+    override fun onStart() {
+        super.onStart()
         web?.onResume()
     }
 
     override fun onDestroy() {
+        if (background) PlaybackService.stop(this)
+        if (current === this) current = null
         web?.destroy()
         web = null
         super.onDestroy()
@@ -126,17 +200,51 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_CHANNEL = "channel"
         private const val EXTRA_SUBTITLES = "subtitles"
+        private const val EXTRA_BACKGROUND = "background"
         private const val ORIGIN = "https://es.miscanales"
 
-        fun start(context: Context, video: Video, subtitles: Boolean) {
+        // Se ejecuta al empezar a cargar la página de YouTube (dentro del reproductor insertado):
+        // la página siempre "se ve", y no se entera de que se ha apagado la pantalla.
+        private const val KEEP_VISIBLE = """
+            (function () {
+              try {
+                Object.defineProperty(document, 'visibilityState', { configurable: true, get: function () { return 'visible'; } });
+                Object.defineProperty(document, 'hidden', { configurable: true, get: function () { return false; } });
+                Object.defineProperty(document, 'webkitVisibilityState', { configurable: true, get: function () { return 'visible'; } });
+                Object.defineProperty(document, 'webkitHidden', { configurable: true, get: function () { return false; } });
+              } catch (e) {}
+              var stop = function (e) { e.stopImmediatePropagation(); };
+              ['visibilitychange', 'webkitvisibilitychange', 'pagehide', 'freeze'].forEach(function (type) {
+                window.addEventListener(type, stop, true);
+                document.addEventListener(type, stop, true);
+              });
+            })();
+        """
+
+        /** El reproductor que está abierto, para los controles del aviso y de la pantalla de bloqueo. */
+        @SuppressLint("StaticFieldLeak")
+        private var current: PlayerActivity? = null
+
+        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean) {
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     .putExtra(EXTRA_VID, video.vid)
                     .putExtra(EXTRA_TITLE, video.title)
                     .putExtra(EXTRA_CHANNEL, video.channelName)
-                    .putExtra(EXTRA_SUBTITLES, subtitles),
+                    .putExtra(EXTRA_SUBTITLES, subtitles)
+                    .putExtra(EXTRA_BACKGROUND, background),
             )
         }
+
+        /** Ejecuta [script] ("play()", "pause()", "toggle()") en el reproductor abierto. */
+        fun control(script: String) {
+            current?.web?.evaluateJavascript(script, null)
+        }
+
+        /** Para volver al reproductor abierto desde el aviso, sin abrir otro. */
+        fun reopenIntent(context: Context): Intent =
+            (current?.intent?.let { Intent(it) } ?: Intent(context, MainActivity::class.java))
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
         /** Un texto como cadena de JavaScript, sin que pueda cerrar la etiqueta <script>. */
         private fun js(text: String) = JsonPrimitive(text).toString().replace("</", "<\\/")
@@ -199,6 +307,7 @@ class PlayerActivity : ComponentActivity() {
                 events: {
                   onReady: function (e) { applySubs(); e.target.playVideo(); },
                   onStateChange: function (e) {
+                    Android.state(e.data);
                     if (e.data == 0) Android.ended();
                     // al empezar, otra vez: YouTube a veces los pone por su cuenta
                     if (e.data == 1 && !subsDone) { subsDone = true; applySubs(); }
@@ -269,6 +378,9 @@ class PlayerActivity : ComponentActivity() {
 class PlayerBridge(private val activity: PlayerActivity) {
     @JavascriptInterface
     fun ended() = activity.runOnUiThread { activity.onEnded() }
+
+    @JavascriptInterface
+    fun state(code: Int) = activity.runOnUiThread { activity.onPlayerState(code) }
 
     @JavascriptInterface
     fun error(code: Int) = activity.runOnUiThread { activity.onPlayerError(code) }

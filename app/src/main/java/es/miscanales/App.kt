@@ -229,7 +229,11 @@ private fun Logo(open: Boolean) {
 /** Pone [video] en el reproductor elegido (el de la app o la app de YouTube) y lo marca como visto. */
 fun playVideo(context: Context, store: Store, video: Video) {
     store.setWatched(video.vid, true)
-    if (store.useYouTubeApp) context.playOnYouTube(video.vid) else PlayerActivity.start(context, video, store.subtitles)
+    if (store.useYouTubeApp) {
+        context.playOnYouTube(video.vid)
+    } else {
+        PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay)
+    }
 }
 
 /** Si es una tele (Android TV, Google TV o Fire TV) y no un móvil o una tableta. */
