@@ -37,7 +37,7 @@ adb install -r "$APK"
 adb logcat -c; adb logcat -c -b crash
 
 # Como el móvil de Eloy: con canales (y una versión anterior ya usada: sin avisos apuntados)
-CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;},{&quot;id&quot;:&quot;UC_x5XG1OV2P6uZZ5FSM9Ttw&quot;,&quot;name&quot;:&quot;Google for Developers&quot;}]'
+CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
 cat > store.xml <<XML
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
@@ -63,9 +63,25 @@ adb shell cmd jobscheduler run -f $PKG 4201
 sleep 30
 fallos "revisión 1"
 adb shell run-as $PKG cat shared_prefs/nuevos.xml | head -c 600; echo
+# se le hace olvidar los 3 vídeos más nuevos (CNN sube a diario) para que avise de ellos de verdad
+adb shell input keyevent KEYCODE_HOME; sleep 2
+adb shell am kill $PKG; sleep 2
+adb shell run-as $PKG cat shared_prefs/nuevos.xml > nuevos.xml
+python3 - <<'PY'
+import re
+s = open('nuevos.xml', encoding='utf-8').read()
+m = re.search(r'<string name="videos">([^<]*)</string>', s)
+ids = m.group(1).split(',')
+print('olvidados:', ids[:3])
+s = s.replace(m.group(0), '<string name="videos">' + ','.join(ids[3:]) + '</string>')
+open('nuevos.xml', 'w', encoding='utf-8').write(s)
+PY
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/nuevos.xml'" < nuevos.xml
 adb shell cmd jobscheduler run -f $PKG 4201
-sleep 30
-fallos "revisión 2"
+sleep 40
+fallos "revisión 2 (con avisos)"
+echo "--- avisos de la app ---"
+adb shell dumpsys notification --noredact | grep -A40 "pkg=$PKG" | grep -E "android.title=|android.text=|android.summaryText=|key=" | head -30
 
 # 3. El botón de probar el aviso: Canales → bajar a Ajustes → Probar con el último vídeo
 adb shell am start -W -n $PKG/.MainActivity
@@ -78,6 +94,7 @@ for i in $(seq 1 20); do
   adb shell input swipe $((W/2)) $((H*2/3)) $((W/2)) $((H/3)) 400; sleep 1
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
   grep -q 'Probar con el último vídeo' ui.xml && break
+  python3 -c "import re;print('textos:', re.findall(r' text=\"([^\"]+)\"', open('ui.xml',encoding='utf-8').read())[:12])"
 done
 pulsar "Probar con el último vídeo"
 sleep 15
