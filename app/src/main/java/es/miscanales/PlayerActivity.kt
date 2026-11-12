@@ -221,6 +221,11 @@ class PlayerActivity : ComponentActivity() {
         if (this@PlayerActivity.keepPlaying && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(this, KEEP_VISIBLE, setOf("https://www.youtube.com"))
         }
+        // En la tele, YouTube pregunta si se puede reproducir 1080p (o más) con soltura, y la WebView
+        // del Fire TV dice que no aunque el aparato pueda: se le dice que sí a todo formato compatible.
+        if (tv && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(this, SMOOTH_DECODING, setOf("https://www.youtube.com"))
+        }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
         loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start), "text/html", "utf-8", null)
@@ -332,6 +337,21 @@ class PlayerActivity : ComponentActivity() {
             })();
         """
 
+        private const val SMOOTH_DECODING = """
+            (function () {
+              var mc = navigator.mediaCapabilities;
+              if (!mc || !mc.decodingInfo) return;
+              var original = mc.decodingInfo.bind(mc);
+              mc.decodingInfo = function (config) {
+                return original(config).then(function (result) {
+                  if (!result || !result.supported) return result;
+                  return { supported: true, smooth: true, powerEfficient: true,
+                           keySystemAccess: result.keySystemAccess || null, configuration: result.configuration || config };
+                });
+              };
+            })();
+        """
+
         /** El reproductor que está abierto, para los controles del aviso y de la pantalla de bloqueo. */
         @SuppressLint("StaticFieldLeak")
         private var current: PlayerActivity? = null
@@ -392,6 +412,7 @@ class PlayerActivity : ComponentActivity() {
               #fill { height: 100%; width: 0; background: #ff0033; }
               #row { display: flex; margin-top: 10px; font-size: 15px; }
               #hint { margin-left: auto; font-size: 13px; color: #aaa; }
+              #diag { margin-top: 6px; font-size: 12px; color: #8a8a8a; }
               /* los avisos cortos (subtítulos, patrocinio saltado), en la tele y en el móvil */
               #toast { position: absolute; top: 24px; right: 24px; z-index: 3; padding: 8px 14px; border-radius: 18px;
                        background: rgba(0,0,0,.75); font-size: 15px; pointer-events: none; transition: opacity .3s; }
@@ -417,6 +438,7 @@ class PlayerActivity : ComponentActivity() {
               <div id="bar"><div id="fill"></div></div>
               <div id="row"><span id="time"></span><span id="status"></span>
                 <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; ▼: subtítulos &nbsp; Atrás: salir</span></div>
+              <div id="diag"></div>
             </div>
             <script>
             document.getElementById('title').textContent = ${js(title)};
@@ -519,6 +541,26 @@ class PlayerActivity : ComponentActivity() {
             }
             function touched() { lastKey = Date.now(); update(); }
             function two(n) { return (n < 10 ? '0' : '') + n; }
+            // Diagnóstico de calidad (provisional): qué calidades ofrece YouTube y qué dice el aparato
+            // que puede reproducir con soltura a 1080p y 60 imágenes por segundo.
+            var caps = {};
+            (function () {
+              var mc = navigator.mediaCapabilities;
+              if (!mc || !mc.decodingInfo) { caps.info = 'sin MediaCapabilities'; return; }
+              [['VP9', 'video/webm; codecs="vp09.00.41.08"'], ['AV1', 'video/mp4; codecs="av01.0.09M.08"'],
+               ['H.264', 'video/mp4; codecs="avc1.64002A"']].forEach(function (t) {
+                mc.decodingInfo({ type: 'media-source',
+                                  video: { contentType: t[1], width: 1920, height: 1080, bitrate: 6000000, framerate: 60 } })
+                  .then(function (r) { caps[t[0]] = !r.supported ? 'no' : (r.smooth ? 'fluido' : 'lento') + (r.powerEfficient ? '' : ' sin hw'); })
+                  .catch(function () { caps[t[0]] = '?'; });
+              });
+            })();
+            function diagnosis() {
+              var levels = ready() && player.getAvailableQualityLevels ? player.getAvailableQualityLevels().map(quality).filter(function (q) { return q; }) : [];
+              var c = Object.keys(caps).map(function (k) { return k + ': ' + caps[k]; }).join(', ');
+              return 'Calidades: ' + (levels.join(' ') || '?') + '   ·   1080p60 → ' + (c || '?') +
+                     '   ·   pantalla ' + screen.width + '×' + screen.height + ' ×' + (window.devicePixelRatio || 1);
+            }
             function quality(q) {
               return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
                        hd1440: '1440p', hd2160: '4K', highres: '8K' }[q] || '';
@@ -536,6 +578,7 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('fill').style.width = (d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
               // la calidad a la que está sonando de verdad, junto al tiempo
               var q = ready() && player.getPlaybackQuality ? quality(player.getPlaybackQuality()) : '';
+              if (tv) document.getElementById('diag').textContent = diagnosis();
               document.getElementById('time').textContent = d > 0 ? clock(t) + ' / ' + clock(d) + (q ? '   ·   ' + q : '') : '';
               var noting = Date.now() < noteUntil;
               var toast = document.getElementById('toast');
