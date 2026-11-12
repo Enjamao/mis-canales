@@ -1,0 +1,16 @@
+# Mira cómo vienen los datos de YouTube (búsqueda y vídeos de un canal). Se lanza a mano.
+name: Explorar YouTube
+
+on:
+  workflow_dispatch:
+    inputs:
+      busqueda:
+        description: "Qué buscar"
+        default: "realidad virtual"
+
+jobs:
+  explorar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 .github/prueba/explorar.py "${{ inputs.busqueda }}"
