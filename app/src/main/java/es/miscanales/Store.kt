@@ -80,7 +80,7 @@ class Store(context: Context) {
         saveChannels()
     }
 
-    fun setHa(config: HaConfig?) {
+    fun saveHa(config: HaConfig?) {
         ha = config
         prefs.edit {
             if (config == null) remove("ha") else putString("ha", json.encodeToString(HaConfig.serializer(), config))

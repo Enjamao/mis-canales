@@ -95,7 +95,7 @@ class Library(val store: Store, val feed: Feed) {
         val inHa = HomeAssistant.items(config).mapNotNull(::idOf).toSet()
         val missing = store.channels.filter { it.id !in inHa }
         for (channel in missing) HomeAssistant.add(config, channel.name, describe(channel))
-        store.setHa(config)
+        store.saveHa(config)
         pull()
         feed.reload()
         val uploaded = if (missing.isEmpty()) "" else " He subido ${missing.size} ${if (missing.size == 1) "canal" else "canales"}."
@@ -104,7 +104,7 @@ class Library(val store: Store, val feed: Feed) {
 
     /** Deja de sincronizar. Los canales se quedan en este aparato. */
     fun disconnect() {
-        store.setHa(null)
+        store.saveHa(null)
         syncError = null
     }
 
