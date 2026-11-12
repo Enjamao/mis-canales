@@ -356,6 +356,25 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
                 SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
                 SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
+                SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
+                    store.toggleNotifyNew()
+                    NewVideos.schedule(context, store.notifyNew)
+                    if (store.notifyNew) (context as? MainActivity)?.askNotifications()
+                }
+                if (store.notifyNew) {
+                    Hint(
+                        "Cada media hora, más o menos, el móvil mira tus canales. Al tocar el aviso, el vídeo se " +
+                            "abre aquí. Si también te llegan los avisos de Telegram, puedes apagar la automatización " +
+                            "\"Mis Canales: aviso de vídeos nuevos\" en Home Assistant.",
+                    )
+                    val latest = feed.videos.firstOrNull()
+                    if (latest != null) {
+                        TextButton(onClick = {
+                            (context as? MainActivity)?.askNotifications()
+                            NewVideos.preview(context, latest)
+                        }) { Text("Probar con el último vídeo") }
+                    }
+                }
             }
         }
         item(key = "#ha") { HaSettings() }

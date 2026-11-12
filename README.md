@@ -61,6 +61,17 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Avisos de vídeos nuevos en el móvil
+
+La app del móvil mira tus canales cada media hora, más o menos (Android junta estas tareas para
+gastar menos batería), y avisa de cada vídeo nuevo con su miniatura. Al tocar el aviso, el vídeo
+se abre en Mis Canales, no en la app de YouTube. Se apaga en Canales → Ajustes → Avisar de vídeos
+nuevos, y ahí mismo hay un botón para probar cómo queda el aviso.
+
+- La primera vez, y con cada canal recién añadido, solo se apunta lo que ya hay: no avisa de lo anterior.
+- Solo se avisa de lo publicado en los dos últimos días y que no hayas visto ya.
+- Si te llegan también los avisos de Telegram de Home Assistant, puedes apagar esa automatización.
+
 ## Ver en la tele desde el móvil
 
 En el móvil, mantén pulsado un vídeo y toca **📺 Ver en la tele**, o tócalo debajo del vídeo

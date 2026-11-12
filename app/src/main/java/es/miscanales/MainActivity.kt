@@ -1,10 +1,13 @@
 package es.miscanales
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -19,6 +22,19 @@ class MainActivity : ComponentActivity() {
     /** Lo que se ha compartido con la app (un enlace de YouTube), para añadir su canal. */
     private val shared = mutableStateOf<String?>(null)
 
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            Toast.makeText(this, "Sin permiso para avisar: no saldrán los avisos de vídeos nuevos", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Pide permiso para poner avisos (desde Android 13), si no lo tiene. */
+    fun askNotifications() {
+        if (!NewVideos.allowed(this) && Build.VERSION.SDK_INT >= 33) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = Store(this)
@@ -27,6 +43,15 @@ class MainActivity : ComponentActivity() {
         // al volver a crearse (al girar, por ejemplo) no se vuelve a poner el vídeo que llegó de fuera
         handle(intent, fresh = savedInstanceState == null)
         val tv = isTv()
+        if (!tv) {
+            // los avisos de vídeos nuevos (la primera vez que se abre con ellos, se pide el permiso)
+            NewVideos.schedule(this, store.notifyNew)
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            if (store.notifyNew && savedInstanceState == null && !prefs.getBoolean("askedNotifications", false)) {
+                prefs.edit().putBoolean("askedNotifications", true).apply()
+                askNotifications()
+            }
+        }
         setContent {
             if (tv) {
                 MisCanalesTheme { App(store, feed, library) }
@@ -54,10 +79,17 @@ class MainActivity : ComponentActivity() {
         // "Ver en la tele" desde el móvil (ver Tele): Home Assistant, por ADB, abre la app con
         // --es play ID_DEL_VIDEO --ei start SEGUNDO
         val play = intent.getStringExtra("play")
+        // y los avisos de vídeos nuevos (ver NewVideos), que traen además el título y el canal
         if (fresh && play != null && Regex("[\\w-]{11}").matches(play)) {
             val start = intent.getIntExtra("start", -1)
+            val sent = intent.getStringExtra("title")?.let {
+                Video(
+                    play, it, intent.getStringExtra("channelId").orEmpty(),
+                    intent.getStringExtra("channelName").orEmpty(), intent.getLongExtra("published", 0),
+                )
+            }
             scope.launch {
-                val video = feed.videos.firstOrNull { it.vid == play } ?: YouTube.info(play) ?: Video(play, "", "", "", 0)
+                val video = feed.videos.firstOrNull { it.vid == play } ?: sent ?: YouTube.info(play) ?: Video(play, "", "", "", 0)
                 playVideo(this@MainActivity, store, video, start)
             }
         }

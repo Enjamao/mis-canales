@@ -229,6 +229,7 @@ private fun Logo(open: Boolean) {
 /** Pone [video] en el reproductor elegido (el de la app o la app de YouTube) y lo marca como visto. */
 fun playVideo(context: Context, store: Store, video: Video, start: Int = -1) {
     store.setWatched(video.vid, true)
+    NewVideos.dismiss(context, video.vid)
     if (store.useYouTubeApp) {
         context.playOnYouTube(video.vid)
     } else {
