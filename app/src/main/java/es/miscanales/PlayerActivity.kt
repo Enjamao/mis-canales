@@ -11,12 +11,16 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -51,16 +55,14 @@ class PlayerActivity : ComponentActivity() {
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
+        val stats = intent.getStringExtra(EXTRA_STATS).orEmpty()
+        val description = intent.getStringExtra(EXTRA_DESCRIPTION).orEmpty()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         tv = isTv()
         keepPlaying = !tv && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
         if (!tv) {
-            // en el móvil, a pantalla completa (las barras salen deslizando)
-            WindowCompat.getInsetsController(window, window.decorView).apply {
-                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                hide(WindowInsetsCompat.Type.systemBars())
-            }
+            showBars(resources.configuration.orientation)
             // al salir de la app (Home), el vídeo sigue en una ventana flotante
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setPictureInPictureParams(pipParams())
         }
@@ -74,7 +76,38 @@ class PlayerActivity : ComponentActivity() {
             // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
             PlaybackService.start(this, title, channel)
         }
-        setContentView(createWebView(title, channel, subtitles, tv))
+        val webView = createWebView(title, channel, subtitles, tv, stats, description)
+        if (tv) {
+            // en la tele, la página sola en la ventana (con algo detrás, en Fire TV el vídeo se ve negro)
+            setContentView(webView)
+        } else {
+            // en el móvil, dentro de un marco que deja sitio a las barras y a la cámara
+            val root = FrameLayout(this)
+            root.addView(webView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                WindowInsetsCompat.CONSUMED
+            }
+            setContentView(root)
+        }
+    }
+
+    /** En vertical, con las barras, como en YouTube; en horizontal, a pantalla completa. */
+    private fun showBars(orientation: Int) {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+                show(WindowInsetsCompat.Type.systemBars())
+            } else {
+                hide(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (!tv && !isInPictureInPictureMode) showBars(newConfig.orientation)
     }
 
     private fun pipParams(): PictureInPictureParams = PictureInPictureParams.Builder()
@@ -107,7 +140,14 @@ class PlayerActivity : ComponentActivity() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createWebView(title: String, channel: String, subtitles: Boolean, tv: Boolean): WebView = WebView(this).apply {
+    private fun createWebView(
+        title: String,
+        channel: String,
+        subtitles: Boolean,
+        tv: Boolean,
+        stats: String,
+        description: String,
+    ): WebView = (if (keepPlaying) AlwaysVisibleWebView(this) else WebView(this)).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
         isFocusableInTouchMode = false
@@ -123,7 +163,7 @@ class PlayerActivity : ComponentActivity() {
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description), "text/html", "utf-8", null)
         web = this
     }
 
@@ -201,6 +241,8 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_CHANNEL = "channel"
         private const val EXTRA_SUBTITLES = "subtitles"
         private const val EXTRA_BACKGROUND = "background"
+        private const val EXTRA_STATS = "stats"
+        private const val EXTRA_DESCRIPTION = "description"
         private const val ORIGIN = "https://es.miscanales"
 
         // Se ejecuta al empezar a cargar la página de YouTube (dentro del reproductor insertado):
@@ -232,7 +274,9 @@ class PlayerActivity : ComponentActivity() {
                     .putExtra(EXTRA_TITLE, video.title)
                     .putExtra(EXTRA_CHANNEL, video.channelName)
                     .putExtra(EXTRA_SUBTITLES, subtitles)
-                    .putExtra(EXTRA_BACKGROUND, background),
+                    .putExtra(EXTRA_BACKGROUND, background)
+                    .putExtra(EXTRA_STATS, video.stats())
+                    .putExtra(EXTRA_DESCRIPTION, video.description),
             )
         }
 
@@ -249,7 +293,15 @@ class PlayerActivity : ComponentActivity() {
         /** Un texto como cadena de JavaScript, sin que pueda cerrar la etiqueta <script>. */
         private fun js(text: String) = JsonPrimitive(text).toString().replace("</", "<\\/")
 
-        private fun playerHtml(vid: String, title: String, channel: String, subtitles: Boolean, tv: Boolean) = """
+        private fun playerHtml(
+            vid: String,
+            title: String,
+            channel: String,
+            subtitles: Boolean,
+            tv: Boolean,
+            stats: String,
+            description: String,
+        ) = """
             <!DOCTYPE html>
             <html><head>
             <meta charset="utf-8">
@@ -269,9 +321,22 @@ class PlayerActivity : ComponentActivity() {
               #fill { height: 100%; width: 0; background: #ff0033; }
               #row { display: flex; margin-top: 10px; font-size: 15px; }
               #hint { margin-left: auto; font-size: 13px; color: #aaa; }
+              /* en el móvil en vertical: el vídeo arriba y debajo el título y la descripción */
+              #info { display: none; }
+              @media (orientation: portrait) {
+                .phone #wrap { height: 56.25vw; }
+                .phone #info { display: block; position: absolute; top: 56.25vw; left: 0; right: 0; bottom: 0;
+                               overflow-y: auto; padding: 14px 16px 32px; box-sizing: border-box; background: #0f0f0f; }
+              }
+              #info h1 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
+              #info .sub { font-size: 13px; color: #aaa; }
+              #info .desc { white-space: pre-wrap; font-size: 14px; line-height: 1.45; color: #ddd; margin-top: 16px;
+                            overflow-wrap: anywhere; }
             </style>
             </head><body>
             <div id="wrap"><div id="p"></div></div>
+            <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
+              <div class="desc" id="idesc"></div></div>
             <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
             <div id="bottom" class="panel">
               <div id="bar"><div id="fill"></div></div>
@@ -285,7 +350,15 @@ class PlayerActivity : ComponentActivity() {
             var subs = $subtitles, subsDone = false, note = '', noteUntil = 0;
             // en el móvil: los controles táctiles de YouTube, sin el panel del mando
             var tv = $tv;
-            if (!tv) { document.getElementById('top').style.display = 'none'; document.getElementById('bottom').style.display = 'none'; }
+            if (!tv) {
+              document.getElementById('top').style.display = 'none';
+              document.getElementById('bottom').style.display = 'none';
+              document.body.className = 'phone';
+              document.getElementById('ititle').textContent = ${js(title)};
+              document.getElementById('ichannel').textContent = ${js(channel)};
+              document.getElementById('istats').textContent = ${js(stats)};
+              document.getElementById('idesc').textContent = ${js(description)};
+            }
             // La tele dice tener menos píxeles de los que tiene (la mitad, en un Fire TV), y YouTube
             // elige la calidad por el tamaño del reproductor: se hace del tamaño real y se reduce para que quepa.
             (function () {
@@ -387,4 +460,14 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
+}
+
+/**
+ * Una WebView que no se da por oculta cuando se apaga la pantalla: si no, pausa el vídeo por su
+ * cuenta. Solo se usa en el móvil con "Seguir sonando con la pantalla apagada".
+ */
+private class AlwaysVisibleWebView(context: Context) : WebView(context) {
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(if (visibility == View.GONE) visibility else View.VISIBLE)
+    }
 }
