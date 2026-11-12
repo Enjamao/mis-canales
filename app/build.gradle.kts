@@ -40,6 +40,13 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (signingPassword != null) "release" else "debug")
         }
+        // Igual que release (con R8), pero depurable: para la prueba automática en el emulador (prueba.yml)
+        create("prueba") {
+            initWith(getByName("release"))
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     buildFeatures {
