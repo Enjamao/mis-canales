@@ -148,12 +148,11 @@ object HomeAssistant {
                 },
             )
         } catch (e: HaError) {
-            val message = e.message.orEmpty()
-            throw when {
-                "400" in message && "adb_command" in message ->
-                    HaError("Home Assistant no tiene la integración Android Debug Bridge (ADB)")
-                "400" in message || "404" in message -> HaError("Home Assistant no encuentra la tele $tv")
-                else -> e
+            // HA contesta solo "400: Bad Request" si no tiene la acción o si la tele no es de esa integración
+            throw if ("400" in e.message.orEmpty()) {
+                HaError("Home Assistant no acepta el comando: $tv tiene que ser una tele de la integración Android Debug Bridge")
+            } else {
+                e
             }
         }
     }
