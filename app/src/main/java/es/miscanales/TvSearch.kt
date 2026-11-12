@@ -273,7 +273,7 @@ private fun TextBox(value: String, onValue: (String) -> Unit, placeholder: Strin
         cursorBrush = SolidColor(Colors.text),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onDone() }, onDone = { onDone() }),
-        modifier = modifier.widthIn(min = 320.dp, max = 480.dp).onFocusChanged { focused = it.isFocused },
+        modifier = modifier.widthIn(min = 280.dp, max = 380.dp).onFocusChanged { focused = it.isFocused },
         decorationBox = { field ->
             Box(
                 Modifier.height(48.dp)
