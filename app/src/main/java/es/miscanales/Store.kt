@@ -236,6 +236,11 @@ class Store(context: Context, val kids: Boolean = false) {
     fun reloadSettings() {
         resumed++
         subtitles = prefs.getBoolean(SUBTITLES, false)
+        // el PIN y los ajustes de Kids se pueden haber cambiado desde el otro icono (Kids o los mayores)
+        hasPin = prefs.getString("pin", null) != null
+        askPin = prefs.getBoolean("askPin", false)
+        kidsLimit = prefs.getInt("kidsLimit", 0)
+        kidsSmall = prefs.getBoolean("kidsSmall", false)
         // el reproductor puede haber guardado la tele de "Ver en la tele"
         ha = readHaConfig(appContext)
         reloadProgress()

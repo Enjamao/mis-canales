@@ -341,8 +341,13 @@ class PlayerActivity : ComponentActivity() {
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
     fun onPlayerError(code: Int) {
         if (isFinishing) return
-        Toast.makeText(this, "Este vídeo no se puede ver aquí (error $code). Lo abro en YouTube.", Toast.LENGTH_LONG).show()
-        playOnYouTube(vid)
+        if (kids) {
+            // en Kids no se sale a la app de YouTube: se avisa y se vuelve a la lista
+            Toast.makeText(this, "Este vídeo no se puede ver aquí", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(this, "Este vídeo no se puede ver aquí (error $code). Lo abro en YouTube.", Toast.LENGTH_LONG).show()
+            playOnYouTube(vid)
+        }
         finish()
     }
 
