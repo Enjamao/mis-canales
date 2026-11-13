@@ -61,6 +61,17 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Reproducción continua y ventana flotante
+
+- **Reproducción continua** (en Ajustes, encendida de entrada; en Kids, en sus ajustes y apagada): al
+  acabar un vídeo sale «Siguiente: …» unos segundos y se pone el siguiente de la lista desde la que
+  lo abriste (un canal, Inicio, una búsqueda…), sin salir del reproductor. En la tele, OK lo pone ya
+  y Atrás sale; en el móvil, «Ver ya» y «Cancelar». Sigue también con la pantalla apagada y en la
+  ventana flotante.
+- **Ventana flotante** (móvil, no en Kids): en el reproductor, Atrás o «⌄ Minimizar» dejan el vídeo
+  en una ventana pequeña y se sigue por la app. Tocándola vuelve a pantalla completa; arrastrándola
+  fuera se cierra. En la tele, Atrás sale del vídeo como siempre.
+
 ## Mis Canales Kids
 
 La app trae un segundo icono, **Mis Canales Kids** (ámbar, con una estrella), para los niños. Es el

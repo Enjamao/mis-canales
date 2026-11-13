@@ -123,6 +123,13 @@ fun ChannelsScreen(page: ChannelsPage) {
                 )
             }
         }
+        item(key = "#autonext") {
+            Pill(
+                if (store.autoNext) "Reproducción continua: sí" else "Reproducción continua: no",
+                { store.toggleAutoNext() },
+                Modifier.padding(bottom = 12.dp).restoreFocus(page, "autonext"),
+            )
+        }
         item(key = "#kids") {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

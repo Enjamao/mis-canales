@@ -158,7 +158,7 @@ class Navigator(private val context: Context, private val store: Store) {
     }
 
     /** Lo pone en el reproductor de la app, que vuelve aquí con Atrás o al acabar (o en YouTube, si lo has elegido). */
-    fun play(video: Video) = playVideo(context, store, video)
+    fun play(video: Video, queue: List<Video> = emptyList()) = playVideo(context, store, video, queue = queue)
 
     /** Lo abre en la app de YouTube de la tele (con sus recomendaciones al volver). */
     fun playOnYouTubeApp(video: Video) {
@@ -234,17 +234,24 @@ private fun Logo(open: Boolean) {
 }
 
 /** Pone [video] en el reproductor elegido (el de la app o la app de YouTube) y lo marca como visto. */
-fun playVideo(context: Context, store: Store, video: Video, start: Int = -1) {
+/**
+ * Pone un vídeo. [queue] son los que van detrás en la lista desde la que se abre: con la
+ * reproducción continua, al acabar sigue con ellos.
+ */
+fun playVideo(context: Context, store: Store, video: Video, start: Int = -1, queue: List<Video> = emptyList()) {
     store.setWatched(video.vid, true)
     NewVideos.dismiss(context, video.vid)
     when {
         // Kids: siempre en el reproductor de la app, con su tiempo contado
         store.kids -> PlayerActivity.start(
             context, video, store.subtitles, background = false, sponsorBlock = store.sponsorBlock,
-            kids = true, kidsLimit = store.kidsLimit,
+            kids = true, kidsLimit = store.kidsLimit, queue = queue, autoNext = store.autoNext,
         )
         store.useYouTubeApp -> context.playOnYouTube(video.vid)
-        else -> PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start)
+        else -> PlayerActivity.start(
+            context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start,
+            queue = queue, autoNext = store.autoNext,
+        )
     }
 }
 
@@ -255,3 +262,6 @@ fun Context.isTv(): Boolean {
         packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
         packageManager.hasSystemFeature("amazon.hardware.fire_tv")
 }
+
+/** Los vídeos que van detrás de [video] en esta lista (para la reproducción continua). */
+fun List<Video>.after(video: Video): List<Video> = drop(indexOfFirst { it.vid == video.vid } + 1)
