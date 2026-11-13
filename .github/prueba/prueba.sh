@@ -143,9 +143,14 @@ adb shell input keyevent KEYCODE_HOME
 adb shell dumpsys battery unplug
 adb shell dumpsys deviceidle force-idle
 adb shell dumpsys deviceidle get deep
-sleep 240
-echo "--- registro de la app en reposo:"
+# Android puede retrasarla un poco (hasta 3/4 del intervalo): se espera hasta 9 minutos
+for i in $(seq 1 27); do
+  adb logcat -d | grep -q "revisión (alarma)" && break
+  sleep 20
+done
+echo "--- registro de la app en reposo (tras $((i * 20)) s):"
 adb logcat -d | grep "MisCanales" | tail -10
+adb shell dumpsys deviceidle get deep
 adb shell dumpsys alarm | grep -A3 "es.miscanales" | head -12
 adb shell dumpsys deviceidle unforce
 adb shell dumpsys battery reset
