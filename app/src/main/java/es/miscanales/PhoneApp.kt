@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -78,23 +79,24 @@ private enum class Tab(val label: String, @DrawableRes val icon: Int, @DrawableR
     Add("Añadir", R.drawable.ic_add, R.drawable.ic_add),
 }
 
+/** Los colores de la app del móvil (también los de Kids, con [accent] en ámbar). */
+internal fun phoneColors(accent: Color = Colors.accent) = darkColorScheme(
+    primary = accent,
+    onPrimary = Color.White,
+    background = Colors.bg,
+    onBackground = Colors.text,
+    surface = Colors.bg,
+    onSurface = Colors.text,
+    surfaceVariant = Colors.bg2,
+    onSurfaceVariant = Colors.muted,
+    surfaceContainer = Colors.bg2,
+    secondaryContainer = Colors.bg3,
+    onSecondaryContainer = Colors.text,
+)
+
 @Composable
 fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<String?>) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Colors.accent,
-            onPrimary = Color.White,
-            background = Colors.bg,
-            onBackground = Colors.text,
-            surface = Colors.bg,
-            onSurface = Colors.text,
-            surfaceVariant = Colors.bg2,
-            onSurfaceVariant = Colors.muted,
-            surfaceContainer = Colors.bg2,
-            secondaryContainer = Colors.bg3,
-            onSecondaryContainer = Colors.text,
-        ),
-    ) {
+    MaterialTheme(colorScheme = phoneColors()) {
         CompositionLocalProvider(LocalStore provides store, LocalFeed provides feed, LocalLibrary provides library) {
             var tab by rememberSaveable { mutableStateOf(Tab.Home) }
             var filter by remember { mutableStateOf<Filter>(Filter.All) }
@@ -254,7 +256,7 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
 
 /** El botón del final de una lista para cargar más, con su "cargando" y su "no hay más". */
 @Composable
-private fun MoreButton(loading: Boolean, done: Boolean, label: String, doneText: String, error: String?, onClick: () -> Unit) {
+internal fun MoreButton(loading: Boolean, done: Boolean, label: String, doneText: String, error: String?, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         when {
             loading -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
@@ -475,7 +477,7 @@ private fun ChannelPreview(found: FoundChannel, onBack: () -> Unit, onDetails: (
 
 /** Un vídeo a todo lo ancho, como en YouTube: tocar lo pone, mantener abre sus opciones. */
 @Composable
-private fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Unit) {
+internal fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Unit) {
     val store = LocalStore.current
     Column(
         Modifier.fillMaxWidth()
@@ -594,6 +596,22 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                         color = Colors.muted,
                     )
                 }
+                // para Mis Canales Kids (se guarda también en Home Assistant)
+                FilterChip(
+                    selected = channel.kids,
+                    onClick = {
+                        scope.launch {
+                            try {
+                                library.setKids(channel.id, !channel.kids)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    label = { Text("Para niños", fontSize = 12.sp) },
+                )
                 IconButton(onClick = { removing = channel }) {
                     Icon(painterResource(R.drawable.ic_delete), contentDescription = "Quitar ${channel.name}")
                 }
@@ -610,6 +628,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
                 SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
                 SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
+                KidsAdultSettings()
                 SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
                     store.toggleNotifyNew()
                     NewVideos.schedule(context, store.notifyNew)
@@ -679,7 +698,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun SettingSwitch(label: String, checked: Boolean, onChange: () -> Unit) {
+internal fun SettingSwitch(label: String, checked: Boolean, onChange: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onChange).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -902,6 +921,6 @@ private fun PhoneAdd(shared: MutableState<String?>) {
 }
 
 @Composable
-private fun Hint(text: String, modifier: Modifier = Modifier) {
+internal fun Hint(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = Colors.muted, modifier = modifier)
 }

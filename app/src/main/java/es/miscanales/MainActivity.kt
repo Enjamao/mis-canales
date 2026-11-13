@@ -7,13 +7,26 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
-class MainActivity : ComponentActivity() {
+/** Mis Canales Kids: el mismo programa con su propio icono, siempre en modo niños (ver [MainActivity]). */
+class KidsActivity : MainActivity() {
+    override val kidsMode = true
+}
+
+open class MainActivity : ComponentActivity() {
+    /** Si esta es la entrada de los niños (el icono de Mis Canales Kids). */
+    protected open val kidsMode = false
+
+    /** "Pedir PIN al abrir": la app de los mayores, tapada por el PIN hasta que se escribe. */
+    private val locked = mutableStateOf(false)
+
     private lateinit var store: Store
     private lateinit var feed: Feed
     private lateinit var library: Library
@@ -37,9 +50,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        store = Store(this)
+        store = Store(this, kids = kidsMode)
         feed = Feed(store, filesDir)
         library = Library(store, feed)
+        if (kidsMode) {
+            setContent {
+                if (isTv()) MisCanalesTheme { KidsTvApp(store, feed, library) } else KidsPhoneApp(store, feed, library)
+            }
+            return
+        }
+        // al abrirla de nuevo (no al girar), la app de los mayores pide el PIN si así está puesto
+        if (savedInstanceState == null) AppLock.leaving()
+        locked.value = store.askPin && AppLock.locked
         // al volver a crearse (al girar, por ejemplo) no se vuelve a poner el vídeo que llegó de fuera
         handle(intent, fresh = savedInstanceState == null)
         val tv = isTv()
@@ -53,7 +75,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            if (tv) {
+            if (locked.value) {
+                LockScreen(tv)
+            } else if (tv) {
                 MisCanalesTheme { App(store, feed, library) }
             } else {
                 PhoneApp(store, feed, library, shared)
@@ -61,9 +85,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** La app de los mayores, cerrada con el PIN: Cancelar (o Atrás) sale de la app. */
+    @androidx.compose.runtime.Composable
+    private fun LockScreen(tv: Boolean) {
+        val flow = androidx.compose.runtime.remember {
+            PinFlow(store, create = false) {
+                AppLock.unlock()
+                locked.value = false
+            }
+        }
+        if (tv) {
+            MisCanalesTheme { TvPinPad(flow, onCancel = { finish() }) }
+        } else {
+            androidx.compose.material3.MaterialTheme(colorScheme = phoneColors()) {
+                androidx.compose.foundation.layout.Box(
+                    androidx.compose.ui.Modifier.fillMaxSize().background(Colors.bg),
+                ) { PhonePinDialog(flow, onDismiss = { finish() }) }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (!kidsMode && store.askPin && AppLock.locked) locked.value = true
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // al salir con Home o a otra app: al volver, PIN
+        if (!kidsMode) AppLock.leaving()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handle(intent, fresh = true)
+        if (!kidsMode) handle(intent, fresh = true)
     }
 
     override fun onResume() {

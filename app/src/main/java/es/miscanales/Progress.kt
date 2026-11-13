@@ -25,34 +25,35 @@ data class Progress(val pos: Int, val dur: Int, val at: Long) {
 
 /** El progreso de cada vídeo, guardado en el aparato. Lo usan la app y el reproductor. */
 object Progresses {
-    private const val KEY = "progress"
+    private fun key(kids: Boolean) = if (kids) "kids_progress" else "progress"
     private const val MAX = 400
     private val json = Json { ignoreUnknownKeys = true }
     private val map = MapSerializer(String.serializer(), Progress.serializer())
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun all(context: Context): Map<String, Progress> =
-        runCatching { json.decodeFromString(map, prefs(context).getString(KEY, null) ?: "{}") }.getOrDefault(emptyMap())
+    /** El progreso de los mayores o, con [kids], el de los niños (Mis Canales Kids), que va aparte. */
+    fun all(context: Context, kids: Boolean = false): Map<String, Progress> =
+        runCatching { json.decodeFromString(map, prefs(context).getString(key(kids), null) ?: "{}") }.getOrDefault(emptyMap())
 
-    fun get(context: Context, vid: String): Progress? = all(context)[vid]
+    fun get(context: Context, vid: String, kids: Boolean = false): Progress? = all(context, kids)[vid]
 
     /** Guarda [entries]; de cada vídeo se queda con lo más reciente. */
     @Synchronized
-    fun put(context: Context, entries: Map<String, Progress>) {
-        val merged = all(context).toMutableMap()
+    fun put(context: Context, entries: Map<String, Progress>, kids: Boolean = false) {
+        val merged = all(context, kids).toMutableMap()
         for ((vid, progress) in entries) {
             val old = merged[vid]
             if (old == null || progress.at >= old.at) merged[vid] = progress
         }
         val kept = merged.entries.sortedByDescending { it.value.at }.take(MAX).associate { it.key to it.value }
-        prefs(context).edit().putString(KEY, json.encodeToString(map, kept)).apply()
+        prefs(context).edit().putString(key(kids), json.encodeToString(map, kept)).apply()
     }
 
     @Synchronized
-    fun remove(context: Context, vid: String) {
-        val all = all(context) - vid
-        prefs(context).edit().putString(KEY, json.encodeToString(map, all)).apply()
+    fun remove(context: Context, vid: String, kids: Boolean = false) {
+        val all = all(context, kids) - vid
+        prefs(context).edit().putString(key(kids), json.encodeToString(map, all)).apply()
     }
 }
 

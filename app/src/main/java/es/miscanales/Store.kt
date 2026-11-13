@@ -21,10 +21,15 @@ data class Channel(
     val avatar: String? = null,
     /** Cuándo lo añadiste, en milisegundos. */
     val addedAt: Long = 0,
+    /** Si sale en Mis Canales Kids. */
+    val kids: Boolean = false,
 )
 
-/** Tus canales, los vídeos que ya has visto y los ajustes, guardados en el aparato. */
-class Store(context: Context) {
+/**
+ * Tus canales, los vídeos que ya has visto y los ajustes, guardados en el aparato. Con [kids]
+ * (Mis Canales Kids), los vídeos vistos y por dónde se va en cada uno son los de los niños, aparte.
+ */
+class Store(context: Context, val kids: Boolean = false) {
     private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
@@ -37,8 +42,10 @@ class Store(context: Context) {
 
     /** Los vídeos que has visto, del más antiguo al más reciente. */
     val watched = mutableStateListOf<String>().apply {
-        addAll(prefs.getString("watched", "").orEmpty().split(",").filter { it.isNotEmpty() })
+        addAll(prefs.getString(watchedKey, "").orEmpty().split(",").filter { it.isNotEmpty() })
     }
+
+    private val watchedKey get() = if (kids) "kids_watched" else "watched"
 
     var hideShorts by mutableStateOf(prefs.getBoolean("hideShorts", true))
         private set
@@ -54,7 +61,7 @@ class Store(context: Context) {
         private set
 
     /** Por dónde vas en cada vídeo. Lo escribe el reproductor; aquí se lee para las barras de progreso. */
-    val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context)) }
+    val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context, kids)) }
 
     /** En el móvil: avisar de los vídeos nuevos (ver [NewVideos]). */
     var notifyNew by mutableStateOf(prefs.getBoolean("notifyNew", true))
@@ -63,6 +70,25 @@ class Store(context: Context) {
     /** Saltar los patrocinios con SponsorBlock. */
     var sponsorBlock by mutableStateOf(prefs.getBoolean("sponsorBlock", true))
         private set
+
+    /** Mis Canales Kids: minutos al día que pueden ver (0: sin límite). */
+    var kidsLimit by mutableStateOf(prefs.getInt("kidsLimit", 0))
+        private set
+
+    /** Mis Canales Kids: miniaturas grandes y sin textos, para quien aún no lee. */
+    var kidsSmall by mutableStateOf(prefs.getBoolean("kidsSmall", false))
+        private set
+
+    /** En la app de los mayores: pedir el PIN al abrirla (en un aparato que usan también los niños). */
+    var askPin by mutableStateOf(prefs.getBoolean("askPin", false))
+        private set
+
+    /** Si ya hay PIN en este aparato. */
+    var hasPin by mutableStateOf(prefs.getString("pin", null) != null)
+        private set
+
+    /** Los canales que salen en Mis Canales Kids. */
+    val kidsChannels: List<Channel> get() = channels.filter { it.kids }
 
     /** En el móvil: si los vídeos siguen sonando con la pantalla apagada. */
     var backgroundPlay by mutableStateOf(prefs.getBoolean("backgroundPlay", true))
@@ -81,6 +107,14 @@ class Store(context: Context) {
         channels.removeAll { it.id == channel.id }
         // si ya estaba, conserva la fecha en que se añadió
         channels += if (old != null) channel.copy(addedAt = old.addedAt) else channel
+        saveChannels()
+    }
+
+    /** Marca o desmarca un canal "para niños". */
+    fun setKids(id: String, value: Boolean) {
+        val index = channels.indexOfFirst { it.id == id }
+        if (index < 0) return
+        channels[index] = channels[index].copy(kids = value)
         saveChannels()
     }
 
@@ -110,8 +144,30 @@ class Store(context: Context) {
         watched.remove(vid)
         if (value) watched.add(vid)
         if (watched.size > MAX_WATCHED) watched.removeRange(0, watched.size - MAX_WATCHED)
-        prefs.edit { putString("watched", watched.joinToString(",")) }
+        prefs.edit { putString(watchedKey, watched.joinToString(",")) }
     }
+
+    fun setKidsLimit(minutes: Int) {
+        kidsLimit = minutes
+        prefs.edit { putInt("kidsLimit", minutes) }
+    }
+
+    fun toggleKidsSmall() {
+        kidsSmall = !kidsSmall
+        prefs.edit { putBoolean("kidsSmall", kidsSmall) }
+    }
+
+    fun toggleAskPin() {
+        askPin = !askPin
+        prefs.edit { putBoolean("askPin", askPin) }
+    }
+
+    fun setPin(pin: String) {
+        prefs.edit { putString("pin", Pin.hash(pin)) }
+        hasPin = true
+    }
+
+    fun checkPin(pin: String): Boolean = prefs.getString("pin", null) == Pin.hash(pin)
 
     fun toggleShorts() {
         hideShorts = !hideShorts
@@ -142,27 +198,28 @@ class Store(context: Context) {
 
     /** Vuelve a leer el progreso, que el reproductor escribe por su cuenta. */
     fun reloadProgress() {
-        val all = Progresses.all(appContext)
+        val all = Progresses.all(appContext, kids)
         progress.keys.filter { it !in all }.forEach { progress.remove(it) }
         progress.putAll(all)
     }
 
     /** El progreso que llega de otros aparatos: se queda lo más reciente, y esos vídeos cuentan como vistos. */
     fun mergeProgress(remote: Map<String, Progress>) {
-        if (remote.isEmpty()) return
+        // lo de los niños no se mezcla con lo de los mayores
+        if (remote.isEmpty() || kids) return
         Progresses.put(appContext, remote)
         reloadProgress()
         val nuevos = remote.keys.filter { it !in watched }
         if (nuevos.isNotEmpty()) {
             watched.addAll(nuevos)
             if (watched.size > MAX_WATCHED) watched.removeRange(0, watched.size - MAX_WATCHED)
-            prefs.edit { putString("watched", watched.joinToString(",")) }
+            prefs.edit { putString(watchedKey, watched.joinToString(",")) }
         }
     }
 
     /** "Marcar como no visto" también olvida por dónde ibas. */
     fun forgetProgress(vid: String) {
-        Progresses.remove(appContext, vid)
+        Progresses.remove(appContext, vid, kids)
         progress.remove(vid)
     }
 
@@ -171,8 +228,13 @@ class Store(context: Context) {
         prefs.edit { putBoolean(SUBTITLES, subtitles) }
     }
 
+    /** Sube cada vez que se vuelve a la app (para recalcular el tiempo que les queda a los niños). */
+    var resumed by mutableStateOf(0)
+        private set
+
     /** Vuelve a leer los ajustes que puede cambiar el reproductor. */
     fun reloadSettings() {
+        resumed++
         subtitles = prefs.getBoolean(SUBTITLES, false)
         // el reproductor puede haber guardado la tele de "Ver en la tele"
         ha = readHaConfig(appContext)
