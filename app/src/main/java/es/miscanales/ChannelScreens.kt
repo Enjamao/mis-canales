@@ -130,13 +130,6 @@ fun ChannelsScreen(page: ChannelsPage) {
                 modifier = Modifier.padding(bottom = 12.dp),
             ) {
                 Text("Kids:", style = Type.sub.copy(fontSize = 14.sp))
-                val context = LocalContext.current
-                Pill(
-                    "Abrir Mis Canales Kids",
-                    { (context as? MainActivity)?.openKids() },
-                    Modifier.restoreFocus(page, "openkids"),
-                    icon = R.drawable.ic_smart_display,
-                )
                 Pill(
                     if (store.askPin) "Pedir PIN al abrir: sí" else "Pedir PIN al abrir: no",
                     {
@@ -160,6 +153,10 @@ fun ChannelsScreen(page: ChannelsPage) {
                         Modifier.restoreFocus(page, "changepin"),
                     )
                 }
+                Text(
+                    "Los canales «Para niños» se marcan dentro de cada canal.",
+                    style = Type.sub.copy(fontSize = 14.sp),
+                )
             }
         }
         itemsIndexed(channels, key = { _, channel -> channel.id }) { i, channel ->
