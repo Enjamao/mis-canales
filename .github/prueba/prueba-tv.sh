@@ -125,4 +125,45 @@ adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 2
 adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 3
 textos "ajustes de Kids (tele)"
 fallos "PIN y ajustes de Kids (tele)"
+
+# Categorías en la tele: CNN en «Noticias» desde su página, y en Inicio una fila por categoría
+foco() {
+  echo "--- foco: $1"
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 -c "
+import re
+xml = open('ui.xml', encoding='utf-8').read()
+nodes = re.findall(r'<node [^>]*>', xml)
+for i, n in enumerate(nodes):
+    if 'focused=\"true\"' in n:
+        texts = [re.search(r' text=\"([^\"]*)\"', m).group(1) for m in nodes[i:i + 8] if re.search(r' text=\"([^\"]+)\"', m)]
+        print(re.search(r'bounds=\"[^\"]*\"', n).group(0), texts[:3])
+"
+}
+# la app de los mayores sigue en la página de Marques Brownlee: Atrás, a Mis canales, y a CNN
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+tecla KEYCODE_BACK; sleep 2
+pulsar "CNN"; sleep 4
+textos "página de CNN (tele)"
+pulsar "Poner categoría"; sleep 3
+textos "elegir categoría (tele)"
+pulsar "Música, Noticias…"; sleep 2
+adb shell input text "Noticias"; sleep 1
+tecla KEYCODE_ENTER
+sleep 4
+textos "CNN con su categoría (tele)"
+adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
+fallos "poner categoría (tele)"
+# a Inicio: filas «Noticias» y «Otros»
+tecla KEYCODE_BACK; sleep 1
+tecla KEYCODE_BACK; sleep 3
+textos "Inicio por filas (tele)"
+foco "Inicio por filas (tele)"
+tecla KEYCODE_DPAD_DOWN; sleep 1
+foco "una fila más abajo (tele)"
+for i in 1 2 3; do tecla KEYCODE_DPAD_RIGHT; done
+foco "tres a la derecha (tele)"
+tecla KEYCODE_DPAD_UP
+foco "una fila más arriba (tele)"
+fallos "Inicio por filas (tele)"
 exit 0

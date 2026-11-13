@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -161,7 +163,7 @@ fun ChannelsScreen(page: ChannelsPage) {
                     )
                 }
                 Text(
-                    "Los canales «Para niños» se marcan dentro de cada canal.",
+                    "La categoría y «Para niños» se ponen dentro de cada canal.",
                     style = Type.sub.copy(fontSize = 14.sp),
                 )
             }
@@ -262,6 +264,13 @@ fun ChannelScreen(page: ChannelPage) {
                     )
                 }
                 if (channel != null) {
+                    // su categoría: en Inicio, cada una es una fila
+                    Pill(
+                        channel.category?.let { "Categoría: $it" } ?: "Poner categoría",
+                        { nav.open(CategoryPage(channel.id)) },
+                        Modifier.restoreFocus(page, "category"),
+                        selected = channel.category != null,
+                    )
                     // para Mis Canales Kids (se guarda también en Home Assistant)
                     Pill(
                         if (channel.kids) "Para niños: sí" else "Para niños: no",
@@ -348,7 +357,13 @@ fun AddChannelScreen(page: AddChannelPage) {
             "Escribe el @nombre del canal tal como sale en YouTube, o pega el enlace del canal.",
         )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ChannelField(page, onDone = ::add, modifier = Modifier.restoreFocus(page, "field", first = true))
+            TvTextField(
+                page.query,
+                { page.query = it },
+                "@NombreDelCanal",
+                onDone = ::add,
+                modifier = Modifier.restoreFocus(page, "field", first = true),
+            )
             Pill("Añadir", ::add, Modifier.restoreFocus(page, "button"), icon = R.drawable.ic_add, selected = true)
         }
         val message = page.message
@@ -372,17 +387,89 @@ fun AddChannelScreen(page: AddChannelPage) {
     }
 }
 
-/** La caja de texto, con borde azul mientras escribes, como el buscador de YouTube. */
+/** Elegir la categoría de un canal: una de las que ya hay, ninguna, o escribir una nueva. */
 @Composable
-private fun ChannelField(page: AddChannelPage, onDone: () -> Unit, modifier: Modifier) {
+fun CategoryScreen(page: CategoryPage) {
+    val store = LocalStore.current
+    val library = LocalLibrary.current
+    val nav = LocalNavigator.current
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val channel = store.channel(page.channelId)
+
+    fun choose(category: String?) {
+        if (channel == null || page.busy) return
+        keyboard?.hide()
+        page.busy = true
+        scope.launch {
+            try {
+                library.setCategory(channel.id, category)
+                nav.back()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                page.busy = false
+                Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val options = store.categories + listOf<String?>(null)
+    val current = options.indexOf(channel?.category).coerceAtLeast(0)
+    Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
+        PageHead(
+            "Categoría de ${channel?.name ?: "este canal"}",
+            "En Inicio, cada categoría es una fila. Se guarda también en Home Assistant, para el móvil.",
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp),
+        ) {
+            itemsIndexed(options, key = { _, name -> name ?: "#none" }) { i, name ->
+                Pill(
+                    name ?: "Sin categoría",
+                    { choose(name) },
+                    Modifier.restoreFocus(page, "option:${name ?: ""}", first = i == current),
+                    icon = if (channel?.category == name) R.drawable.ic_check else null,
+                    selected = channel?.category == name,
+                )
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("O una nueva:", style = Type.sub.copy(fontSize = 14.sp), modifier = Modifier.padding(bottom = 8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvTextField(
+                page.text,
+                { page.text = it },
+                "Música, Noticias…",
+                onDone = { if (page.text.isNotBlank()) choose(page.text) },
+                modifier = Modifier.restoreFocus(page, "field"),
+                capitalization = KeyboardCapitalization.Sentences,
+            )
+            Pill("Crear", { if (page.text.isNotBlank()) choose(page.text) }, Modifier.restoreFocus(page, "create"), icon = R.drawable.ic_add)
+        }
+    }
+}
+
+/** Una caja de texto, con borde azul mientras escribes, como el buscador de YouTube. */
+@Composable
+private fun TvTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    onDone: () -> Unit,
+    modifier: Modifier,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+) {
     var focused by remember { mutableStateOf(false) }
     BasicTextField(
-        value = page.query,
-        onValueChange = { page.query = it },
+        value = value,
+        onValueChange = onValueChange,
         singleLine = true,
         textStyle = Type.body.copy(fontSize = 18.sp),
         cursorBrush = SolidColor(Colors.text),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardOptions = KeyboardOptions(capitalization = capitalization, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = modifier.widthIn(min = 360.dp, max = 560.dp).onFocusChanged { focused = it.isFocused },
         decorationBox = { field ->
@@ -392,7 +479,7 @@ private fun ChannelField(page: AddChannelPage, onDone: () -> Unit, modifier: Mod
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                if (page.query.isEmpty()) Text("@NombreDelCanal", style = Type.body.copy(fontSize = 18.sp, color = Colors.muted))
+                if (value.isEmpty()) Text(placeholder, style = Type.body.copy(fontSize = 18.sp, color = Colors.muted))
                 field()
             }
         },

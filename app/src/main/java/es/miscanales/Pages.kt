@@ -34,6 +34,9 @@ sealed interface Filter {
     data object New : Filter
     data object Continue : Filter
     data class OneChannel(val id: String) : Filter
+
+    /** Todos los vídeos de los canales de una categoría (null: los que no tienen). */
+    data class Category(val name: String?) : Filter
 }
 
 class HomePage : Page() {
@@ -42,10 +45,20 @@ class HomePage : Page() {
     var grid = LazyGridState()
         private set
 
+    /** En la tele, con categorías, Inicio va por filas: por dónde va cada una. */
+    val rows = mutableMapOf<String, LazyListState>()
+
     fun show(filter: Filter) {
         grid = LazyGridState()
+        rows.clear()
         this.filter = filter
     }
+}
+
+/** Elegir la categoría de un canal en la tele. */
+class CategoryPage(val channelId: String) : Page() {
+    var text by mutableStateOf("")
+    var busy by mutableStateOf(false)
 }
 
 class ChannelsPage : PinPage() {

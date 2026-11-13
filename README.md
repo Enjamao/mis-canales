@@ -59,7 +59,21 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
      --es ha_token "EL_TOKEN"
    ```
 
-En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
+En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto (y,
+si los tiene, «niños» y «categoría: Música»).
+
+## Categorías
+
+Cada canal puede tener una categoría (Música, Noticias…), que se guarda también en Home Assistant.
+
+- **Ponerla**: en el móvil, en Canales, el botón «Categoría» de cada canal (una de las que ya hay,
+  «Sin categoría» o una nueva); en la tele, dentro del canal, «Poner categoría».
+- **Móvil**: en Inicio, encima de la fila de siempre, una fila con «Todas» y las categorías. Al
+  elegir una, solo salen los vídeos de sus canales, y la fila de debajo se queda con esos canales
+  («Sin ver» y «Seguir viendo» también).
+- **Tele**: «Todos» va por filas, una por categoría (y «Otros» con los canales sin categoría), con
+  «Ver todos» al final de cada una. Las categorías salen también en la fila de arriba.
+- La reproducción continua sigue la lista desde la que abriste el vídeo: una categoría entera, seguida.
 
 ## Reproducción continua y ventana flotante
 
