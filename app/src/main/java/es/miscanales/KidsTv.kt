@@ -204,7 +204,7 @@ private fun KidsTvSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
             KidsLimits.forEachIndexed { i, (minutes, label) ->
                 Pill(
                     label,
-                    { store.setKidsLimit(minutes) },
+                    { store.changeKidsLimit(minutes) },
                     if (i == 0) Modifier.focusRequester(first) else Modifier,
                     selected = store.kidsLimit == minutes,
                 )
