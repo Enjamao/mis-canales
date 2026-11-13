@@ -302,8 +302,15 @@ textos "Kids tras ver un vídeo"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -E "kids|askPin|pin" | head
 fallos "ver un vídeo en Kids"
 
-# 13. «Pedir PIN al abrir» en la app de los mayores
-adb shell am start -W -n $PKG/.MainActivity; sleep 3
+echo "--- tras salir de Kids con Atrás (tiene que seguir en Kids):"
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+
+# 13. De Kids a los mayores con el PIN, y «Pedir PIN al abrir» en la app de los mayores
+pulsar "Ajustes de los mayores"; sleep 3
+adb shell input text 1234; sleep 3
+bajar_hasta "Ir a Mis Canales (mayores)"; pulsar "Ir a Mis Canales (mayores)"; sleep 6
+textos "mayores, tras salir de Kids con el PIN"
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 pulsar_abajo "Canales"; sleep 2
 bajar_hasta "Pedir PIN al abrir Mis Canales"
 pulsar "Pedir PIN al abrir Mis Canales"; sleep 3
@@ -317,6 +324,18 @@ textos "PIN malo"
 adb shell input text 1234; sleep 4
 textos "tras el PIN bueno"
 fallos "PIN al abrir"
+
+# 14. De los mayores a Kids con el botón, y el icono de los mayores lleva a Kids mientras se esté en Kids
+pulsar_abajo "Canales"; sleep 2
+bajar_hasta "Abrir Mis Canales Kids"; pulsar "Abrir Mis Canales Kids"; sleep 8
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+textos "Kids abierto desde los mayores"
+adb shell input keyevent KEYCODE_HOME; sleep 2
+adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n $PKG/.MainActivity; sleep 8
+echo "--- icono de los mayores con el último modo en Kids (tiene que abrir Kids):"
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+textos "al abrir el icono de los mayores"
+fallos "último modo"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

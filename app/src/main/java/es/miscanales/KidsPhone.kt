@@ -251,7 +251,15 @@ private fun KidsPhoneSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
                     "tocando «Para niños» en cada canal.",
                 Modifier.padding(top = 20.dp),
             )
-            Button(onClick = onClose, modifier = Modifier.padding(top = 24.dp)) { Text("Listo") }
+            Row(Modifier.padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onClose) { Text("Listo") }
+                OutlinedButton(onClick = { (context as? MainActivity)?.openAdults() }) { Text("Ir a Mis Canales (mayores)") }
+            }
+            Hint(
+                "Mis Canales se abre en el último modo usado: mientras estéis en Kids, el icono de los mayores " +
+                    "también abre Kids. Para volver, este botón.",
+                Modifier.padding(top = 8.dp),
+            )
         }
     }
 }
@@ -321,11 +329,19 @@ internal fun KidsAdultSettings() {
             }
         }
         Hint("Para un aparato que usan también los niños: así no entran en la app de los mayores.")
-        if (store.hasPin) {
-            TextButton(onClick = { pin = PinFlow(store) { pin = PinFlow(store, create = true) { pin = null } } }) {
-                Text("Cambiar el PIN")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val context = LocalContext.current
+            Button(onClick = { (context as? MainActivity)?.openKids() }) { Text("Abrir Mis Canales Kids") }
+            if (store.hasPin) {
+                TextButton(onClick = { pin = PinFlow(store) { pin = PinFlow(store, create = true) { pin = null } } }) {
+                    Text("Cambiar el PIN")
+                }
             }
         }
+        Hint(
+            "La app se abre en el último modo usado: si se queda en Kids, al abrir Mis Canales va a Kids, y para " +
+                "volver hace falta el PIN (en Kids, el candado → Ir a Mis Canales).",
+        )
     }
     pin?.let { PhonePinDialog(it, onDismiss = { pin = null }) }
 }

@@ -111,4 +111,11 @@ adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 2
 adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 3
 textos "ajustes de Kids (tele)"
 fallos "PIN y ajustes de Kids (tele)"
+# con el último modo en Kids, abrir la app como lo hace el launcher (un solo icono) lleva a Kids
+tecla KEYCODE_HOME; sleep 2
+adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER -n $PKG/.MainActivity; sleep 8
+echo "--- abrir Mis Canales desde el launcher (tiene que abrir Kids):"
+adb shell dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity" | head -2
+textos "app abierta desde el launcher (tele)"
+fallos "último modo (tele)"
 exit 0
