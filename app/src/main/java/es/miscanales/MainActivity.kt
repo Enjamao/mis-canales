@@ -123,10 +123,14 @@ open class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // al abrir la app, y al volver de YouTube o de otra app, si hace rato de la última carga
-        feed.reloadIfStale()
-        // los subtítulos se pueden cambiar desde el reproductor
+        val before = store.channels.map { it.id }.toSet()
+        // los subtítulos se pueden cambiar desde el reproductor, y los canales desde el otro icono
         store.reloadSettings()
+        // los vídeos que haya bajado el otro icono
+        feed.reloadCache()
+        // al abrir la app, y al volver de YouTube o de otra app, si hace rato de la última carga
+        // (que trae antes los canales de Home Assistant); si no, solo la lista de canales
+        if (!feed.reloadIfStale()) scope.launch { library.pullOnResume(before) }
     }
 
     private fun handle(intent: Intent?, fresh: Boolean) {

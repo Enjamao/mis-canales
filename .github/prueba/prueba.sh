@@ -337,5 +337,37 @@ adb shell dumpsys window | grep -iE "PINNED|pip" | head -5
 textos "la app, con el vídeo en la ventana flotante"
 fallos "continua y ventana flotante"
 
+# 15. Un canal que se marca «Para niños» en la app de los mayores sale en Kids al volver a ella,
+#     sin cerrarla (Kids se queda abierta por detrás)
+adb shell am start -W -n $PKG/.KidsActivity; sleep 8
+adb logcat -c
+adb shell input keyevent KEYCODE_HOME; sleep 2
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+textos "la app de los mayores (si pide el PIN, se pone)"
+adb shell input text 1234; sleep 3
+pulsar_abajo "Canales"; sleep 3
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+python3 - <<'PY'
+import re, subprocess
+xml = open('ui.xml', encoding='utf-8').read()
+def centre(node):
+    b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
+    return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+nodes = re.findall(r'<node [^>]*>', xml)
+row = next(centre(n) for n in nodes if 'text="CNN"' in n)
+chips = [centre(n) for n in nodes if 'text="Para niños"' in n]
+x, y = min(chips, key=lambda c: abs(c[1] - row[1]))
+subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+print('pulsado «Para niños» de CNN', x, y)
+PY
+sleep 3
+adb shell input keyevent KEYCODE_HOME; sleep 2
+adb shell am start -W -n $PKG/.KidsActivity; sleep 5
+echo "--- Kids al volver (tiene que haber releído los canales: 2 para niños):"
+adb logcat -d | grep "MisCanales" | tail -5
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+textos "Kids con el canal nuevo"
+fallos "Kids al día"
+
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

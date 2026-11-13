@@ -1,6 +1,7 @@
 package es.miscanales
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -127,6 +128,16 @@ class Store(context: Context, val kids: Boolean = false) {
         saveChannels()
     }
 
+    /** Vuelve a leer los canales guardados: se pueden haber cambiado desde el otro icono (Kids o los mayores). */
+    fun reloadChannels() {
+        val saved = prefs.getString("channels", null) ?: return
+        val list = runCatching { json.decodeFromString(channelList, saved) }.getOrNull() ?: return
+        if (list == channels.toList()) return
+        channels.clear()
+        channels.addAll(list)
+        Log.i("MisCanales", "Canales releídos: ${channels.size} (${kidsChannels.size} para niños)")
+    }
+
     /** Deja los canales como [list] (la lista que viene de Home Assistant). */
     fun replaceChannels(list: List<Channel>) {
         if (list == channels.toList()) return
@@ -250,6 +261,8 @@ class Store(context: Context, val kids: Boolean = false) {
         askPin = prefs.getBoolean("askPin", false)
         kidsLimit = prefs.getInt("kidsLimit", 0)
         kidsSmall = prefs.getBoolean("kidsSmall", false)
+        // los canales (y cuáles son para niños) también
+        reloadChannels()
         // la reproducción continua marca como vistos los que va poniendo
         val seen = prefs.getString(watchedKey, "").orEmpty().split(",").filter { it.isNotEmpty() }
         if (seen != watched.toList()) {

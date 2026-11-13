@@ -79,7 +79,8 @@ mismo programa y la misma lista de canales, pero siempre en modo niños:
 
 - Solo los canales marcados **Para niños**: en el móvil, en Canales, el botón de cada canal; en la
   tele, dentro de cada canal. Se guarda también en Home Assistant (una línea «niños» en la
-  descripción del canal), así que se marca en un aparato y sale en todos.
+  descripción del canal), así que se marca en un aparato y sale en todos. Kids lo ve al volver a ella
+  (en el mismo aparato, al momento; con Home Assistant, desde otro aparato también).
 - Sin buscar en YouTube, sin añadir canales, sin enlaces a YouTube desde el reproductor (y si un vídeo
   no se deja ver dentro de la app, no se abre en la app de YouTube) y sin sugerencias al acabar.
 - Sus vídeos vistos y por dónde van, aparte de los de los mayores (y sin sincronizar).

@@ -119,9 +119,22 @@ class Feed(private val store: Store, dir: File) {
         scope.launch { refresh() }
     }
 
-    /** Vuelve a bajar los feeds si hace más de 15 minutos de la última vez. */
-    fun reloadIfStale() {
-        if (System.currentTimeMillis() - loadedAt > STALE) reload()
+    /** Vuelve a bajar los feeds si hace más de 15 minutos de la última vez. Devuelve si lo ha hecho. */
+    fun reloadIfStale(): Boolean {
+        if (System.currentTimeMillis() - loadedAt <= STALE) return false
+        reload()
+        return true
+    }
+
+    // cuándo se escribió por última vez lo guardado que se tiene leído
+    private var cacheStamp = cache.lastModified()
+
+    /** Vuelve a leer los vídeos guardados, si los ha bajado mientras tanto el otro icono (Kids o los mayores). */
+    fun reloadCache() {
+        if (loading || cache.lastModified() == cacheStamp) return
+        cacheStamp = cache.lastModified()
+        val saved = runCatching { json.decodeFromString(videoList, cache.readText()) }.getOrNull() ?: return
+        videos = saved.filter { store.has(it.channelId) }
     }
 
     private var again = false
@@ -184,6 +197,7 @@ class Feed(private val store: Store, dir: File) {
         withContext(Dispatchers.IO) {
             runCatching { cache.writeText(json.encodeToString(videoList, list)) }
         }
+        cacheStamp = cache.lastModified()
     }
 
     private companion object {
