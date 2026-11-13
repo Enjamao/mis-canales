@@ -51,11 +51,11 @@ import coil3.compose.AsyncImage
 
 /** La tarjeta de un vídeo: OK lo pone en YouTube, mantener OK abre su ficha. */
 @Composable
-fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean = true) {
+fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean = true, list: List<Video> = emptyList()) {
     val nav = LocalNavigator.current
     Column {
         Surface(
-            onClick = { nav.play(video) },
+            onClick = { nav.play(video, list.after(video)) },
             onLongClick = { nav.open(DetailsPage(video)) },
             modifier = modifier,
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),

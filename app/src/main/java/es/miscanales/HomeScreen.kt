@@ -193,7 +193,7 @@ fun VideoGrid(
     ) {
         header()
         itemsIndexed(videos, key = { _, video -> video.vid }) { i, video ->
-            VideoCard(video, Modifier.restoreFocus(page, video.vid, first = i == 0), showChannel)
+            VideoCard(video, Modifier.restoreFocus(page, video.vid, first = i == 0), showChannel, list = videos)
         }
         fullWidth("status") { Column { status() } }
     }

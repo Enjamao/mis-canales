@@ -71,6 +71,10 @@ class Store(context: Context, val kids: Boolean = false) {
     var sponsorBlock by mutableStateOf(prefs.getBoolean("sponsorBlock", true))
         private set
 
+    /** Al acabar un vídeo, el siguiente de la lista (en Kids, su propio ajuste, apagado de entrada). */
+    var autoNext by mutableStateOf(prefs.getBoolean(if (kids) "kidsAutoNext" else "autoNext", !kids))
+        private set
+
     /** Mis Canales Kids: minutos al día que pueden ver (0: sin límite). */
     var kidsLimit by mutableStateOf(prefs.getInt("kidsLimit", 0))
         private set
@@ -150,6 +154,11 @@ class Store(context: Context, val kids: Boolean = false) {
     fun changeKidsLimit(minutes: Int) {
         kidsLimit = minutes
         prefs.edit { putInt("kidsLimit", minutes) }
+    }
+
+    fun toggleAutoNext() {
+        autoNext = !autoNext
+        prefs.edit { putBoolean(if (kids) "kidsAutoNext" else "autoNext", autoNext) }
     }
 
     fun toggleKidsSmall() {
@@ -241,6 +250,12 @@ class Store(context: Context, val kids: Boolean = false) {
         askPin = prefs.getBoolean("askPin", false)
         kidsLimit = prefs.getInt("kidsLimit", 0)
         kidsSmall = prefs.getBoolean("kidsSmall", false)
+        // la reproducción continua marca como vistos los que va poniendo
+        val seen = prefs.getString(watchedKey, "").orEmpty().split(",").filter { it.isNotEmpty() }
+        if (seen != watched.toList()) {
+            watched.clear()
+            watched.addAll(seen)
+        }
         // el reproductor puede haber guardado la tele de "Ver en la tele"
         ha = readHaConfig(appContext)
         reloadProgress()
@@ -271,6 +286,14 @@ private const val SUBTITLES = "subtitles"
 /** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
 fun saveSubtitles(context: Context, on: Boolean) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
+}
+
+/** Marca un vídeo como visto desde el reproductor (la reproducción continua), que no tiene el [Store]. */
+fun markWatched(context: Context, vid: String, kids: Boolean) {
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    val key = if (kids) "kids_watched" else "watched"
+    val list = prefs.getString(key, "").orEmpty().split(",").filter { it.isNotEmpty() && it != vid } + vid
+    prefs.edit { putString(key, list.takeLast(3000).joinToString(",")) }
 }
 
 /** Guarda la configuración de Home Assistant desde el reproductor (que no tiene el [Store]). */

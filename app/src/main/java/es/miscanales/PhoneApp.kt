@@ -230,15 +230,16 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
             }
         }
         items(videos, key = { it.vid }) { video ->
-            PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+            PhoneVideo(video, onClick = { playVideo(context, store, video, queue = videos.after(video)) }, onLongClick = { onDetails(video) })
         }
         // en un canal: sus vídeos anteriores, más allá de los últimos 15
         val channel = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
         if (channel != null && store.channels.isNotEmpty()) {
             val older = OlderVideos.of(channel)
             val shown = videos.map { it.vid }.toSet()
-            items(older.videos.filter { it.vid !in shown }, key = { "older-" + it.vid }) { video ->
-                PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+            val olderList = older.videos.filter { it.vid !in shown }
+            items(olderList, key = { "older-" + it.vid }) { video ->
+                PhoneVideo(video, onClick = { playVideo(context, store, video, queue = olderList.after(video)) }, onLongClick = { onDetails(video) })
             }
             item(key = "#older") {
                 MoreButton(
@@ -348,7 +349,7 @@ private fun PhoneSearch(search: SearchState, onDetails: (Video) -> Unit) {
             item(key = "#videos") { SectionTitle("Vídeos") }
         }
         items(search.videos, key = { it.vid }) { video ->
-            PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+            PhoneVideo(video, onClick = { playVideo(context, store, video, queue = search.videos.after(video)) }, onLongClick = { onDetails(video) })
         }
         if (search.loading && search.videos.isNotEmpty()) {
             item(key = "#loading-more") { Searching("Buscando también los vídeos antiguos de tus canales…") }
@@ -460,7 +461,7 @@ private fun ChannelPreview(found: FoundChannel, onBack: () -> Unit, onDetails: (
             }
         }
         items(older.videos, key = { it.vid }) { video ->
-            PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = { onDetails(video) })
+            PhoneVideo(video, onClick = { playVideo(context, store, video, queue = older.videos.after(video)) }, onLongClick = { onDetails(video) })
         }
         item(key = "#older") {
             MoreButton(
@@ -628,6 +629,8 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
                 SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
                 SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
+                SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
+                Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
                 KidsAdultSettings()
                 SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
                     store.toggleNotifyNew()

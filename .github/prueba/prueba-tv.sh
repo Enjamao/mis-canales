@@ -44,7 +44,8 @@ tecla() { adb shell input keyevent "$@"; sleep 1; }
 adb install -r "$APK"
 adb logcat -c; adb logcat -c -b crash
 CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;,&quot;kids&quot;:true},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
-printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" "<map>" "    <string name=\"channels\">$CHANNELS</string>" "</map>" > store.xml
+printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" "<map>" "    <string name=\"channels\">$CHANNELS</string>" \
+  "    <boolean name=\"test_ignore_errors\" value=\"true\" />" "    <int name=\"test_end_after\" value=\"15\" />" "</map>" > store.xml
 adb shell run-as $PKG mkdir -p shared_prefs
 adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store.xml
 
@@ -52,6 +53,19 @@ adb shell am start -W -n $PKG/.MainActivity
 sleep 25
 textos "inicio en la tele"
 fallos "abrir en la tele"
+
+# reproducción continua en la tele: el primer vídeo (tiene el foco), a los 15 s "acaba" y pasa al siguiente
+adb logcat -c
+tecla KEYCODE_DPAD_CENTER
+sleep 32
+echo "--- reproducción continua en la tele:"
+adb logcat -d | grep "MisCanales" | tail -5
+adb shell dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity" | head -1
+# Atrás en la tele: sale del vídeo (sin ventana flotante)
+tecla KEYCODE_BACK
+sleep 3
+adb shell dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity" | head -1
+fallos "reproducción continua (tele)"
 
 # al menú (izquierda) y a "Buscar", la segunda entrada
 tecla KEYCODE_DPAD_LEFT

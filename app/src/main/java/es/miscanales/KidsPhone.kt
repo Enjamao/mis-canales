@@ -173,10 +173,10 @@ private fun KidsPhoneVideos() {
                 Thumbnail(
                     video,
                     Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(16.dp))
-                        .clickable { playVideo(context, store, video) },
+                        .clickable { playVideo(context, store, video, queue = videos.after(video)) },
                 )
             } else {
-                PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = {})
+                PhoneVideo(video, onClick = { playVideo(context, store, video, queue = videos.after(video)) }, onLongClick = {})
             }
         }
         // con un canal elegido, sus vídeos anteriores
@@ -184,8 +184,9 @@ private fun KidsPhoneVideos() {
         if (channel != null && !store.kidsSmall) {
             val older = OlderVideos.of(channel)
             val shown = videos.map { it.vid }.toSet()
-            items(older.videos.filter { it.vid !in shown }, key = { "older-" + it.vid }) { video ->
-                PhoneVideo(video, onClick = { playVideo(context, store, video) }, onLongClick = {})
+            val olderList = older.videos.filter { it.vid !in shown }
+            items(olderList, key = { "older-" + it.vid }) { video ->
+                PhoneVideo(video, onClick = { playVideo(context, store, video, queue = olderList.after(video)) }, onLongClick = {})
             }
             item(key = "#older") {
                 MoreButton(
@@ -244,6 +245,9 @@ private fun KidsPhoneSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
             Text("Modo peque", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
             SettingSwitch("Miniaturas grandes y sin textos", store.kidsSmall) { store.toggleKidsSmall() }
             Hint("Para quien aún no sabe leer.")
+            Text("Reproducción continua", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
+            SettingSwitch("Al acabar un vídeo, el siguiente", store.autoNext) { store.toggleAutoNext() }
+            Hint("Cuenta igual para el tiempo del día.")
             Text("PIN", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
             OutlinedButton(onClick = onChangePin, modifier = Modifier.padding(top = 4.dp)) { Text("Cambiar el PIN") }
             Hint(

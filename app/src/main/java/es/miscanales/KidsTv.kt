@@ -144,7 +144,7 @@ private fun KidsTvHome(left: Int?, onSettings: () -> Unit, onMore: () -> Unit) {
                     itemsIndexed(videos, key = { _, video -> video.vid }) { i, video ->
                         Column {
                             Surface(
-                                onClick = { playVideo(context, store, video) },
+                                onClick = { playVideo(context, store, video, queue = videos.after(video)) },
                                 modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
                                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(if (small) 20.dp else 12.dp)),
                                 colors = ClickableSurfaceDefaults.colors(containerColor = Colors.bg2, focusedContainerColor = Colors.bg2),
@@ -219,6 +219,12 @@ private fun KidsTvSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
             if (store.kidsSmall) "Miniaturas grandes y sin textos: sí" else "Miniaturas grandes y sin textos: no",
             { store.toggleKidsSmall() },
             selected = store.kidsSmall,
+        )
+        Text("Reproducción continua", style = Type.title.copy(fontSize = 18.sp), modifier = Modifier.padding(top = 12.dp))
+        Pill(
+            if (store.autoNext) "Al acabar un vídeo, el siguiente: sí" else "Al acabar un vídeo, el siguiente: no",
+            { store.toggleAutoNext() },
+            selected = store.autoNext,
         )
         Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Pill("Cambiar el PIN", onChangePin, icon = R.drawable.ic_lock)

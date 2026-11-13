@@ -1,5 +1,9 @@
 package es.miscanales
 
+import androidx.activity.OnBackPressedCallback
+import android.os.Looper
+import android.os.Handler
+import android.util.Log
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
@@ -33,6 +37,8 @@ import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.math.abs
 
@@ -58,6 +64,24 @@ class PlayerActivity : ComponentActivity() {
     private var kidsLimit = 0
     private var playingSince = 0L
 
+    /** Reproducción continua: los siguientes vídeos de la lista desde la que se abrió este. */
+    private val queue = ArrayDeque<QueueItem>()
+    private var autoNext = false
+    private var sponsorBlock = true
+    private var nextPending = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val playNextLater = Runnable { playNext() }
+
+    // Solo en la variante de prueba (depurable), para el emulador, donde YouTube no deja reproducir:
+    // hacer como si el vídeo acabase a los test_end_after segundos y no hacer caso de los errores.
+    private val testPrefs get() = if (BuildConfig.DEBUG) getSharedPreferences(PREFS, MODE_PRIVATE) else null
+    private val simulateEnd = Runnable { onEnded() }
+
+    private fun simulateEndLater() {
+        val seconds = testPrefs?.getInt("test_end_after", 0) ?: 0
+        if (seconds > 0) handler.postDelayed(simulateEnd, seconds * 1000L)
+    }
+
     /** En el móvil: seguir sonando con la pantalla apagada o desde la ventana flotante. */
     private var keepPlaying = false
 
@@ -77,8 +101,13 @@ class PlayerActivity : ComponentActivity() {
         }
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         videoTitle = title
-        val sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
+        sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
         kids = intent.getBooleanExtra(EXTRA_KIDS, false)
+        autoNext = intent.getBooleanExtra(EXTRA_AUTONEXT, false)
+        queue.clear()
+        intent.getStringExtra(EXTRA_QUEUE)?.let { saved ->
+            runCatching { queueJson.decodeFromString(ListSerializer(QueueItem.serializer()), saved) }.getOrNull()?.let(queue::addAll)
+        }
         kidsLimit = intent.getIntExtra(EXTRA_KIDS_LIMIT, 0)
         // desde un momento concreto (mandado desde el móvil) o donde lo dejaste (si no lo acabaste)
         val forced = intent.getIntExtra(EXTRA_START, -1)
@@ -131,12 +160,15 @@ class PlayerActivity : ComponentActivity() {
             }
             setContentView(root)
         }
-        if (sponsorBlock) {
-            scope.launch {
-                val segments = SponsorBlock.segments(vid)
-                if (segments.isNotEmpty()) web?.evaluateJavascript("setSegments(${segments.toJson()})", null)
+        loadSegments(vid)
+        simulateEndLater()
+        // en el móvil (no en Kids), Atrás deja el vídeo en la ventana flotante y se sigue por la app
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!nextPending && !tv && !kids && minimize()) return
+                finish()
             }
-        }
+        })
         // si lo has seguido viendo en otro aparato, salta a donde lo dejaste allí
         val config = readHaConfig(this).takeIf { !kids }
         if (config != null && forced < 0) {
@@ -149,6 +181,72 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** Los patrocinios de [video] para saltarlos (si está puesto SponsorBlock). */
+    private fun loadSegments(video: String) {
+        if (!sponsorBlock) return
+        scope.launch {
+            val segments = SponsorBlock.segments(video)
+            if (segments.isNotEmpty() && video == vid) web?.evaluateJavascript("setSegments(${segments.toJson()})", null)
+        }
+    }
+
+    /** A la ventana flotante (en el móvil). Devuelve si se ha podido. */
+    fun minimize(): Boolean {
+        if (tv || kids || isInPictureInPictureMode) return false
+        return runCatching { enterPictureInPictureMode(pipParams()) }.getOrDefault(false)
+    }
+
+    /** Al acabar un vídeo con más en la lista: "Siguiente: …" unos segundos, y el siguiente. */
+    private fun announceNext() {
+        val next = queue.firstOrNull() ?: return
+        nextPending = true
+        web?.evaluateJavascript("showNext(${js(next.title)}, $NEXT_SECONDS, $tv)", null)
+        handler.postDelayed(playNextLater, NEXT_SECONDS * 1000L)
+    }
+
+    /** "Cancelar" en el aviso del siguiente: se acaba aquí, como sin reproducción continua. */
+    fun cancelNext() {
+        handler.removeCallbacks(playNextLater)
+        nextPending = false
+        finish()
+    }
+
+    /** El siguiente de la lista, en el mismo reproductor (sin salir; también en la ventana flotante o con la pantalla apagada). */
+    fun playNext() {
+        handler.removeCallbacks(playNextLater)
+        nextPending = false
+        val next = queue.removeFirstOrNull() ?: return finish()
+        if (kids) countKidsTime(stillPlaying = false)
+        vid = next.vid
+        videoTitle = next.title
+        ended = false
+        lastDur = 0
+        lastSaved = 0L
+        val saved = Progresses.get(this, vid, kids)
+        lastPos = if (saved != null && saved.started) saved.pos else 0
+        markWatched(this, vid, kids)
+        NewVideos.dismiss(this, vid)
+        if (keepPlaying) PlaybackService.start(this, next.title, next.channelName)
+        // para que girar la pantalla o volver desde el aviso sigan con este vídeo y con lo que queda
+        setIntent(
+            Intent(intent)
+                .putExtra(EXTRA_VID, next.vid)
+                .putExtra(EXTRA_TITLE, next.title)
+                .putExtra(EXTRA_CHANNEL, next.channelName)
+                .putExtra(EXTRA_STATS, next.stats)
+                .putExtra(EXTRA_DESCRIPTION, "")
+                .putExtra(EXTRA_START, -1)
+                .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), queue.toList())),
+        )
+        web?.evaluateJavascript(
+            "loadNext(${js(next.vid)}, ${js(next.title)}, ${js(next.channelName)}, ${js(next.stats)}, $lastPos)",
+            null,
+        )
+        loadSegments(vid)
+        Log.i("MisCanales", "Siguiente: $vid (quedan ${queue.size})")
+        simulateEndLater()
     }
 
     private fun List<List<Double>>.toJson(): String =
@@ -257,6 +355,7 @@ class PlayerActivity : ComponentActivity() {
         description: String,
         start: Int,
         cast: Boolean,
+        minimizable: Boolean = !tv && !kids,
     ): WebView = (if (keepPlaying) AlwaysVisibleWebView(this) else WebView(this)).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
@@ -292,11 +391,15 @@ class PlayerActivity : ComponentActivity() {
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start, cast), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start, cast, minimizable), "text/html", "utf-8", null)
         web = this
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (nextPending && event.keyCode in listOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            if (event.action == KeyEvent.ACTION_UP) playNext()
+            return true
+        }
         val script = when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER,
             KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
@@ -317,11 +420,13 @@ class PlayerActivity : ComponentActivity() {
     }
 
     fun onEnded() {
+        if (ended || nextPending) return
         // visto entero: la próxima vez empieza desde el principio, y la barra sale llena
         if (lastDur > 0) lastPos = lastDur
         saveProgress(sync = true)
         ended = true
-        if (!isFinishing) finish()
+        if (isFinishing) return
+        if (autoNext && queue.isNotEmpty()) announceNext() else finish()
     }
 
     /** El estado del reproductor de YouTube: 1 en marcha, 2 en pausa, 3 cargando. */
@@ -341,6 +446,7 @@ class PlayerActivity : ComponentActivity() {
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
     fun onPlayerError(code: Int) {
         if (isFinishing) return
+        if (testPrefs?.getBoolean("test_ignore_errors", false) == true) return
         if (kids) {
             // en Kids no se sale a la app de YouTube: se avisa y se vuelve a la lista
             Toast.makeText(this, "Este vídeo no se puede ver aquí", Toast.LENGTH_LONG).show()
@@ -369,6 +475,8 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(playNextLater)
+        handler.removeCallbacks(simulateEnd)
         scope.cancel()
         if (keepPlaying) PlaybackService.stop(this)
         if (current === this) current = null
@@ -388,6 +496,11 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_DESCRIPTION = "description"
         private const val EXTRA_START = "start"
         private const val EXTRA_KIDS = "kids"
+        private const val EXTRA_QUEUE = "queue"
+        private const val EXTRA_AUTONEXT = "autoNext"
+        private const val NEXT_SECONDS = 6
+        private const val MAX_QUEUE = 60
+        private val queueJson = Json { ignoreUnknownKeys = true }
         private const val EXTRA_KIDS_LIMIT = "kidsLimit"
         private const val ORIGIN = "https://es.miscanales"
         private const val DESKTOP_UA =
@@ -543,10 +656,15 @@ class PlayerActivity : ComponentActivity() {
             startAt: Int = -1,
             kids: Boolean = false,
             kidsLimit: Int = 0,
+            queue: List<Video> = emptyList(),
+            autoNext: Boolean = false,
         ) {
+            val next = queue.take(MAX_QUEUE).map { QueueItem(it.vid, it.title, it.channelId, it.channelName, it.stats()) }
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     .putExtra(EXTRA_START, startAt)
+                    .putExtra(EXTRA_AUTONEXT, autoNext)
+                    .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), next))
                     .putExtra(EXTRA_KIDS, kids)
                     .putExtra(EXTRA_KIDS_LIMIT, kidsLimit)
                     .putExtra(EXTRA_VID, video.vid)
@@ -583,6 +701,7 @@ class PlayerActivity : ComponentActivity() {
             description: String,
             start: Int,
             cast: Boolean,
+            minimizable: Boolean,
         ) = """
             <!DOCTYPE html>
             <html><head>
@@ -617,6 +736,17 @@ class PlayerActivity : ComponentActivity() {
               #info .sub { font-size: 13px; color: #aaa; }
               #totv { display: none; margin-top: 12px; padding: 8px 16px; border: 0; border-radius: 18px;
                       background: #272727; color: #fff; font-size: 14px; }
+              #mini { display: none; margin: 12px 0 0 8px; padding: 8px 16px; border: 0; border-radius: 18px;
+                      background: #272727; color: #fff; font-size: 14px; }
+              /* reproducción continua: el siguiente vídeo */
+              #next { display: none; position: absolute; right: 24px; bottom: 96px; z-index: 4; max-width: 460px;
+                      padding: 16px 20px; border-radius: 14px; background: rgba(15,15,15,.92); }
+              #next .label { font-size: 13px; color: #aaa; }
+              #nexttitle { font-size: 18px; font-weight: bold; margin: 4px 0 8px; line-height: 1.3; }
+              #nextcount { font-size: 14px; color: #ddd; }
+              #next button { margin: 12px 8px 0 0; padding: 8px 16px; border: 0; border-radius: 18px; background: #272727;
+                             color: #fff; font-size: 14px; }
+              @media (orientation: portrait) { .phone #next { left: 16px; right: 16px; top: calc(56.25vw + 12px); bottom: auto; } }
               #info .desc { white-space: pre-wrap; font-size: 14px; line-height: 1.45; color: #ddd; margin-top: 16px;
                             overflow-wrap: anywhere; }
             </style>
@@ -624,8 +754,10 @@ class PlayerActivity : ComponentActivity() {
             <div id="wrap"><div id="p"></div></div>
             <div id="toast" class="hidden"></div>
             <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
-              <button id="totv" onclick="toTv()">📺 Ver en la tele</button>
+              <button id="totv" onclick="toTv()">📺 Ver en la tele</button><button id="mini" onclick="Android.minimize()">⌄ Minimizar</button>
               <div class="desc" id="idesc"></div></div>
+            <div id="next"><div class="label">Siguiente</div><div id="nexttitle"></div><div id="nextcount"></div>
+              <div id="nextbuttons"><button onclick="Android.playNext()">Ver ya</button><button onclick="Android.cancelNext()">Cancelar</button></div></div>
             <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
             <div id="bottom" class="panel">
               <div id="bar"><div id="fill"></div></div>
@@ -648,6 +780,35 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('istats').textContent = ${js(stats)};
               document.getElementById('idesc').textContent = ${js(description)};
               if ($cast) document.getElementById('totv').style.display = 'inline-block';
+              if ($minimizable) document.getElementById('mini').style.display = 'inline-block';
+            }
+            // reproducción continua: el aviso del siguiente (en la tele, OK lo pone ya y Atrás sale)
+            var nextTimer = null;
+            function showNext(title, seconds, isTv) {
+              document.getElementById('nexttitle').textContent = title;
+              document.getElementById('nextbuttons').style.display = isTv ? 'none' : 'block';
+              var left = seconds;
+              var count = function () {
+                document.getElementById('nextcount').textContent =
+                  'Empieza en ' + left + ' s' + (isTv ? '   ·   OK: ya   ·   Atrás: salir' : '');
+                left = Math.max(0, left - 1);
+              };
+              count();
+              clearInterval(nextTimer);
+              nextTimer = setInterval(count, 1000);
+              document.getElementById('next').style.display = 'block';
+            }
+            function hideNext() { clearInterval(nextTimer); document.getElementById('next').style.display = 'none'; }
+            function loadNext(id, title, channel, stats, start) {
+              hideNext();
+              document.getElementById('title').textContent = title;
+              document.getElementById('channel').textContent = channel;
+              document.getElementById('ititle').textContent = title;
+              document.getElementById('ichannel').textContent = channel;
+              document.getElementById('istats').textContent = stats;
+              document.getElementById('idesc').textContent = '';
+              segs = []; skipped = {}; subsDone = false; started = false;
+              if (ready()) player.loadVideoById({ videoId: id, startSeconds: start || 0 });
             }
             function toTv() {
               var t = ready() ? Math.floor(player.getCurrentTime() || 0) : 0;
@@ -794,6 +955,15 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun toTv(start: Int) = activity.runOnUiThread { activity.sendToTv(start) }
+
+    @JavascriptInterface
+    fun minimize() = activity.runOnUiThread { activity.minimize() }
+
+    @JavascriptInterface
+    fun playNext() = activity.runOnUiThread { activity.playNext() }
+
+    @JavascriptInterface
+    fun cancelNext() = activity.runOnUiThread { activity.cancelNext() }
 }
 
 /**
@@ -806,3 +976,13 @@ private class AlwaysVisibleWebView(context: Context) : WebView(context) {
         super.onWindowVisibilityChanged(View.VISIBLE)
     }
 }
+
+/** Un vídeo de la cola de la reproducción continua: lo justo para enseñarlo y ponerlo. */
+@kotlinx.serialization.Serializable
+data class QueueItem(
+    val vid: String,
+    val title: String,
+    val channelId: String = "",
+    val channelName: String = "",
+    val stats: String = "",
+)
