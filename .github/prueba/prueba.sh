@@ -320,24 +320,7 @@ adb shell input text 1234; sleep 4
 textos "tras el PIN bueno"
 fallos "PIN al abrir"
 
-# 14. Reproducción continua y ventana flotante. En el emulador YouTube no deja reproducir: la variante
-#     de prueba hace como si cada vídeo acabase a los 15 s (y no hace caso de los errores).
-adb logcat -c
-pulsar_abajo "Inicio"; sleep 3
-pulsar "NUEVO"; sleep 32
-echo "--- reproducción continua (tiene que haber pasado al siguiente):"
-adb logcat -d | grep "MisCanales" | tail -5
-adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
-# Atrás: el vídeo a la ventana flotante, y la app debajo
-adb shell input keyevent KEYCODE_BACK; sleep 5
-echo "--- tras Atrás (la app delante y el reproductor en la ventana flotante):"
-adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
-adb shell dumpsys activity activities | grep -ciE "pinned" 
-adb shell dumpsys window | grep -iE "PINNED|pip" | head -5
-textos "la app, con el vídeo en la ventana flotante"
-fallos "continua y ventana flotante"
-
-# 15. Un canal que se marca «Para niños» en la app de los mayores sale en Kids al volver a ella,
+# 14. Un canal que se marca «Para niños» en la app de los mayores sale en Kids al volver a ella,
 #     sin cerrarla (Kids se queda abierta por detrás)
 adb shell am start -W -n $PKG/.KidsActivity; sleep 8
 adb logcat -c
@@ -372,6 +355,25 @@ adb logcat -d | grep "MisCanales" | tail -5
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "Kids con el canal nuevo"
 fallos "Kids al día"
+
+# 15. Reproducción continua y ventana flotante. En el emulador YouTube no deja reproducir: la variante
+#     de prueba hace como si cada vídeo acabase a los 15 s (y no hace caso de los errores).
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+adb shell input text 1234; sleep 3
+adb logcat -c
+pulsar_abajo "Inicio"; sleep 3
+pulsar "NUEVO"; sleep 32
+echo "--- reproducción continua (tiene que haber pasado al siguiente):"
+adb logcat -d | grep "MisCanales" | tail -5
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+# Atrás: el vídeo a la ventana flotante, y la app debajo
+adb shell input keyevent KEYCODE_BACK; sleep 5
+echo "--- tras Atrás (la app delante y el reproductor en la ventana flotante):"
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+adb shell dumpsys activity activities | grep -ciE "pinned" 
+adb shell dumpsys window | grep -iE "PINNED|pip" | head -5
+textos "la app, con el vídeo en la ventana flotante"
+fallos "continua y ventana flotante"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0
