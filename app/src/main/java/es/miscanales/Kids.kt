@@ -150,18 +150,3 @@ class PinFlow(private val store: Store, create: Boolean = !store.hasPin, private
         prompt = promptFor()
     }
 }
-
-/**
- * El último modo usado en este aparato (Kids o mayores). Al abrir Mis Canales, si se quedó en Kids,
- * se va a Kids: así basta con un icono (algunos launchers de tele enseñan uno por app), y los niños
- * no salen de Kids sin el PIN.
- */
-object KidsMode {
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    fun last(context: Context): Boolean = prefs(context).getBoolean("lastKids", false)
-
-    fun set(context: Context, kids: Boolean) {
-        prefs(context).edit { putBoolean("lastKids", kids) }
-    }
-}
