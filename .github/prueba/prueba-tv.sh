@@ -149,12 +149,14 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Mis canales (tele)"
-# los canales están debajo de los ajustes: bajar hasta que salga CNN
-for i in $(seq 1 12); do
+# los canales están debajo de los ajustes: arrastrar la lista hacia arriba hasta que salga CNN
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}; echo "pantalla $W x $H"
+for i in $(seq 1 10); do
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
   grep -q 'text="CNN"' ui.xml && break
-  tecla KEYCODE_DPAD_DOWN
+  adb shell input swipe $((W*3/5)) $((H*4/5)) $((W*3/5)) $((H/4)) 400; sleep 1
 done
+textos "Mis canales, con CNN (tele)"
 pulsar "CNN"; sleep 4
 textos "página de CNN (tele)"
 pulsar "Poner categoría"; sleep 3
