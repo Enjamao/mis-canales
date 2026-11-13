@@ -157,12 +157,15 @@ for i in $(seq 1 10); do
   adb shell input swipe $((W*3/5)) $((H*4/5)) $((W*3/5)) $((H/4)) 400; sleep 1
 done
 textos "Mis canales, con CNN (tele)"
-# tocar hasta que salga lo siguiente (en la tele, a veces el primer toque solo pone el foco)
+# tocar $1 hasta que salga $2 (en la tele, tocar solo pone el foco: si no se abre, OK)
 hasta() {
-  for i in $(seq 1 6); do
+  for i in $(seq 1 4); do
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
     grep -q "text=\"$2\"" ui.xml && return 0
     pulsar "$1"; sleep 2
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+    grep -q "text=\"$2\"" ui.xml && return 0
+    tecla KEYCODE_DPAD_CENTER; sleep 2
   done
   echo "no ha salido: $2"
 }
@@ -170,7 +173,10 @@ hasta "CNN" "Poner categoría"
 textos "página de CNN (tele)"
 hasta "Poner categoría" "Sin categoría"
 textos "elegir categoría (tele)"
-pulsar "Música, Noticias…"; sleep 2
+# abajo, a la caja de la categoría nueva (el foco empieza en «Sin categoría»)
+foco "elegir categoría (tele)"
+tecla KEYCODE_DPAD_DOWN
+foco "en la caja (tele)"
 adb shell input text "Noticias"; sleep 1
 tecla KEYCODE_ENTER
 sleep 4
