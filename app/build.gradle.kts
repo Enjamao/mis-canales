@@ -18,9 +18,11 @@ android {
     defaultConfig {
         applicationId = "es.miscanales"
         minSdk = 26
+        // cada cuánto se miran los vídeos nuevos (en la variante de prueba, más a menudo)
+        buildConfigField("long", "CHECK_MINUTES", "30")
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.9.1"
+        versionCode = 24
+        versionName = "0.9.2"
     }
 
     signingConfigs {
@@ -45,12 +47,14 @@ android {
             initWith(getByName("release"))
             isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("long", "CHECK_MINUTES", "3")
             matchingFallbacks += listOf("release")
         }
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
