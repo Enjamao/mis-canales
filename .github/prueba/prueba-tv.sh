@@ -149,6 +149,12 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Mis canales (tele)"
+# los canales están debajo de los ajustes: bajar hasta que salga CNN
+for i in $(seq 1 12); do
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  grep -q 'text="CNN"' ui.xml && break
+  tecla KEYCODE_DPAD_DOWN
+done
 pulsar "CNN"; sleep 4
 textos "página de CNN (tele)"
 pulsar "Poner categoría"; sleep 3
