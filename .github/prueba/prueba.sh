@@ -291,9 +291,12 @@ textos "Kids en modo peque, con 30 min"
 fallos "ajustes de Kids"
 
 # 12. Ver un vídeo en Kids (tocando la primera miniatura grande) y que cuente el tiempo
-SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
-adb shell input tap $((W/2)) $((H*2/5)); sleep 45
+# (en modo peque no hay textos: se toca la etiqueta "NUEVO", que está dentro de la miniatura)
+pulsar "NUEVO"; sleep 45
 adb shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity" | head -3
+echo "--- tiempo contado mientras suena:"
+adb shell run-as $PKG cat shared_prefs/store.xml | grep -E "kidsUsed"
+adb exec-out screencap -p > 12-video-kids.png
 adb shell input keyevent KEYCODE_BACK; sleep 4
 textos "Kids tras ver un vídeo"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -E "kids|askPin|pin" | head
