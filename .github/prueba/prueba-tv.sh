@@ -43,7 +43,7 @@ tecla() { adb shell input keyevent "$@"; sleep 1; }
 
 adb install -r "$APK"
 adb logcat -c; adb logcat -c -b crash
-CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
+CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;,&quot;kids&quot;:true},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
 printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" "<map>" "    <string name=\"channels\">$CHANNELS</string>" "</map>" > store.xml
 adb shell run-as $PKG mkdir -p shared_prefs
 adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store.xml
@@ -96,4 +96,19 @@ sleep 15
 for i in $(seq 1 12); do tecla KEYCODE_DPAD_DOWN; done
 textos "vídeos anteriores (tele)"
 fallos "vídeos anteriores (tele)"
+
+# Mis Canales Kids en la tele (Marques Brownlee va marcado «para niños»)
+adb shell am start -W -n $PKG/.KidsActivity; sleep 15
+textos "Kids en la tele"
+fallos "abrir Kids (tele)"
+# a "Mayores" (arriba a la derecha) y crear el PIN con el teclado de la pantalla (y con números)
+tecla KEYCODE_DPAD_UP
+for i in 1 2 3 4; do tecla KEYCODE_DPAD_RIGHT; done
+tecla KEYCODE_DPAD_CENTER
+sleep 2
+textos "teclado del PIN (tele)"
+adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 2
+adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 3
+textos "ajustes de Kids (tele)"
+fallos "PIN y ajustes de Kids (tele)"
 exit 0

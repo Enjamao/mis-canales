@@ -251,5 +251,54 @@ bajar_hasta "Ver más"; pulsar "Ver más"; sleep 12
 textos "más vídeos anteriores"
 fallos "vídeos anteriores"
 
+# 9. Kids: marcar un canal «Para niños» en la app de los mayores
+adb shell input keyevent KEYCODE_BACK; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+pulsar_abajo "Canales"; sleep 3
+pulsar "Para niños"; sleep 3
+textos "canales, con uno «Para niños»"
+fallos "marcar para niños"
+
+# 10. Abrir Mis Canales Kids (su propio icono)
+adb shell am start -W -n $PKG/.KidsActivity; sleep 15
+textos "Kids"
+fallos "abrir Kids"
+
+# 11. Ajustes de Kids: crear el PIN 1234 (dos veces), 30 min al día y modo peque
+pulsar "Ajustes de los mayores"; sleep 3
+adb shell input text 1234; sleep 3
+adb shell input text 1234; sleep 3
+textos "ajustes de Kids"
+pulsar "30 min"; sleep 1
+pulsar "Miniaturas grandes y sin textos"; sleep 1
+pulsar "Listo"; sleep 3
+textos "Kids en modo peque, con 30 min"
+fallos "ajustes de Kids"
+
+# 12. Ver un vídeo en Kids (tocando la primera miniatura grande) y que cuente el tiempo
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
+adb shell input tap $((W/2)) $((H*2/5)); sleep 40
+adb shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity" | head -3
+adb shell input keyevent KEYCODE_BACK; sleep 4
+textos "Kids tras ver un vídeo"
+adb shell run-as $PKG cat shared_prefs/store.xml | grep -E "kids|askPin|pin" | head
+fallos "ver un vídeo en Kids"
+
+# 13. «Pedir PIN al abrir» en la app de los mayores
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+pulsar_abajo "Canales"; sleep 2
+bajar_hasta "Pedir PIN al abrir Mis Canales"
+pulsar "Pedir PIN al abrir Mis Canales"; sleep 3
+adb shell input text 1234; sleep 3
+textos "con «Pedir PIN al abrir»"
+adb shell am force-stop $PKG; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 6
+textos "al abrir: tiene que pedir el PIN"
+adb shell input text 1111; sleep 2
+textos "PIN malo"
+adb shell input text 1234; sleep 4
+textos "tras el PIN bueno"
+fallos "PIN al abrir"
+
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0
