@@ -61,6 +61,23 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 
 En la lista, cada canal es un elemento con su nombre; en la descripción van su ID y su foto.
 
+## Mis Canales Kids
+
+La app trae un segundo icono, **Mis Canales Kids** (ámbar, con una estrella), para los niños. Es el
+mismo programa y la misma lista de canales, pero siempre en modo niños:
+
+- Solo los canales marcados **Para niños**: en el móvil, en Canales, el botón de cada canal; en la
+  tele, dentro de cada canal. Se guarda también en Home Assistant (una línea «niños» en la
+  descripción del canal), así que se marca en un aparato y sale en todos.
+- Sin buscar en YouTube, sin añadir canales, sin enlaces a YouTube desde el reproductor (y si un vídeo
+  no se deja ver dentro de la app, no se abre en la app de YouTube) y sin sugerencias al acabar.
+- Sus vídeos vistos y por dónde van, aparte de los de los mayores (y sin sincronizar).
+- **Ajustes** (el candado; piden el PIN de los mayores, que se crea la primera vez): tiempo máximo al
+  día (al acabarse, el vídeo se para; con el PIN, media hora más) y **modo peque** (miniaturas
+  grandes y sin textos). En la tele, el PIN se escribe con el teclado de la pantalla.
+- El PIN es de cada aparato. En la app de los mayores, **Pedir PIN al abrir** la cierra con el PIN
+  (al abrirla y al volver a ella con Home), para los aparatos que usan también los niños.
+
 ## Buscar
 
 En el móvil, la pestaña **Buscar**; en la tele, **Buscar** en el menú de la izquierda.
