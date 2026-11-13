@@ -222,8 +222,13 @@ private fun KidsTvSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
         )
         Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Pill("Cambiar el PIN", onChangePin, icon = R.drawable.ic_lock)
+            Pill("Ir a Mis Canales (mayores)", { (context as? MainActivity)?.openAdults() })
             Pill("Listo", onClose, icon = R.drawable.ic_check, selected = true)
         }
+        Text(
+            "Mis Canales se abre en el último modo usado: mientras estéis en Kids, abrir la app lleva a Kids.",
+            style = Type.sub.copy(fontSize = 14.sp),
+        )
         Text(
             "Los canales para niños se eligen en Mis Canales (la app de los mayores): Mis canales → un canal → «Para niños».",
             style = Type.sub.copy(fontSize = 14.sp),

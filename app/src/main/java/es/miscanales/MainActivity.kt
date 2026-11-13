@@ -48,8 +48,37 @@ open class MainActivity : ComponentActivity() {
         }
     }
 
+    /** De los mayores a Kids: se cierra esta, para que Atrás en Kids no vuelva a los mayores. */
+    fun openKids() {
+        KidsMode.set(this, true)
+        startActivity(Intent(this, KidsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        finish()
+    }
+
+    /** De Kids a los mayores (después del PIN): ya no hace falta volver a escribirlo. */
+    fun openAdults() {
+        KidsMode.set(this, false)
+        AppLock.unlock()
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(FROM_KIDS, true))
+        finish()
+    }
+
+    private companion object {
+        /** Viene de Kids, donde ya se ha escrito el PIN. */
+        const val FROM_KIDS = "fromKids"
+    }
+
+    /** Abrir la app (el icono) con el último modo en Kids: a Kids. */
+    private fun shouldGoToKids(intent: Intent?): Boolean =
+        !kidsMode && KidsMode.last(this) && (intent == null || intent.action == Intent.ACTION_MAIN)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (shouldGoToKids(intent)) {
+            openKids()
+            return
+        }
+        if (kidsMode) KidsMode.set(this, true)
         store = Store(this, kids = kidsMode)
         feed = Feed(store, filesDir)
         library = Library(store, feed)
@@ -60,7 +89,7 @@ open class MainActivity : ComponentActivity() {
             return
         }
         // al abrirla de nuevo (no al girar), la app de los mayores pide el PIN si así está puesto
-        if (savedInstanceState == null) AppLock.leaving()
+        if (savedInstanceState == null && !intent.getBooleanExtra(FROM_KIDS, false)) AppLock.leaving()
         locked.value = store.askPin && AppLock.locked
         // al volver a crearse (al girar, por ejemplo) no se vuelve a poner el vídeo que llegó de fuera
         handle(intent, fresh = savedInstanceState == null)
@@ -107,6 +136,12 @@ open class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (!::store.isInitialized) return
+        // la de los mayores, al volver a ella con el último modo en Kids (abierto con su icono): a Kids
+        if (!kidsMode && KidsMode.last(this)) {
+            openKids()
+            return
+        }
         if (!kidsMode && store.askPin && AppLock.locked) locked.value = true
     }
 
@@ -123,6 +158,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!::store.isInitialized || isFinishing) return
         // al abrir la app, y al volver de YouTube o de otra app, si hace rato de la última carga
         feed.reloadIfStale()
         // los subtítulos se pueden cambiar desde el reproductor
