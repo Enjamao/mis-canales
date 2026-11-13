@@ -237,10 +237,14 @@ private fun Logo(open: Boolean) {
 fun playVideo(context: Context, store: Store, video: Video, start: Int = -1) {
     store.setWatched(video.vid, true)
     NewVideos.dismiss(context, video.vid)
-    if (store.useYouTubeApp) {
-        context.playOnYouTube(video.vid)
-    } else {
-        PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start)
+    when {
+        // Kids: siempre en el reproductor de la app, con su tiempo contado
+        store.kids -> PlayerActivity.start(
+            context, video, store.subtitles, background = false, sponsorBlock = store.sponsorBlock,
+            kids = true, kidsLimit = store.kidsLimit,
+        )
+        store.useYouTubeApp -> context.playOnYouTube(video.vid)
+        else -> PlayerActivity.start(context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start)
     }
 }
 

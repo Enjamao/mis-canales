@@ -48,7 +48,7 @@ class HomePage : Page() {
     }
 }
 
-class ChannelsPage : Page() {
+class ChannelsPage : PinPage() {
     val list = LazyListState()
 }
 
@@ -63,6 +63,11 @@ class AddChannelPage : Page() {
 class ChannelPage(val channelId: String) : Page() {
     val grid = LazyGridState()
     var confirmRemove by mutableStateOf(false)
+}
+
+/** El PIN que se está pidiendo en una pantalla de la tele (o null). */
+open class PinPage : Page() {
+    var pin by mutableStateOf<PinFlow?>(null)
 }
 
 /** El buscador (lo buscado y los resultados están en [Navigator.search]). */

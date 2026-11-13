@@ -51,6 +51,11 @@ fun ChannelsScreen(page: ChannelsPage) {
     val store = LocalStore.current
     val feed = LocalFeed.current
     val nav = LocalNavigator.current
+    // pidiendo el PIN (para "Pedir PIN al abrir" o para cambiarlo): solo el teclado
+    page.pin?.let { flow ->
+        TvPinPad(flow, onCancel = { page.pin = null })
+        return
+    }
     val channels = store.channels.sortedBy { it.name.lowercase() }
     LazyColumn(
         state = page.list,
@@ -115,6 +120,42 @@ fun ChannelsScreen(page: ChannelsPage) {
                     if (store.sponsorBlock) "Patrocinios: se saltan" else "Patrocinios: se ven",
                     { store.toggleSponsorBlock() },
                     Modifier.restoreFocus(page, "sponsorblock"),
+                )
+            }
+        }
+        item(key = "#kids") {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                Text("Kids:", style = Type.sub.copy(fontSize = 14.sp))
+                Pill(
+                    if (store.askPin) "Pedir PIN al abrir: sí" else "Pedir PIN al abrir: no",
+                    {
+                        if (store.askPin) {
+                            store.toggleAskPin()
+                        } else {
+                            page.pin = PinFlow(store) {
+                                page.pin = null
+                                store.toggleAskPin()
+                                AppLock.unlock()
+                            }
+                        }
+                    },
+                    Modifier.restoreFocus(page, "askpin"),
+                    icon = R.drawable.ic_lock,
+                )
+                if (store.hasPin) {
+                    Pill(
+                        "Cambiar el PIN",
+                        { page.pin = PinFlow(store) { page.pin = PinFlow(store, create = true) { page.pin = null } } },
+                        Modifier.restoreFocus(page, "changepin"),
+                    )
+                }
+                Text(
+                    "Los canales «Para niños» se marcan dentro de cada canal.",
+                    style = Type.sub.copy(fontSize = 14.sp),
                 )
             }
         }
@@ -211,6 +252,26 @@ fun ChannelScreen(page: ChannelPage) {
                     Text(
                         "Sus últimos vídeos. Al quitarlo, deja de salir en Inicio.",
                         style = Type.sub.copy(fontSize = 14.sp),
+                    )
+                }
+                if (channel != null) {
+                    // para Mis Canales Kids (se guarda también en Home Assistant)
+                    Pill(
+                        if (channel.kids) "Para niños: sí" else "Para niños: no",
+                        {
+                            scope.launch {
+                                try {
+                                    library.setKids(channel.id, !channel.kids)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        Modifier.restoreFocus(page, "kids"),
+                        icon = if (channel.kids) R.drawable.ic_check else null,
+                        selected = channel.kids,
                     )
                 }
                 Pill(

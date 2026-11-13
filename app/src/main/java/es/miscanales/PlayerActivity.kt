@@ -50,6 +50,14 @@ class PlayerActivity : ComponentActivity() {
     private var vid = ""
     private var tv = false
 
+    /**
+     * Mis Canales Kids: su propio progreso (sin sincronizar), sin salidas a YouTube, sin ventana
+     * flotante ni sonido con la pantalla apagada, y con el tiempo del día contado ([kidsLimit] min).
+     */
+    private var kids = false
+    private var kidsLimit = 0
+    private var playingSince = 0L
+
     /** En el móvil: seguir sonando con la pantalla apagada o desde la ventana flotante. */
     private var keepPlaying = false
 
@@ -70,9 +78,11 @@ class PlayerActivity : ComponentActivity() {
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         videoTitle = title
         val sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
+        kids = intent.getBooleanExtra(EXTRA_KIDS, false)
+        kidsLimit = intent.getIntExtra(EXTRA_KIDS_LIMIT, 0)
         // desde un momento concreto (mandado desde el móvil) o donde lo dejaste (si no lo acabaste)
         val forced = intent.getIntExtra(EXTRA_START, -1)
-        val saved = Progresses.get(this, vid)
+        val saved = Progresses.get(this, vid, kids)
         val start = when {
             forced >= 0 -> forced
             saved != null && saved.started -> saved.pos
@@ -90,8 +100,8 @@ class PlayerActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         tv = isTv()
-        keepPlaying = !tv && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
-        if (!tv) {
+        keepPlaying = !tv && !kids && intent.getBooleanExtra(EXTRA_BACKGROUND, false)
+        if (!tv && !kids) {
             showBars(resources.configuration.orientation)
             // al salir de la app (Home), el vídeo sigue en una ventana flotante
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setPictureInPictureParams(pipParams())
@@ -106,7 +116,7 @@ class PlayerActivity : ComponentActivity() {
             // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
             PlaybackService.start(this, title, channel)
         }
-        val webView = createWebView(title, channel, subtitles, tv, stats, description, start, cast = !tv && readHaConfig(this) != null)
+        val webView = createWebView(title, channel, subtitles, tv, stats, description, start, cast = !tv && !kids && readHaConfig(this) != null)
         if (tv) {
             // en la tele, la página sola en la ventana (con algo detrás, en Fire TV el vídeo se ve negro)
             setContentView(webView)
@@ -128,7 +138,7 @@ class PlayerActivity : ComponentActivity() {
             }
         }
         // si lo has seguido viendo en otro aparato, salta a donde lo dejaste allí
-        val config = readHaConfig(this)
+        val config = readHaConfig(this).takeIf { !kids }
         if (config != null && forced < 0) {
             scope.launch {
                 val remote = runCatching { ProgressSync.fetch(config)[vid] }.getOrNull() ?: return@launch
@@ -148,9 +158,9 @@ class PlayerActivity : ComponentActivity() {
     private fun saveProgress(sync: Boolean) {
         if (lastDur <= 0) return
         val progress = Progress(lastPos, lastDur, System.currentTimeMillis())
-        Progresses.put(this, mapOf(vid to progress))
+        Progresses.put(this, mapOf(vid to progress), kids)
         lastSaved = progress.at
-        if (sync) ProgressSync.push(this, vid, videoTitle, progress)
+        if (sync && !kids) ProgressSync.push(this, vid, videoTitle, progress)
     }
 
     /** Cada pocos segundos, mientras suena. */
@@ -158,6 +168,24 @@ class PlayerActivity : ComponentActivity() {
         lastPos = time.toInt()
         lastDur = duration.toInt()
         if (System.currentTimeMillis() - lastSaved > 15_000) saveProgress(sync = false)
+        if (kids) countKidsTime(stillPlaying = true)
+    }
+
+    /**
+     * Suma al día de los niños lo que ha sonado desde la última vez y, si se ha acabado su tiempo,
+     * para el vídeo y vuelve a la lista (allí sale el aviso y el botón de pedir más con el PIN).
+     */
+    private fun countKidsTime(stillPlaying: Boolean) {
+        val now = System.currentTimeMillis()
+        if (playingSince > 0) KidsTime.add(this, ((now - playingSince) / 1000).toInt())
+        playingSince = if (stillPlaying) now else 0L
+        val left = KidsTime.remaining(this, kidsLimit) ?: return
+        if (left <= 0 && !isFinishing) {
+            web?.evaluateJavascript("pause()", null)
+            Toast.makeText(this, "Se acabó el tiempo de hoy", Toast.LENGTH_LONG).show()
+            saveProgress(sync = false)
+            finish()
+        }
     }
 
     /** En vertical, con las barras, como en YouTube; en horizontal, a pantalla completa. */
@@ -185,7 +213,9 @@ class PlayerActivity : ComponentActivity() {
     // antes de Android 12 la ventana flotante no se abre sola
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (!tv && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        // al salir con Home de la app de los mayores, al volver pide el PIN (si así está puesto)
+        if (!kids) AppLock.leaving()
+        if (!tv && !kids && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             runCatching { enterPictureInPictureMode(pipParams()) }
         }
     }
@@ -249,13 +279,16 @@ class PlayerActivity : ComponentActivity() {
         // puede con 1080p o más con soltura (la WebView del Fire TV dice que no aunque pueda) y el
         // tamaño real de la pantalla (dice ser de 960×540 con escala ×4). La WebView del Fire TV no
         // sabe meter scripts al empezar una página, así que la app pide ella la del reproductor.
-        if (tv) webViewClient = object : WebViewClient() {
+        if (tv || kids) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                if (EmbedPatch.isEmbed(request)) {
+                if (tv && EmbedPatch.isEmbed(request)) {
                     EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + HIDE_BRIDGE + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
                 } else {
                     null
                 }
+
+            // en Kids, nada de salir a YouTube: los enlaces del reproductor (el logo, el título) no hacen nada
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = kids
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
@@ -293,6 +326,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** El estado del reproductor de YouTube: 1 en marcha, 2 en pausa, 3 cargando. */
     fun onPlayerState(code: Int) {
+        if (kids) countKidsTime(stillPlaying = code == 1)
         when (code) {
             1, 3 -> PlaybackService.setPlaying(true)
             2 -> PlaybackService.setPlaying(false)
@@ -314,6 +348,7 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onStop() {
         if (!ended) saveProgress(sync = true)
+        if (kids) countKidsTime(stillPlaying = false)
         // En la tele (o en el móvil sin el ajuste) Home o apagar la pantalla lo paran.
         // En el móvil con el ajuste sigue sonando; y en la ventana flotante la actividad no llega a pararse.
         if (!keepPlaying) {
@@ -347,6 +382,8 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_SPONSORBLOCK = "sponsorblock"
         private const val EXTRA_DESCRIPTION = "description"
         private const val EXTRA_START = "start"
+        private const val EXTRA_KIDS = "kids"
+        private const val EXTRA_KIDS_LIMIT = "kidsLimit"
         private const val ORIGIN = "https://es.miscanales"
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -492,10 +529,21 @@ class PlayerActivity : ComponentActivity() {
         @SuppressLint("StaticFieldLeak")
         private var current: PlayerActivity? = null
 
-        fun start(context: Context, video: Video, subtitles: Boolean, background: Boolean, sponsorBlock: Boolean, startAt: Int = -1) {
+        fun start(
+            context: Context,
+            video: Video,
+            subtitles: Boolean,
+            background: Boolean,
+            sponsorBlock: Boolean,
+            startAt: Int = -1,
+            kids: Boolean = false,
+            kidsLimit: Int = 0,
+        ) {
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     .putExtra(EXTRA_START, startAt)
+                    .putExtra(EXTRA_KIDS, kids)
+                    .putExtra(EXTRA_KIDS_LIMIT, kidsLimit)
                     .putExtra(EXTRA_VID, video.vid)
                     .putExtra(EXTRA_TITLE, video.title)
                     .putExtra(EXTRA_CHANNEL, video.channelName)

@@ -72,6 +72,7 @@ class Library(val store: Store, val feed: Feed) {
                             item.summary.ifBlank { old?.name ?: id },
                             avatarOf(item) ?: old?.avatar,
                             old?.addedAt ?: System.currentTimeMillis(),
+                            kids = kidsOf(item),
                         )
                     } else if (item.summary.isNotBlank()) {
                         // escrito a mano en Home Assistant (@nombre o un enlace): se busca y se completa
@@ -117,9 +118,31 @@ class Library(val store: Store, val feed: Feed) {
         return "Conectado con Home Assistant.$uploaded Hay ${store.channels.size} en la lista."
     }
 
-    /** Marca un vídeo como visto o no visto aquí y en los demás aparatos. */
+    /** Marca o desmarca un canal "para niños", aquí y en Home Assistant (así sale igual en la tele). */
+    suspend fun setKids(id: String, value: Boolean) {
+        val channel = store.channel(id) ?: return
+        val updated = channel.copy(kids = value)
+        val config = store.ha
+        if (config != null) {
+            HomeAssistant.items(config).filter { idOf(it) == id }.forEach {
+                HomeAssistant.update(config, it.uid, it.summary.ifBlank { updated.name }, describe(updated))
+            }
+        }
+        store.setKids(id, value)
+    }
+
+    /** Marca un vídeo como visto o no visto aquí y en los demás aparatos (lo de los niños, solo aquí). */
     fun setWatched(video: Video, value: Boolean) {
         store.setWatched(video.vid, value)
+        if (store.kids) {
+            if (value) {
+                Progresses.put(store.appContextForSync(), mapOf(video.vid to Progress(1, 1, System.currentTimeMillis())), kids = true)
+                store.reloadProgress()
+            } else {
+                store.forgetProgress(video.vid)
+            }
+            return
+        }
         if (value) {
             val done = Progress(1, 1, System.currentTimeMillis())
             Progresses.put(store.appContextForSync(), mapOf(video.vid to done))
@@ -138,8 +161,13 @@ class Library(val store: Store, val feed: Feed) {
     }
 
     companion object {
-        /** En la descripción del elemento: el ID del canal y, debajo, su foto. */
-        fun describe(channel: Channel): String = listOfNotNull(channel.id, channel.avatar).joinToString("\n")
+        /** En la descripción del elemento: el ID del canal, debajo su foto y, si es para niños, "niños". */
+        fun describe(channel: Channel): String =
+            listOfNotNull(channel.id, channel.avatar, if (channel.kids) KIDS_MARK else null).joinToString("\n")
+
+        private const val KIDS_MARK = "niños"
+
+        fun kidsOf(item: HaItem): Boolean = item.description.lines().any { it.trim().equals(KIDS_MARK, ignoreCase = true) }
 
         fun idOf(item: HaItem): String? = Regex("UC[\\w-]{22}").find(item.description)?.value
 
