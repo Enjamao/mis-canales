@@ -346,6 +346,9 @@ adb shell am start -W -n $PKG/.MainActivity; sleep 3
 textos "la app de los mayores (si pide el PIN, se pone)"
 adb shell input text 1234; sleep 3
 pulsar_abajo "Canales"; sleep 3
+# la lista se quedó abajo en el paso 13: arriba del todo
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
+for i in 1 2 3 4 5 6; do adb shell input swipe $((W/2)) $((H/3)) $((W/2)) $((H*2/3)) 200; sleep 1; done
 adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
 python3 - <<'PY'
 import re, subprocess
@@ -354,6 +357,7 @@ def centre(node):
     b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
     return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
 nodes = re.findall(r'<node [^>]*>', xml)
+print([re.search(r'text="([^"]*)"', n).group(1) for n in nodes if re.search(r'text="[^"]+"', n)])
 row = next(centre(n) for n in nodes if 'text="CNN"' in n)
 chips = [centre(n) for n in nodes if 'text="Para niños"' in n]
 x, y = min(chips, key=lambda c: abs(c[1] - row[1]))
