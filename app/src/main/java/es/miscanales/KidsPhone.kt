@@ -231,7 +231,7 @@ private fun KidsPhoneSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
                 for ((minutes, label) in KidsLimits) {
                     FilterChip(
                         selected = store.kidsLimit == minutes,
-                        onClick = { store.setKidsLimit(minutes) },
+                        onClick = { store.changeKidsLimit(minutes) },
                         label = { Text(label, fontSize = 12.sp) },
                     )
                 }

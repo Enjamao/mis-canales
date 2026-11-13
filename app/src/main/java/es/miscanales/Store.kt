@@ -147,7 +147,7 @@ class Store(context: Context, val kids: Boolean = false) {
         prefs.edit { putString(watchedKey, watched.joinToString(",")) }
     }
 
-    fun setKidsLimit(minutes: Int) {
+    fun changeKidsLimit(minutes: Int) {
         kidsLimit = minutes
         prefs.edit { putInt("kidsLimit", minutes) }
     }
