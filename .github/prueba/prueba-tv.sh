@@ -140,9 +140,15 @@ for i, n in enumerate(nodes):
         print(re.search(r'bounds=\"[^\"]*\"', n).group(0), texts[:3])
 "
 }
-# la app de los mayores sigue en la página de Marques Brownlee: Atrás, a Mis canales, y a CNN
-adb shell am start -W -n $PKG/.MainActivity; sleep 3
-tecla KEYCODE_BACK; sleep 2
+# la app de los mayores desde cero, y por el menú (izquierda) a Canales, la tercera entrada, y a CNN
+adb shell am force-stop $PKG; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 12
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_CENTER
+sleep 3
+textos "Mis canales (tele)"
 pulsar "CNN"; sleep 4
 textos "página de CNN (tele)"
 pulsar "Poner categoría"; sleep 3

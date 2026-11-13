@@ -335,6 +335,7 @@ textos "tras el PIN bueno"
 fallos "PIN al abrir"
 
 # 13b. Categorías: Marques Brownlee en «Ciencia» y CNN en «Noticias» (las dos nuevas); en Inicio, su fila
+pulsar_abajo "Canales"; sleep 3
 arriba_del_todo
 pulsar_bajo "Marques Brownlee" "Categoría"; sleep 2
 textos "elegir la categoría de Marques Brownlee"
