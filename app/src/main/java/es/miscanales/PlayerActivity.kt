@@ -662,6 +662,8 @@ class PlayerActivity : ComponentActivity() {
             val next = queue.take(MAX_QUEUE).map { QueueItem(it.vid, it.title, it.channelId, it.channelName, it.stats()) }
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
+                    // ir al reproductor no cuenta como salir de la app (para "Pedir PIN al abrir")
+                    .addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
                     .putExtra(EXTRA_START, startAt)
                     .putExtra(EXTRA_AUTONEXT, autoNext)
                     .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), next))
