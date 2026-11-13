@@ -9,6 +9,10 @@ import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
 import android.app.job.JobService
+import android.app.AlarmManager
+import android.content.BroadcastReceiver
+import android.os.PowerManager
+import android.util.Log
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -24,6 +28,9 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -31,9 +38,12 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Los avisos de vídeos nuevos en el móvil: cada media hora (más o menos: Android junta estas
- * tareas para gastar menos batería) se miran los feeds de tus canales, y por cada vídeo nuevo
- * sale un aviso que al tocarlo lo abre en Mis Canales, no en la app de YouTube.
+ * Los avisos de vídeos nuevos en el móvil: cada media hora se miran los feeds de tus canales, y por
+ * cada vídeo nuevo sale un aviso que al tocarlo lo abre en Mis Canales, no en la app de YouTube.
+ *
+ * Lo lanza una alarma que Android deja sonar también con el móvil en reposo profundo (Doze): las
+ * tareas programadas normales se aplazan entonces hasta que coges el móvil, aunque la app no tenga
+ * restricciones de batería. Queda también la tarea programada, por si acaso; las dos no se pisan.
  */
 object NewVideos {
     private const val JOB_ID = 4201
@@ -53,13 +63,27 @@ object NewVideos {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    private const val ACTION_CHECK = "es.miscanales.MIRAR_NUEVOS"
+    private const val TAG = "MisCanales"
+    private val every = TimeUnit.MINUTES.toMillis(BuildConfig.CHECK_MINUTES)
+    private val running = Mutex()
+
     /** Pone en marcha (o para) la revisión periódica. Si ya estaba en marcha, la deja como está. */
     fun schedule(context: Context, on: Boolean) {
         val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
         if (!on) {
             scheduler.cancel(JOB_ID)
+            alarms(context)?.cancel(alarmIntent(context))
+            prefs(context).edit { remove("nextAlarm") }
             return
         }
+        // la alarma, si no hay una pendiente (se pierden al reiniciar el móvil o si se fuerza el cierre de la app)
+        val pending = PendingIntent.getBroadcast(
+            context, 0,
+            Intent(context, NewVideosReceiver::class.java).setAction(ACTION_CHECK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE,
+        )
+        if (pending == null || prefs(context).getLong("nextAlarm", 0) < System.currentTimeMillis()) arm(context)
         if (scheduler.getPendingJob(JOB_ID) != null) return
         // si Android no la acepta, la app sigue funcionando (sin avisos)
         runCatching {
@@ -72,6 +96,29 @@ object NewVideos {
             )
         }
     }
+
+    /** La siguiente alarma, dentro de [every]. */
+    internal fun arm(context: Context) {
+        val at = System.currentTimeMillis() + every
+        runCatching {
+            alarms(context)?.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(context))
+            prefs(context).edit { putLong("nextAlarm", at) }
+        }
+    }
+
+    private fun alarms(context: Context) = context.getSystemService(AlarmManager::class.java)
+
+    private fun alarmIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context, 0,
+        Intent(context, NewVideosReceiver::class.java).setAction(ACTION_CHECK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS_KNOWN, Context.MODE_PRIVATE)
+
+    /** Si la app puede usar internet con el móvil en reposo (batería "Sin restricciones"). */
+    fun unrestricted(context: Context): Boolean =
+        context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
 
     /** Si Android deja que la app ponga avisos (desde Android 13 hay que pedir permiso). */
     fun allowed(context: Context): Boolean =
@@ -99,7 +146,12 @@ object NewVideos {
      * Mira los canales y avisa de lo nuevo. La primera vez (o con un canal recién añadido) solo
      * apunta lo que hay, para no avisar de todo lo anterior.
      */
-    suspend fun check(context: Context) {
+    suspend fun check(context: Context, origin: String) = running.withLock {
+        Log.i(TAG, "Avisos: revisión ($origin)")
+        checkNow(context)
+    }
+
+    private suspend fun checkNow(context: Context) {
         val store = Store(context)
         if (!store.notifyNew) return
         val channels = store.channels.toList()
@@ -124,6 +176,7 @@ object NewVideos {
             putString("videos", (videos.map { it.vid } + knownVideos.orEmpty()).distinct().take(3000).joinToString(","))
             putString("channels", (knownChannels + videos.map { it.channelId }).joinToString(","))
         }
+        Log.i(TAG, "Avisos: ${videos.size} vídeos, ${fresh.size} nuevos")
         if (fresh.isNotEmpty()) show(context, fresh.sortedBy { it.published })
     }
 
@@ -222,7 +275,7 @@ class NewVideosJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         scope.launch {
             try {
-                NewVideos.check(applicationContext)
+                NewVideos.check(applicationContext, "tarea")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -242,5 +295,34 @@ class NewVideosJob : JobService() {
     override fun onDestroy() {
         scope.coroutineContext.cancelChildren()
         super.onDestroy()
+    }
+}
+
+/**
+ * La alarma de [NewVideos] (y, al encender el móvil o actualizar la app, volver a ponerla).
+ * Android da a la app un rato con el móvil en reposo para mirar los vídeos.
+ */
+class NewVideosReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val app = context.applicationContext
+        if (intent.action != "es.miscanales.MIRAR_NUEVOS") {
+            // encendido o app actualizada: las alarmas se habían borrado
+            app.getSharedPreferences("nuevos", Context.MODE_PRIVATE).edit { remove("nextAlarm") }
+            NewVideos.schedule(app, Store(app).notifyNew)
+            return
+        }
+        NewVideos.arm(app)
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+            try {
+                withTimeout(50_000) { NewVideos.check(app, "alarma") }
+            } catch (e: CancellationException) {
+                // se acabó el tiempo: ya se mirará la próxima vez
+            } catch (e: Exception) {
+                // sin red o YouTube caído: ya se mirará la próxima vez
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }

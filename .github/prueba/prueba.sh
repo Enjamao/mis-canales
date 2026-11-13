@@ -136,6 +136,21 @@ pulsar "Allow"
 sleep 5
 fallos "permiso"
 
+# 1b. Con el móvil en reposo profundo (Doze) la alarma tiene que sonar igual (en la prueba, cada 3 min).
+#     La app, como en el móvil de Eloy, con la batería "Sin restricciones".
+adb shell dumpsys deviceidle whitelist +$PKG
+adb shell input keyevent KEYCODE_HOME
+adb shell dumpsys battery unplug
+adb shell dumpsys deviceidle force-idle
+adb shell dumpsys deviceidle get deep
+sleep 240
+echo "--- registro de la app en reposo:"
+adb logcat -d | grep "MisCanales" | tail -10
+adb shell dumpsys alarm | grep -A3 "es.miscanales" | head -12
+adb shell dumpsys deviceidle unforce
+adb shell dumpsys battery reset
+fallos "reposo"
+
 # 2. La revisión periódica, dos veces (la primera apunta, la segunda compara)
 adb shell cmd jobscheduler run -f $PKG 4201
 sleep 30

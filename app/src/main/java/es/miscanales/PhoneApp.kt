@@ -2,6 +2,9 @@
 
 package es.miscanales
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
@@ -618,6 +621,22 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                             "abre aquí. Si también te llegan los avisos de Telegram, puedes apagar la automatización " +
                             "\"Mis Canales: aviso de vídeos nuevos\" en Home Assistant.",
                     )
+                    if (!NewVideos.unrestricted(context)) {
+                        Hint(
+                            "Para que avise también con el móvil en reposo, la batería de la app tiene que estar " +
+                                "\"Sin restricciones\".",
+                        )
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.parse("package:${context.packageName}"),
+                                    ),
+                                )
+                            }
+                        }) { Text("Quitar la restricción de batería") }
+                    }
                     val latest = feed.videos.firstOrNull()
                     if (latest != null) {
                         TextButton(onClick = {
