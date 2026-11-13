@@ -157,9 +157,18 @@ for i in $(seq 1 10); do
   adb shell input swipe $((W*3/5)) $((H*4/5)) $((W*3/5)) $((H/4)) 400; sleep 1
 done
 textos "Mis canales, con CNN (tele)"
-pulsar "CNN"; sleep 4
+# tocar hasta que salga lo siguiente (en la tele, a veces el primer toque solo pone el foco)
+hasta() {
+  for i in $(seq 1 6); do
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+    grep -q "text=\"$2\"" ui.xml && return 0
+    pulsar "$1"; sleep 2
+  done
+  echo "no ha salido: $2"
+}
+hasta "CNN" "Poner categoría"
 textos "página de CNN (tele)"
-pulsar "Poner categoría"; sleep 3
+hasta "Poner categoría" "Sin categoría"
 textos "elegir categoría (tele)"
 pulsar "Música, Noticias…"; sleep 2
 adb shell input text "Noticias"; sleep 1
