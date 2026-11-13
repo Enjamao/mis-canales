@@ -105,6 +105,16 @@ class Library(val store: Store, val feed: Feed) {
         }
     }
 
+    /**
+     * Al volver a la app: la lista de canales de Home Assistant (por si se ha cambiado en otro aparato),
+     * sin esperar a la próxima carga de vídeos. Si es nuevo algún canal, se bajan sus vídeos.
+     */
+    suspend fun pullOnResume(before: Set<String>) {
+        if (store.ha != null && System.currentTimeMillis() - syncedAt > QUICK_SYNC) pull()
+        val shown = feed.videos.map { it.channelId }.toSet()
+        if (store.channels.any { it.id !in before && it.id !in shown }) feed.reload()
+    }
+
     /** Prueba la configuración, sube a Home Assistant los canales que falten allí, la guarda y sincroniza. */
     suspend fun connect(config: HaConfig): String {
         // si no responde o el token no vale, esto falla y no se guarda nada
@@ -166,6 +176,9 @@ class Library(val store: Store, val feed: Feed) {
             listOfNotNull(channel.id, channel.avatar, if (channel.kids) KIDS_MARK else null).joinToString("\n")
 
         private const val KIDS_MARK = "niños"
+
+        /** Al volver a la app, la lista de Home Assistant se trae si hace más de esto de la última vez. */
+        private const val QUICK_SYNC = 20_000L
 
         fun kidsOf(item: HaItem): Boolean = item.description.lines().any { it.trim().equals(KIDS_MARK, ignoreCase = true) }
 
