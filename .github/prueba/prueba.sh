@@ -255,7 +255,22 @@ fallos "vídeos anteriores"
 adb shell input keyevent KEYCODE_BACK; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 3
 pulsar_abajo "Canales"; sleep 3
-pulsar "Para niños"; sleep 3
+# el «Para niños» de la fila de Marques Brownlee (sus vídeos se dejan ver insertados; los de CNN no)
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+python3 - <<'PY'
+import re, subprocess
+xml = open('ui.xml', encoding='utf-8').read()
+def centre(node):
+    b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
+    return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+nodes = re.findall(r'<node [^>]*>', xml)
+row = next(centre(n) for n in nodes if 'text="Marques Brownlee"' in n)
+chips = [centre(n) for n in nodes if 'text="Para niños"' in n]
+x, y = min(chips, key=lambda c: abs(c[1] - row[1]))
+subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+print('pulsado «Para niños» de Marques Brownlee', x, y)
+PY
+sleep 3
 textos "canales, con uno «Para niños»"
 fallos "marcar para niños"
 
@@ -277,7 +292,7 @@ fallos "ajustes de Kids"
 
 # 12. Ver un vídeo en Kids (tocando la primera miniatura grande) y que cuente el tiempo
 SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
-adb shell input tap $((W/2)) $((H*2/5)); sleep 40
+adb shell input tap $((W/2)) $((H*2/5)); sleep 45
 adb shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity" | head -3
 adb shell input keyevent KEYCODE_BACK; sleep 4
 textos "Kids tras ver un vídeo"
