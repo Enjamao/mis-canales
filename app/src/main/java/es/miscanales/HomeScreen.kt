@@ -17,6 +17,12 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -41,11 +47,21 @@ fun HomeScreen(page: HomePage) {
     // los empezados y sin acabar, el último que viste primero
     val continuing = feed.videos.filter { store.progress[it.vid]?.started == true }
         .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
+    val categories = store.categories
     val videos = when (filter) {
         Filter.All -> feed.videos
         Filter.New -> newOnes
         Filter.Continue -> continuing
         is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
+        is Filter.Category -> feed.videos.inCategory(store, filter.name)
+    }
+    // con categorías, "Todos" va por filas: una por categoría, y "Otros" con los canales sin ninguna
+    val byRows = filter == Filter.All && categories.isNotEmpty()
+    val rows = if (!byRows) {
+        emptyList()
+    } else {
+        val names = categories + if (store.channels.any { it.category == null }) listOf(null) else emptyList()
+        names.map { it to feed.videos.inCategory(store, it) }.filter { it.second.isNotEmpty() }
     }
     // Hasta que llegan los vídeos, el foco está en "Todos" (si no, se lo lleva el menú y lo abre).
     // Luego pasa al primer vídeo, si no lo has movido tú.
@@ -58,7 +74,8 @@ fun HomeScreen(page: HomePage) {
     }
     VideoGrid(
         page,
-        videos,
+        // por filas, los vídeos van dentro de las filas, arriba
+        if (byRows) emptyList() else videos,
         page.grid,
         status = {
             val error = feed.error
@@ -68,6 +85,7 @@ fun HomeScreen(page: HomePage) {
                 videos.isNotEmpty() -> {}
                 filter == Filter.New -> Status("No tienes vídeos nuevos sin ver. ¡Al día!")
                 filter is Filter.OneChannel -> Status("Este canal no tiene vídeos recientes.")
+                filter is Filter.Category -> Status("Los canales de esta categoría no tienen vídeos recientes.")
                 feed.failed.isEmpty() -> Status("Tus canales no tienen vídeos recientes.")
                 else -> {}
             }
@@ -129,6 +147,16 @@ fun HomeScreen(page: HomePage) {
                         icon = R.drawable.ic_refresh,
                     )
                 }
+                // las categorías, redondas: todos sus vídeos en cuadrícula
+                items(categories, key = { "cat:$it" }) { name ->
+                    Chip(
+                        name,
+                        { page.show(if (filter == Filter.Category(name)) Filter.All else Filter.Category(name)) },
+                        Modifier.restoreFocus(page, "category:$name"),
+                        selected = filter == Filter.Category(name),
+                        shape = CircleShape,
+                    )
+                }
                 items(store.channels.sortedBy { it.name.lowercase() }, key = { it.id }) { channel ->
                     Chip(
                         channel.name,
@@ -141,10 +169,66 @@ fun HomeScreen(page: HomePage) {
                 }
             }
         }
+        if (filter is Filter.Category) {
+            fullWidth("category") {
+                Text(filter.name ?: OTHERS, style = Type.pageTitle, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            }
+        }
+        rows.forEachIndexed { r, (name, list) ->
+            fullWidth("row:${name ?: ""}") {
+                CategoryRow(page, name, list.take(ROW_SIZE), first = r == 0)
+            }
+        }
     }
 }
 
+/** Una fila de Inicio en la tele: los últimos vídeos de una categoría y, al final, "Ver todos". */
+@Composable
+private fun CategoryRow(page: HomePage, name: String?, videos: List<Video>, first: Boolean) {
+    val state = page.rows.getOrPut(name ?: "") { LazyListState() }
+    Column {
+        Text(
+            name ?: OTHERS,
+            style = Type.pageTitle.copy(fontSize = 20.sp),
+            modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
+        )
+        LazyRow(
+            state = state,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+        ) {
+            itemsIndexed(videos, key = { _, video -> video.vid }) { i, video ->
+                Box(Modifier.width(CARD_WIDTH)) {
+                    VideoCard(video, Modifier.restoreFocus(page, video.vid, first = first && i == 0), list = videos)
+                }
+            }
+            item(key = "#all") {
+                Box(Modifier.width(CARD_WIDTH).aspectRatio(16f / 9f), contentAlignment = Alignment.Center) {
+                    Chip(
+                        "Ver todos",
+                        { page.show(Filter.Category(name)) },
+                        Modifier.restoreFocus(page, "all:${name ?: ""}"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Los vídeos de los canales de [category] (null: los de los canales sin categoría). */
+private fun List<Video>.inCategory(store: Store, category: String?): List<Video> {
+    val ids = store.channelsIn(category).map { it.id }.toSet()
+    return filter { it.channelId in ids }
+}
+
 private const val ALL = "filter:all"
+private const val OTHERS = "Otros"
+
+/** Los vídeos que salen en cada fila, antes de "Ver todos". */
+private const val ROW_SIZE = 20
+
+/** Lo ancho que es un vídeo en una fila: como en la cuadrícula de cuatro columnas. */
+private val CARD_WIDTH = 196.dp
 
 /** La primera vez, sin canales: un botón para añadir el primero. */
 @Composable

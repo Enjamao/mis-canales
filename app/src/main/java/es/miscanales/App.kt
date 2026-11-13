@@ -106,6 +106,7 @@ fun App(store: Store, feed: Feed, library: Library) {
                         is ChannelsPage -> ChannelsScreen(page)
                         is AddChannelPage -> AddChannelScreen(page)
                         is ChannelPage -> ChannelScreen(page)
+                        is CategoryPage -> CategoryScreen(page)
                         is DetailsPage -> DetailsScreen(page)
                         is SearchPage -> SearchScreen(page)
                         is FoundChannelPage -> FoundChannelScreen(page)

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +42,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -63,6 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -100,6 +103,8 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
         CompositionLocalProvider(LocalStore provides store, LocalFeed provides feed, LocalLibrary provides library) {
             var tab by rememberSaveable { mutableStateOf(Tab.Home) }
             var filter by remember { mutableStateOf<Filter>(Filter.All) }
+            // la categoría elegida arriba en Inicio (null: todas)
+            var category by rememberSaveable { mutableStateOf<String?>(null) }
             var details by remember { mutableStateOf<Video?>(null) }
             val search = remember { SearchState() }
             // al compartir un vídeo o un canal con la app, a "Añadir"
@@ -124,10 +129,21 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     when (tab) {
-                        Tab.Home -> PhoneHome(filter, onFilter = { filter = it }, onDetails = { details = it })
+                        Tab.Home -> PhoneHome(
+                            filter,
+                            category,
+                            onFilter = { filter = it },
+                            onCategory = {
+                                category = it
+                                // un canal suelto de otra categoría ya no se vería en la fila
+                                if (filter is Filter.OneChannel) filter = Filter.All
+                            },
+                            onDetails = { details = it },
+                        )
                         Tab.Search -> PhoneSearch(search, onDetails = { details = it })
                         Tab.Channels -> PhoneChannels(onOpen = { id ->
                             filter = Filter.OneChannel(id)
+                            category = null
                             tab = Tab.Home
                         })
                         Tab.Add -> PhoneAdd(shared)
@@ -141,6 +157,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                     onDismiss = { details = null },
                     onChannel = {
                         filter = Filter.OneChannel(video.channelId)
+                        category = null
                         details = null
                     },
                 )
@@ -150,18 +167,36 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
 }
 
 @Composable
-private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Video) -> Unit) {
+private fun PhoneHome(
+    filter: Filter,
+    category: String?,
+    onFilter: (Filter) -> Unit,
+    onCategory: (String?) -> Unit,
+    onDetails: (Video) -> Unit,
+) {
     val store = LocalStore.current
     val feed = LocalFeed.current
     val context = LocalContext.current
-    val newOnes = feed.videos.filter { store.isNew(it) }
-    val continuing = feed.videos.filter { store.progress[it.vid]?.started == true }
+    val categories = store.categories
+    // la categoría elegida (si ya no la tiene ningún canal, como si no hubiera ninguna)
+    val chosen = category?.takeIf { it in categories }
+    val channels = (if (chosen == null) store.channels else store.channelsIn(chosen)).sortedBy { it.name.lowercase() }
+    val inCategory = if (chosen == null) {
+        feed.videos
+    } else {
+        val ids = channels.map { it.id }.toSet()
+        feed.videos.filter { it.channelId in ids }
+    }
+    val newOnes = inCategory.filter { store.isNew(it) }
+    val continuing = inCategory.filter { store.progress[it.vid]?.started == true }
         .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
     val videos = when (filter) {
-        Filter.All -> feed.videos
+        Filter.All -> inCategory
         Filter.New -> newOnes
         Filter.Continue -> continuing
         is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
+        // (en el móvil, la categoría va aparte, en su fila)
+        is Filter.Category -> inCategory
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "#head") {
@@ -177,13 +212,43 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
                 }
             }
         }
+        if (categories.isNotEmpty()) {
+            // las categorías, en píldoras redondas, encima de la fila de siempre
+            item(key = "#categories") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item(key = "#all") {
+                        FilterChip(
+                            selected = chosen == null,
+                            onClick = { onCategory(null) },
+                            label = { Text("Todas") },
+                            shape = CircleShape,
+                        )
+                    }
+                    items(categories, key = { "cat:$it" }) { name ->
+                        FilterChip(
+                            selected = chosen == name,
+                            onClick = { onCategory(if (chosen == name) null else name) },
+                            label = { Text(name, maxLines = 1) },
+                            shape = CircleShape,
+                        )
+                    }
+                }
+            }
+        }
         item(key = "#filters") {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item(key = "all") {
-                    FilterChip(selected = filter == Filter.All, onClick = { onFilter(Filter.All) }, label = { Text("Todos") })
+                    FilterChip(
+                        selected = filter == Filter.All,
+                        onClick = { onFilter(Filter.All) },
+                        label = { Text(if (chosen == null) "Todos" else "Todos · ${channels.size}") },
+                    )
                 }
                 item(key = "new") {
                     FilterChip(
@@ -201,7 +266,7 @@ private fun PhoneHome(filter: Filter, onFilter: (Filter) -> Unit, onDetails: (Vi
                         )
                     }
                 }
-                items(store.channels.sortedBy { it.name.lowercase() }, key = { it.id }) { channel ->
+                items(channels, key = { it.id }) { channel ->
                     FilterChip(
                         selected = filter == Filter.OneChannel(channel.id),
                         onClick = { onFilter(Filter.OneChannel(channel.id)) },
@@ -571,6 +636,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var removing by remember { mutableStateOf<Channel?>(null) }
+    var categorizing by remember { mutableStateOf<Channel?>(null) }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -596,23 +662,32 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = Colors.muted,
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // su categoría (se guarda también en Home Assistant)
+                        FilterChip(
+                            selected = channel.category != null,
+                            onClick = { categorizing = channel },
+                            label = { Text(channel.category ?: "Categoría", fontSize = 12.sp, maxLines = 1) },
+                            shape = CircleShape,
+                        )
+                        // para Mis Canales Kids (se guarda también en Home Assistant)
+                        FilterChip(
+                            selected = channel.kids,
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        library.setKids(channel.id, !channel.kids)
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            label = { Text("Para niños", fontSize = 12.sp) },
+                        )
+                    }
                 }
-                // para Mis Canales Kids (se guarda también en Home Assistant)
-                FilterChip(
-                    selected = channel.kids,
-                    onClick = {
-                        scope.launch {
-                            try {
-                                library.setKids(channel.id, !channel.kids)
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    },
-                    label = { Text("Para niños", fontSize = 12.sp) },
-                )
                 IconButton(onClick = { removing = channel }) {
                     Icon(painterResource(R.drawable.ic_delete), contentDescription = "Quitar ${channel.name}")
                 }
@@ -671,6 +746,25 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
         }
         item(key = "#ha") { HaSettings() }
     }
+    val toCategorize = categorizing
+    if (toCategorize != null) {
+        CategoryDialog(
+            toCategorize,
+            onDismiss = { categorizing = null },
+            onChoose = { category ->
+                categorizing = null
+                scope.launch {
+                    try {
+                        library.setCategory(toCategorize.id, category)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+        )
+    }
     val channel = removing
     if (channel != null) {
         AlertDialog(
@@ -698,6 +792,44 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } },
         )
     }
+}
+
+/** Elegir la categoría de un canal: una de las que ya hay, ninguna, o una nueva. */
+@Composable
+private fun CategoryDialog(channel: Channel, onDismiss: () -> Unit, onChoose: (String?) -> Unit) {
+    val store = LocalStore.current
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Categoría de ${channel.name}") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                for (name in store.categories + listOf<String?>(null)) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onChoose(name) }.padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = channel.category == name, onClick = { onChoose(name) })
+                        Text(name ?: "Sin categoría")
+                    }
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Nueva categoría") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) onChoose(text) }),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onChoose(text) }, enabled = text.isNotBlank()) { Text("Crear") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }
 
 @Composable

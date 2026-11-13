@@ -73,6 +73,7 @@ class Library(val store: Store, val feed: Feed) {
                             avatarOf(item) ?: old?.avatar,
                             old?.addedAt ?: System.currentTimeMillis(),
                             kids = kidsOf(item),
+                            category = categoryOf(item),
                         )
                     } else if (item.summary.isNotBlank()) {
                         // escrito a mano en Home Assistant (@nombre o un enlace): se busca y se completa
@@ -141,6 +142,22 @@ class Library(val store: Store, val feed: Feed) {
         store.setKids(id, value)
     }
 
+    /** Le pone a un canal una categoría (null: ninguna), aquí y en Home Assistant. */
+    suspend fun setCategory(id: String, category: String?) {
+        val channel = store.channel(id) ?: return
+        val clean = category?.trim()?.replace(Regex("\\s+"), " ")?.ifEmpty { null }
+        // si ya existe con otras mayúsculas, la misma
+        val name = clean?.let { c -> store.categories.firstOrNull { it.equals(c, ignoreCase = true) } ?: c }
+        val updated = channel.copy(category = name)
+        val config = store.ha
+        if (config != null) {
+            HomeAssistant.items(config).filter { idOf(it) == id }.forEach {
+                HomeAssistant.update(config, it.uid, it.summary.ifBlank { updated.name }, describe(updated))
+            }
+        }
+        store.setCategory(id, name)
+    }
+
     /** Marca un vídeo como visto o no visto aquí y en los demás aparatos (lo de los niños, solo aquí). */
     fun setWatched(video: Video, value: Boolean) {
         store.setWatched(video.vid, value)
@@ -171,11 +188,26 @@ class Library(val store: Store, val feed: Feed) {
     }
 
     companion object {
-        /** En la descripción del elemento: el ID del canal, debajo su foto y, si es para niños, "niños". */
+        /**
+         * En la descripción del elemento: el ID del canal, debajo su foto, si es para niños "niños"
+         * y, si tiene categoría, "categoría: Música".
+         */
         fun describe(channel: Channel): String =
-            listOfNotNull(channel.id, channel.avatar, if (channel.kids) KIDS_MARK else null).joinToString("\n")
+            listOfNotNull(
+                channel.id,
+                channel.avatar,
+                if (channel.kids) KIDS_MARK else null,
+                channel.category?.let { "$CATEGORY_MARK: $it" },
+            ).joinToString("\n")
 
         private const val KIDS_MARK = "niños"
+        private const val CATEGORY_MARK = "categoría"
+
+        /** La categoría (también escrita a mano en Home Assistant: "categoria: Música", sin tilde, vale). */
+        fun categoryOf(item: HaItem): String? = item.description.lines()
+            .map { it.trim() }
+            .firstOrNull { Regex("^categor[ií]a\\s*:", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+            ?.substringAfter(":")?.trim()?.replace(Regex("\\s+"), " ")?.ifEmpty { null }
 
         /** Al volver a la app, la lista de Home Assistant se trae si hace más de esto de la última vez. */
         private const val QUICK_SYNC = 20_000L

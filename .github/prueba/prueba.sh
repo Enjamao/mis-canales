@@ -76,6 +76,33 @@ else:
 PY
 }
 
+pulsar_bajo() {
+  # el elemento con el texto $2 más cerca por debajo del que tiene el texto $1 (un botón de la fila de un canal)
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 - "$1" "$2" <<'PY'
+import re, subprocess, sys
+xml = open('ui.xml', encoding='utf-8').read()
+def centre(node):
+    b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
+    return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+nodes = re.findall(r'<node [^>]*>', xml)
+rows = [centre(n) for n in nodes if f'text="{sys.argv[1]}"' in n]
+chips = [centre(n) for n in nodes if f'text="{sys.argv[2]}"' in n]
+below = [c for c in chips if rows and c[1] > rows[0][1]]
+if not below:
+    print('no está en pantalla:', sys.argv[2], 'bajo', sys.argv[1], re.findall(r' text="([^"]+)"', xml)[:45])
+else:
+    x, y = min(below, key=lambda c: c[1] - rows[0][1])
+    subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+    print('pulsado', sys.argv[2], 'de', sys.argv[1], x, y)
+PY
+}
+
+arriba_del_todo() {
+  SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
+  for i in 1 2 3 4 5 6; do adb shell input swipe $((W/2)) $((H/3)) $((W/2)) $((H*2/3)) 200; sleep 1; done
+}
+
 textos() {
   echo "--- pantalla: $1"
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
@@ -258,20 +285,7 @@ adb shell input keyevent KEYCODE_BACK; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 3
 pulsar_abajo "Canales"; sleep 3
 # el «Para niños» de la fila de Marques Brownlee (sus vídeos se dejan ver insertados; los de CNN no)
-adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-python3 - <<'PY'
-import re, subprocess
-xml = open('ui.xml', encoding='utf-8').read()
-def centre(node):
-    b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
-    return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
-nodes = re.findall(r'<node [^>]*>', xml)
-row = next(centre(n) for n in nodes if 'text="Marques Brownlee"' in n)
-chips = [centre(n) for n in nodes if 'text="Para niños"' in n]
-x, y = min(chips, key=lambda c: abs(c[1] - row[1]))
-subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
-print('pulsado «Para niños» de Marques Brownlee', x, y)
-PY
+pulsar_bajo "Marques Brownlee" "Para niños"
 sleep 3
 textos "canales, con uno «Para niños»"
 fallos "marcar para niños"
@@ -320,6 +334,23 @@ adb shell input text 1234; sleep 4
 textos "tras el PIN bueno"
 fallos "PIN al abrir"
 
+# 13b. Categorías: Marques Brownlee en «Ciencia» y CNN en «Noticias» (las dos nuevas); en Inicio, su fila
+arriba_del_todo
+pulsar_bajo "Marques Brownlee" "Categoría"; sleep 2
+textos "elegir la categoría de Marques Brownlee"
+escribir "Ciencia"; sleep 3
+pulsar_bajo "CNN" "Categoría"; sleep 2
+textos "elegir la categoría de CNN (ya sale Ciencia)"
+escribir "Noticias"; sleep 3
+textos "canales con su categoría"
+adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
+pulsar_abajo "Inicio"; sleep 3
+textos "Inicio con la fila de categorías"
+pulsar "Ciencia"; sleep 2
+textos "solo Ciencia (Marques Brownlee)"
+pulsar "Todas"; sleep 2
+fallos "categorías"
+
 # 14. Un canal que se marca «Para niños» en la app de los mayores sale en Kids al volver a ella,
 #     sin cerrarla (Kids se queda abierta por detrás)
 adb shell am start -W -n $PKG/.KidsActivity; sleep 8
@@ -329,24 +360,8 @@ adb shell am start -W -n $PKG/.MainActivity; sleep 3
 textos "la app de los mayores (si pide el PIN, se pone)"
 adb shell input text 1234; sleep 3
 pulsar_abajo "Canales"; sleep 3
-# la lista se quedó abajo en el paso 13: arriba del todo
-SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
-for i in 1 2 3 4 5 6; do adb shell input swipe $((W/2)) $((H/3)) $((W/2)) $((H*2/3)) 200; sleep 1; done
-adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-python3 - <<'PY'
-import re, subprocess
-xml = open('ui.xml', encoding='utf-8').read()
-def centre(node):
-    b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
-    return (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
-nodes = re.findall(r'<node [^>]*>', xml)
-print([re.search(r'text="([^"]*)"', n).group(1) for n in nodes if re.search(r'text="[^"]+"', n)])
-row = next(centre(n) for n in nodes if 'text="CNN"' in n)
-chips = [centre(n) for n in nodes if 'text="Para niños"' in n]
-x, y = min(chips, key=lambda c: abs(c[1] - row[1]))
-subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
-print('pulsado «Para niños» de CNN', x, y)
-PY
+arriba_del_todo
+pulsar_bajo "CNN" "Para niños"
 sleep 3
 adb shell input keyevent KEYCODE_HOME; sleep 2
 adb shell am start -W -n $PKG/.KidsActivity; sleep 5

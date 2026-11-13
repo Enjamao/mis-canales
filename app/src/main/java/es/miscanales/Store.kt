@@ -24,6 +24,8 @@ data class Channel(
     val addedAt: Long = 0,
     /** Si sale en Mis Canales Kids. */
     val kids: Boolean = false,
+    /** Su categoría (Música, Noticias…), o null si no tiene. */
+    val category: String? = null,
 )
 
 /**
@@ -95,6 +97,13 @@ class Store(context: Context, val kids: Boolean = false) {
     /** Los canales que salen en Mis Canales Kids. */
     val kidsChannels: List<Channel> get() = channels.filter { it.kids }
 
+    /** Las categorías que tienen tus canales, por orden alfabético. */
+    val categories: List<String>
+        get() = channels.mapNotNull { it.category }.distinct().sortedBy { it.lowercase() }
+
+    /** Los canales de [category] (con null, los que no tienen). */
+    fun channelsIn(category: String?): List<Channel> = channels.filter { it.category == category }
+
     /** En el móvil: si los vídeos siguen sonando con la pantalla apagada. */
     var backgroundPlay by mutableStateOf(prefs.getBoolean("backgroundPlay", true))
         private set
@@ -120,6 +129,14 @@ class Store(context: Context, val kids: Boolean = false) {
         val index = channels.indexOfFirst { it.id == id }
         if (index < 0) return
         channels[index] = channels[index].copy(kids = value)
+        saveChannels()
+    }
+
+    /** Le pone a un canal la categoría [category] (null: ninguna). */
+    fun setCategory(id: String, category: String?) {
+        val index = channels.indexOfFirst { it.id == id }
+        if (index < 0) return
+        channels[index] = channels[index].copy(category = category)
         saveChannels()
     }
 
