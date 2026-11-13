@@ -43,7 +43,7 @@ tecla() { adb shell input keyevent "$@"; sleep 1; }
 
 adb install -r "$APK"
 adb logcat -c; adb logcat -c -b crash
-CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;,&quot;kids&quot;:true},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
+CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;,&quot;kids&quot;:true},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;,&quot;category&quot;:&quot;Noticias&quot;}]'
 printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" "<map>" "    <string name=\"channels\">$CHANNELS</string>" \
   "    <boolean name=\"test_ignore_errors\" value=\"true\" />" "    <int name=\"test_end_after\" value=\"15\" />" "</map>" > store.xml
 adb shell run-as $PKG mkdir -p shared_prefs
@@ -126,73 +126,60 @@ adb shell input keyevent KEYCODE_1 KEYCODE_2 KEYCODE_3 KEYCODE_4; sleep 3
 textos "ajustes de Kids (tele)"
 fallos "PIN y ajustes de Kids (tele)"
 
-# Categorías en la tele: CNN en «Noticias» desde su página, y en Inicio una fila por categoría
+# Categorías en la tele. CNN va en «Noticias» desde el principio: Inicio va por filas («Noticias» y «Otros»).
 foco() {
   echo "--- foco: $1"
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-  python3 -c "
+  python3 /tmp/foco.py
+}
+cat > /tmp/foco.py <<'PY'
 import re
 xml = open('ui.xml', encoding='utf-8').read()
 nodes = re.findall(r'<node [^>]*>', xml)
 for i, n in enumerate(nodes):
-    if 'focused=\"true\"' in n:
-        texts = [re.search(r' text=\"([^\"]*)\"', m).group(1) for m in nodes[i:i + 8] if re.search(r' text=\"([^\"]+)\"', m)]
-        print(re.search(r'bounds=\"[^\"]*\"', n).group(0), texts[:3])
-"
-}
-# la app de los mayores desde cero, y por el menú (izquierda) a Canales, la tercera entrada, y a CNN
-adb shell am force-stop $PKG; sleep 1
-adb shell am start -W -n $PKG/.MainActivity; sleep 12
-tecla KEYCODE_DPAD_LEFT
-tecla KEYCODE_DPAD_DOWN
-tecla KEYCODE_DPAD_DOWN
-tecla KEYCODE_DPAD_CENTER
-sleep 3
-textos "Mis canales (tele)"
-# los canales están debajo de los ajustes: arrastrar la lista hacia arriba hasta que salga CNN
-SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}; echo "pantalla $W x $H"
-for i in $(seq 1 10); do
-  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-  grep -q 'text="CNN"' ui.xml && break
-  adb shell input swipe $((W*3/5)) $((H*4/5)) $((W*3/5)) $((H/4)) 400; sleep 1
-done
-textos "Mis canales, con CNN (tele)"
-# tocar $1 hasta que salga $2 (en la tele, tocar solo pone el foco: si no se abre, OK)
-hasta() {
-  for i in $(seq 1 4); do
-    adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-    grep -q "text=\"$2\"" ui.xml && return 0
-    pulsar "$1"; sleep 2
-    adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-    grep -q "text=\"$2\"" ui.xml && return 0
-    tecla KEYCODE_DPAD_CENTER; sleep 2
+    if 'focused="true"' in n:
+        texts = [re.search(r' text="([^"]*)"', m).group(1) for m in nodes[i:i + 8] if re.search(r' text="([^"]+)"', m)]
+        print(re.search(r'bounds="[^"]*"', n).group(0), texts[:3])
+        open('foco.txt', 'w', encoding='utf-8').write(texts[0] if texts else '')
+PY
+# mover el foco con la tecla $2 hasta que el elemento enfocado empiece por $1
+enfocar() {
+  for i in $(seq 1 ${3:-10}); do
+    rm -f foco.txt; foco "buscando $1"
+    grep -q "^$1" foco.txt 2>/dev/null && return 0
+    tecla $2
   done
-  echo "no ha salido: $2"
+  echo "no se ha llegado a: $1"
 }
-hasta "CNN" "Poner categoría"
-textos "página de CNN (tele)"
-hasta "Poner categoría" "Sin categoría"
-textos "elegir categoría (tele)"
-# abajo, a la caja de la categoría nueva (el foco empieza en «Sin categoría»)
-foco "elegir categoría (tele)"
+adb shell am force-stop $PKG; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 15
+textos "Inicio por filas (tele)"
+foco "Inicio por filas: el primer vídeo de la primera fila"
 tecla KEYCODE_DPAD_DOWN
-foco "en la caja (tele)"
-adb shell input text "Noticias"; sleep 1
+foco "una fila más abajo (Otros)"
+for i in 1 2 3; do tecla KEYCODE_DPAD_RIGHT; done
+foco "tres a la derecha"
+tecla KEYCODE_DPAD_UP
+foco "una fila más arriba (Noticias)"
+fallos "Inicio por filas (tele)"
+
+# a la fila de arriba y hasta la píldora de CNN; mantener OK abre su página
+enfocar "Todos" KEYCODE_DPAD_UP 5
+enfocar "CNN" KEYCODE_DPAD_RIGHT 12
+adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 4
+textos "página de CNN (tele)"
+enfocar "Categoría" KEYCODE_DPAD_UP 4
+enfocar "Categoría" KEYCODE_DPAD_LEFT 4
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "elegir categoría (tele)"
+foco "elegir categoría: en la actual"
+# abajo, a la caja de la categoría nueva
+tecla KEYCODE_DPAD_DOWN
+foco "en la caja"
+adb shell input text "Musica"; sleep 1
 tecla KEYCODE_ENTER
 sleep 4
-textos "CNN con su categoría (tele)"
+textos "CNN con su categoría nueva (tele)"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
 fallos "poner categoría (tele)"
-# a Inicio: filas «Noticias» y «Otros»
-tecla KEYCODE_BACK; sleep 1
-tecla KEYCODE_BACK; sleep 3
-textos "Inicio por filas (tele)"
-foco "Inicio por filas (tele)"
-tecla KEYCODE_DPAD_DOWN; sleep 1
-foco "una fila más abajo (tele)"
-for i in 1 2 3; do tecla KEYCODE_DPAD_RIGHT; done
-foco "tres a la derecha (tele)"
-tecla KEYCODE_DPAD_UP
-foco "una fila más arriba (tele)"
-fallos "Inicio por filas (tele)"
 exit 0
