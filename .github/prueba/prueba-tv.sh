@@ -168,8 +168,11 @@ enfocar "Todos" KEYCODE_DPAD_UP 5
 enfocar "CNN" KEYCODE_DPAD_RIGHT 12
 adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 4
 textos "página de CNN (tele)"
+foco "página de CNN, al abrirla"
+# (si el foco se ha quedado en el menú, a la derecha sale de él)
+grep -q "^Inicio" foco.txt 2>/dev/null && tecla KEYCODE_DPAD_RIGHT
 enfocar "Categoría" KEYCODE_DPAD_UP 4
-enfocar "Categoría" KEYCODE_DPAD_LEFT 4
+enfocar "Categoría" KEYCODE_DPAD_LEFT 3
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "elegir categoría (tele)"
 foco "elegir categoría: en la actual"
