@@ -66,7 +66,7 @@ class ChannelPage(val channelId: String) : Page() {
 }
 
 /** El PIN que se está pidiendo en una pantalla de la tele (o null). */
-open class PinPage : Page() {
+sealed class PinPage : Page() {
     var pin by mutableStateOf<PinFlow?>(null)
 }
 
