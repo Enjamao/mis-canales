@@ -459,6 +459,18 @@ elegido() {
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
   python3 /tmp/elegido.py "$1" | tee elegido.txt
 }
+# la pastilla del canal está a la derecha en su fila: se arrastra la fila (a la altura de «Aleatorio»)
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+FY=$(python3 -c "
+import re
+for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
+    if 'text=\"Aleatorio\"' in n:
+        b = re.search(r'bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"', n)
+        print((int(b.group(2)) + int(b.group(4))) // 2)
+        break
+")
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}
+adb shell input swipe $((W*4/5)) $FY $((W/5)) $FY 300; sleep 2
 elegido "antes"
 X=$(cut -d' ' -f3 elegido.txt); Y=$(cut -d' ' -f4 elegido.txt)
 adb shell input tap $X $Y; sleep 2
