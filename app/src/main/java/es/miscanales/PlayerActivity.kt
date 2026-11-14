@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
@@ -66,6 +67,12 @@ class PlayerActivity : ComponentActivity() {
 
     /** Reproducción continua: los siguientes vídeos de la lista desde la que se abrió este. */
     private val queue = ArrayDeque<QueueItem>()
+
+    /** Los que ya han sonado antes de este, para volver con "anterior" (el último, el más reciente). */
+    private val history = ArrayDeque<QueueItem>()
+
+    /** El que está puesto. */
+    private var item = QueueItem("", "")
     private var autoNext = false
     private var sponsorBlock = true
     private var nextPending = false
@@ -108,6 +115,10 @@ class PlayerActivity : ComponentActivity() {
         intent.getStringExtra(EXTRA_QUEUE)?.let { saved ->
             runCatching { queueJson.decodeFromString(ListSerializer(QueueItem.serializer()), saved) }.getOrNull()?.let(queue::addAll)
         }
+        history.clear()
+        intent.getStringExtra(EXTRA_HISTORY)?.let { saved ->
+            runCatching { queueJson.decodeFromString(ListSerializer(QueueItem.serializer()), saved) }.getOrNull()?.let(history::addAll)
+        }
         kidsLimit = intent.getIntExtra(EXTRA_KIDS_LIMIT, 0)
         // desde un momento concreto (mandado desde el móvil) o donde lo dejaste (si no lo acabaste)
         val forced = intent.getIntExtra(EXTRA_START, -1)
@@ -126,6 +137,7 @@ class PlayerActivity : ComponentActivity() {
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         val stats = intent.getStringExtra(EXTRA_STATS).orEmpty()
         val description = intent.getStringExtra(EXTRA_DESCRIPTION).orEmpty()
+        item = QueueItem(vid, title, channelName = channel, stats = stats)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         tv = isTv()
@@ -218,7 +230,47 @@ class PlayerActivity : ComponentActivity() {
         handler.removeCallbacks(playNextLater)
         nextPending = false
         val next = queue.removeFirstOrNull() ?: return finish()
+        history.addLast(item)
+        while (history.size > MAX_QUEUE) history.removeFirst()
+        switchTo(next, "Siguiente")
+    }
+
+    /** "Siguiente" a mano (el mando, los botones del móvil, el aviso, los auriculares o el coche). */
+    fun skipNext() {
+        if (isFinishing) return
+        if (queue.isEmpty()) {
+            web?.evaluateJavascript("touched();flash('No hay más vídeos en la lista')", null)
+            return
+        }
+        if (!ended) saveProgress(sync = true)
+        playNext()
+    }
+
+    /** "Anterior" a mano: si el vídeo ya lleva un rato, al principio; si no, el que sonó antes (lo decide la página). */
+    fun skipPrevious() {
+        if (isFinishing) return
+        web?.evaluateJavascript("touched();prev()", null)
+    }
+
+    /** Vuelve al vídeo que sonó antes de este; el de ahora queda el primero de la cola. Sin anteriores, al principio. */
+    fun previous() {
+        if (isFinishing) return
+        val before = history.removeLastOrNull()
+        if (before == null) {
+            web?.evaluateJavascript("jumpTo(0)", null)
+            return
+        }
+        if (!ended) saveProgress(sync = true)
+        handler.removeCallbacks(playNextLater)
+        nextPending = false
+        queue.addFirst(item)
+        switchTo(before, "Anterior")
+    }
+
+    /** Pone [next] en el mismo reproductor. */
+    private fun switchTo(next: QueueItem, how: String) {
         if (kids) countKidsTime(stillPlaying = false)
+        item = next
         vid = next.vid
         videoTitle = next.title
         ended = false
@@ -238,14 +290,16 @@ class PlayerActivity : ComponentActivity() {
                 .putExtra(EXTRA_STATS, next.stats)
                 .putExtra(EXTRA_DESCRIPTION, "")
                 .putExtra(EXTRA_START, -1)
-                .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), queue.toList())),
+                .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), queue.toList()))
+                .putExtra(EXTRA_HISTORY, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), history.toList())),
         )
         web?.evaluateJavascript(
-            "loadNext(${js(next.vid)}, ${js(next.title)}, ${js(next.channelName)}, ${js(next.stats)}, $lastPos)",
+            "loadNext(${js(next.vid)}, ${js(next.title)}, ${js(next.channelName)}, ${js(next.stats)}, $lastPos, ${queue.isNotEmpty()})",
             null,
         )
         loadSegments(vid)
-        Log.i("MisCanales", "Siguiente: $vid (quedan ${queue.size})")
+        Log.i("MisCanales", "$how: $vid (quedan ${queue.size})")
+        handler.removeCallbacks(simulateEnd)
         simulateEndLater()
     }
 
@@ -320,6 +374,8 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // en la ventana flotante, sin los botones de anterior y siguiente
+        web?.evaluateJavascript("setPip($isInPictureInPictureMode)", null)
         // cerrar la ventana flotante (deslizándola fuera) para el vídeo
         if (!isInPictureInPictureMode && lifecycle.currentState == Lifecycle.State.CREATED) finish()
     }
@@ -356,6 +412,7 @@ class PlayerActivity : ComponentActivity() {
         start: Int,
         cast: Boolean,
         minimizable: Boolean = !tv && !kids,
+        skippable: Boolean = !tv && !kids,
     ): WebView = (if (keepPlaying) AlwaysVisibleWebView(this) else WebView(this)).apply {
         // las teclas del mando las lleva la actividad, no la página
         isFocusable = false
@@ -391,7 +448,7 @@ class PlayerActivity : ComponentActivity() {
         }
         // YouTube solo reproduce vídeos insertados si sabe quién los inserta (si no, da el error 153).
         // La página se presenta como https://es.miscanales, el ID de la app.
-        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start, cast, minimizable), "text/html", "utf-8", null)
+        loadDataWithBaseURL("$ORIGIN/", playerHtml(vid, title, channel, subtitles, tv, stats, description, start, cast, minimizable, skippable, queue.isNotEmpty()), "text/html", "utf-8", null)
         web = this
     }
 
@@ -400,14 +457,27 @@ class PlayerActivity : ComponentActivity() {
             if (event.action == KeyEvent.ACTION_UP) playNext()
             return true
         }
+        // los botones de avance y retroceso rápido del mando (y los de siguiente y anterior de un teclado
+        // o unos auriculares): el siguiente vídeo de la lista y el anterior
+        val skip = when (event.keyCode) {
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_MEDIA_NEXT -> 1
+            KeyEvent.KEYCODE_MEDIA_REWIND, KeyEvent.KEYCODE_MEDIA_PREVIOUS -> -1
+            else -> 0
+        }
+        if (skip != 0) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                if (skip > 0) skipNext() else skipPrevious()
+            }
+            return true
+        }
         val script = when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER,
             KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
             -> "toggle()"
             KeyEvent.KEYCODE_MEDIA_PLAY -> "play()"
             KeyEvent.KEYCODE_MEDIA_PAUSE -> "pause()"
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> "seek(-10)"
-            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "seek(10)"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "seek(-10)"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "seek(10)"
             // abajo (o el botón de subtítulos, si el mando lo tiene) los pone o los quita
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CAPTIONS -> "toggleSubs()"
             // arriba solo enseña el panel
@@ -417,6 +487,16 @@ class PlayerActivity : ComponentActivity() {
         }
         if (event.action == KeyEvent.ACTION_DOWN) web?.evaluateJavascript("touched();$script", null)
         return true
+    }
+
+    // en el móvil: al tocar la pantalla salen (o se quitan) los botones de anterior y siguiente,
+    // a los lados de la pausa de YouTube. Los toques van dentro del reproductor de YouTube, y la
+    // página no los ve: los ve la actividad.
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!tv && !kids && event.actionMasked == MotionEvent.ACTION_DOWN && !isInPictureInPictureMode) {
+            web?.evaluateJavascript("tapped()", null)
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     fun onEnded() {
@@ -497,6 +577,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_START = "start"
         private const val EXTRA_KIDS = "kids"
         private const val EXTRA_QUEUE = "queue"
+        private const val EXTRA_HISTORY = "history"
         private const val EXTRA_AUTONEXT = "autoNext"
         private const val NEXT_SECONDS = 6
         private const val MAX_QUEUE = 60
@@ -685,6 +766,12 @@ class PlayerActivity : ComponentActivity() {
             current?.web?.evaluateJavascript(script, null)
         }
 
+        /** Siguiente o anterior, desde el aviso, la pantalla de bloqueo, los auriculares o el coche. */
+        fun skip(next: Boolean) {
+            val player = current ?: return
+            player.runOnUiThread { if (next) player.skipNext() else player.skipPrevious() }
+        }
+
         /** Para volver al reproductor abierto desde el aviso, sin abrir otro. */
         fun reopenIntent(context: Context): Intent =
             (current?.intent?.let { Intent(it) } ?: Intent(context, MainActivity::class.java))
@@ -704,6 +791,8 @@ class PlayerActivity : ComponentActivity() {
             start: Int,
             cast: Boolean,
             minimizable: Boolean,
+            skippable: Boolean,
+            hasNext: Boolean,
         ) = """
             <!DOCTYPE html>
             <html><head>
@@ -740,6 +829,12 @@ class PlayerActivity : ComponentActivity() {
                       background: #272727; color: #fff; font-size: 14px; }
               #mini { display: none; margin: 12px 0 0 8px; padding: 8px 16px; border: 0; border-radius: 18px;
                       background: #272727; color: #fff; font-size: 14px; }
+              /* en el móvil: anterior y siguiente, a los lados de la pausa, al tocar la pantalla */
+              .skip { display: none; position: absolute; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+                      padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.5); z-index: 3; }
+              .skip svg { width: 32px; height: 32px; fill: #fff; vertical-align: middle; }
+              #prevb { left: calc(50% - min(150px, 30vw)); }
+              #nextb { left: calc(50% + min(150px, 30vw)); }
               /* reproducción continua: el siguiente vídeo */
               #next { display: none; position: absolute; right: 24px; bottom: 96px; z-index: 4; max-width: 460px;
                       padding: 16px 20px; border-radius: 14px; background: rgba(15,15,15,.92); }
@@ -753,7 +848,10 @@ class PlayerActivity : ComponentActivity() {
                             overflow-wrap: anywhere; }
             </style>
             </head><body>
-            <div id="wrap"><div id="p"></div></div>
+            <div id="wrap"><div id="p"></div>
+              <button id="prevb" class="skip" ontouchstart="own()" onclick="own(); prev()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+              <button id="nextb" class="skip" ontouchstart="own()" onclick="own(); Android.next()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+            </div>
             <div id="toast" class="hidden"></div>
             <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
               <button id="totv" onclick="toTv()">📺 Ver en la tele</button><button id="mini" onclick="Android.minimize()">⌄ Minimizar</button>
@@ -764,7 +862,7 @@ class PlayerActivity : ComponentActivity() {
             <div id="bottom" class="panel">
               <div id="bar"><div id="fill"></div></div>
               <div id="row"><span id="time"></span><span id="status"></span>
-                <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; ▼: subtítulos &nbsp; Atrás: salir</span></div>
+                <span id="hint">OK: pausa &nbsp; ◀ ▶: 10 s &nbsp; ◀◀ ▶▶: anterior y siguiente &nbsp; ▼: subtítulos</span></div>
             </div>
             <script>
             document.getElementById('title').textContent = ${js(title)};
@@ -784,6 +882,22 @@ class PlayerActivity : ComponentActivity() {
               if ($cast) document.getElementById('totv').style.display = 'inline-block';
               if ($minimizable) document.getElementById('mini').style.display = 'inline-block';
             }
+            // anterior y siguiente en el móvil: salen al tocar la pantalla (y se quitan al tocarla otra vez o
+            // a los pocos segundos), como los controles de YouTube; en pausa se quedan
+            var skippable = $skippable, hasNext = $hasNext, skipUntil = 0, ownTouch = 0, pip = false;
+            function setPip(v) { pip = v; update(); }
+            function own() { ownTouch = Date.now(); skipUntil = Date.now() + 3500; }
+            function tapped() {
+              // (un momento después: si el toque era en uno de estos botones, no se quitan)
+              setTimeout(function () {
+                if (Date.now() - ownTouch < 700 || Date.now() >= skipUntil) skipUntil = Date.now() + 3500; else skipUntil = 0;
+                update();
+              }, 80);
+            }
+            // anterior: si el vídeo lleva un rato, al principio; si no, el que sonó antes
+            function prev() {
+              if (ready() && (player.getCurrentTime() || 0) > 5) player.seekTo(0, true); else Android.previous();
+            }
             // reproducción continua: el aviso del siguiente (en la tele, OK lo pone ya y Atrás sale)
             var nextTimer = null;
             function showNext(title, seconds, isTv) {
@@ -801,8 +915,11 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('next').style.display = 'block';
             }
             function hideNext() { clearInterval(nextTimer); document.getElementById('next').style.display = 'none'; }
-            function loadNext(id, title, channel, stats, start) {
+            function loadNext(id, title, channel, stats, start, more) {
               hideNext();
+              hasNext = more;
+              // en la tele, el panel con el título del que entra
+              lastKey = Date.now();
               document.getElementById('title').textContent = title;
               document.getElementById('channel').textContent = channel;
               document.getElementById('ititle').textContent = title;
@@ -926,6 +1043,10 @@ class PlayerActivity : ComponentActivity() {
               toast.className = noting ? '' : 'hidden';
               var msg = !started ? 'Cargando…' : (state == 2 ? 'En pausa' : '');
               document.getElementById('status').textContent = msg ? (d > 0 ? '   ·   ' : '') + msg : '';
+              var skips = skippable && !pip && document.getElementById('next').style.display != 'block' &&
+                          (Date.now() < skipUntil || state == 2);
+              document.getElementById('prevb').style.display = skips ? 'block' : 'none';
+              document.getElementById('nextb').style.display = skips && hasNext ? 'block' : 'none';
               var show = !started || state != 1 || Date.now() - lastKey < 4000;
               document.getElementById('top').className = show ? 'panel' : 'panel hidden';
               document.getElementById('bottom').className = show ? 'panel' : 'panel hidden';
@@ -966,6 +1087,12 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun cancelNext() = activity.runOnUiThread { activity.cancelNext() }
+
+    @JavascriptInterface
+    fun next() = activity.runOnUiThread { activity.skipNext() }
+
+    @JavascriptInterface
+    fun previous() = activity.runOnUiThread { activity.previous() }
 }
 
 /**

@@ -20,7 +20,7 @@ import androidx.core.app.ServiceCompat
 
 /**
  * Mientras suena un vídeo en el móvil: mantiene la app viva con la pantalla apagada, y pone el
- * aviso con play y pausa (también en la pantalla de bloqueo y en los auriculares).
+ * aviso con play, pausa, anterior y siguiente (también en la pantalla de bloqueo y en los auriculares).
  * El vídeo en sí sigue en la página del reproductor; esto solo le pasa las órdenes.
  */
 class PlaybackService : Service() {
@@ -44,6 +44,8 @@ class PlaybackService : Service() {
                 override fun onPlay() = PlayerActivity.control("play()")
                 override fun onPause() = PlayerActivity.control("pause()")
                 override fun onStop() = PlayerActivity.control("pause()")
+                override fun onSkipToNext() = PlayerActivity.skip(next = true)
+                override fun onSkipToPrevious() = PlayerActivity.skip(next = false)
             })
             isActive = true
         }
@@ -67,6 +69,8 @@ class PlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_TOGGLE) {
             PlayerActivity.control("toggle()")
+        } else if (intent?.action == ACTION_NEXT || intent?.action == ACTION_PREVIOUS) {
+            PlayerActivity.skip(next = intent.action == ACTION_NEXT)
         } else {
             title = intent?.getStringExtra(EXTRA_TITLE).orEmpty()
             channel = intent?.getStringExtra(EXTRA_CHANNEL).orEmpty()
@@ -84,7 +88,10 @@ class PlaybackService : Service() {
     private fun showState() {
         session?.setPlaybackState(
             PlaybackState.Builder()
-                .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP)
+                .setActions(
+                    PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP or
+                        PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS,
+                )
                 .setState(if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
                 .build(),
         )
@@ -115,6 +122,16 @@ class PlaybackService : Service() {
             if (playing) "Pausa" else "Seguir",
             toggle,
         ).build()
+        fun skip(code: Int, action: String, icon: Int, label: String) = Notification.Action.Builder(
+            Icon.createWithResource(this, icon),
+            label,
+            PendingIntent.getService(
+                this,
+                code,
+                Intent(this, PlaybackService::class.java).setAction(action),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        ).build()
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_play_arrow_filled)
             .setContentTitle(title.ifBlank { "Mis Canales" })
@@ -122,8 +139,10 @@ class PlaybackService : Service() {
             .setContentIntent(open)
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .addAction(skip(2, ACTION_PREVIOUS, R.drawable.ic_skip_previous, "Anterior"))
             .addAction(action)
-            .setStyle(Notification.MediaStyle().setMediaSession(session?.sessionToken).setShowActionsInCompactView(0))
+            .addAction(skip(3, ACTION_NEXT, R.drawable.ic_skip_next, "Siguiente"))
+            .setStyle(Notification.MediaStyle().setMediaSession(session?.sessionToken).setShowActionsInCompactView(0, 1, 2))
             .build()
     }
 
@@ -140,6 +159,8 @@ class PlaybackService : Service() {
         private const val CHANNEL = "reproduccion"
         private const val ID = 1
         private const val ACTION_TOGGLE = "es.miscanales.TOGGLE"
+        private const val ACTION_NEXT = "es.miscanales.NEXT"
+        private const val ACTION_PREVIOUS = "es.miscanales.PREVIOUS"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_CHANNEL = "channel"
 
