@@ -442,16 +442,22 @@ adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 6
 # un toque en un canal lo elige; mantenerlo pulsado lo quita de los elegidos
+cat > /tmp/elegido.py <<'PY'
+import re, sys
+nodes = re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read())
+def box(n):
+    return [int(v) for v in re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n).groups()]
+# la pastilla del canal: el texto más arriba (debajo, el mismo nombre sale en cada vídeo)
+texts = sorted((n for n in nodes if 'text="Virtumaniacos"' in n), key=lambda n: box(n)[1])
+if texts:
+    l, t, r, b = box(texts[0])
+    x, y = (l + r) // 2, (t + b) // 2
+    around = [n for n in nodes if box(n)[0] <= x <= box(n)[2] and box(n)[1] <= y <= box(n)[3] and box(n)[3] - box(n)[1] < 200]
+    print(sys.argv[1] + ':', 'elegido' if any('selected="true"' in n for n in around) else 'sin-elegir', x, y)
+PY
 elegido() {
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-  python3 -c "
-import re, sys
-for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
-    if 'text=\"Virtumaniacos\"' in n and 'clickable=\"true\"' in n:
-        b = re.search(r'bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"', n)
-        print('$1:', re.search(r'selected=\"(\w+)\"', n).group(1), (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2)
-        break
-" | tee elegido.txt
+  python3 /tmp/elegido.py "$1" | tee elegido.txt
 }
 elegido "antes"
 X=$(cut -d' ' -f3 elegido.txt); Y=$(cut -d' ' -f4 elegido.txt)
