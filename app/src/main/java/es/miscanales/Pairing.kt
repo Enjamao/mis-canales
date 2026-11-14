@@ -108,8 +108,12 @@ object Pairing {
                 setPort(port)
             }
             val listener = object : NsdManager.RegistrationListener {
-                override fun onServiceRegistered(info: NsdServiceInfo) = Log.i(TAG, "Emparejar: anunciada como ${info.serviceName}, puerto $port")
-                override fun onRegistrationFailed(info: NsdServiceInfo, error: Int) = Log.w(TAG, "Emparejar: no se ha podido anunciar ($error)")
+                override fun onServiceRegistered(info: NsdServiceInfo) {
+                    Log.i(TAG, "Emparejar: anunciada como ${info.serviceName}, puerto $port")
+                }
+                override fun onRegistrationFailed(info: NsdServiceInfo, error: Int) {
+                    Log.w(TAG, "Emparejar: no se ha podido anunciar ($error)")
+                }
                 override fun onServiceUnregistered(info: NsdServiceInfo) {}
                 override fun onUnregistrationFailed(info: NsdServiceInfo, error: Int) {}
             }
@@ -148,7 +152,9 @@ object Pairing {
 
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
-            override fun onStartDiscoveryFailed(serviceType: String, error: Int) = Log.w(TAG, "Emparejar: no se puede buscar ($error)")
+            override fun onStartDiscoveryFailed(serviceType: String, error: Int) {
+                Log.w(TAG, "Emparejar: no se puede buscar ($error)")
+            }
             override fun onStopDiscoveryFailed(serviceType: String, error: Int) {}
         }
         runCatching { nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener) }
