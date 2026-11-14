@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -186,26 +189,37 @@ object Shuffle {
     private const val MAX_PAGES = 8
 
     /**
-     * Mezcla [videos] y los pone. Con un [channel] solo, antes trae sus vídeos anteriores hasta tener
-     * unos cien; si tiene menos, o YouTube no contesta, se mezcla con los que haya.
+     * Mezcla [videos] y los pone. Con [channels] elegidos (uno o varios), antes trae sus vídeos anteriores
+     * hasta tener unos cien entre todos; si tienen menos, o YouTube no contesta, se mezcla con los que haya.
      */
-    suspend fun play(context: Context, store: Store, videos: List<Video>, channel: Channel? = null) {
+    suspend fun play(context: Context, store: Store, videos: List<Video>, channels: List<Channel> = emptyList()) {
         if (busy) return
         busy = true
         try {
             var list = videos
-            if (channel != null) {
-                val older = OlderVideos.of(channel)
-                var pages = 0
-                while ((videos + older.videos).distinctBy { it.vid }.size < WANTED && !older.done && pages < MAX_PAGES) {
-                    if (!older.more()) break
-                    pages++
+            if (channels.isNotEmpty()) {
+                // a partes iguales, para que un canal con muchos vídeos no tape a los demás
+                val share = WANTED / channels.size
+                list = coroutineScope {
+                    channels.map { channel ->
+                        async {
+                            val recent = videos.filter { it.channelId == channel.id }
+                            val older = OlderVideos.of(channel)
+                            var pages = 0
+                            while ((recent + older.videos).distinctBy { it.vid }.size < share && !older.done && pages < MAX_PAGES) {
+                                if (!older.more()) break
+                                pages++
+                            }
+                            val all = (recent + older.videos).distinctBy { it.vid }
+                            // con un canal solo, todos los que haya; con varios, la parte de cada uno
+                            if (channels.size == 1) all else all.take(share.coerceAtLeast(15))
+                        }
+                    }.awaitAll().flatten()
                 }
-                list = (videos + older.videos).distinctBy { it.vid }
             }
             if (list.isEmpty()) return
             val mixed = list.shuffled()
-            Log.i("MisCanales", "Aleatorio: ${mixed.size} vídeos; empieza ${mixed.first().vid}")
+            Log.i("MisCanales", "Aleatorio: ${mixed.size} vídeos de ${mixed.map { it.channelId }.distinct().size} canales; empieza ${mixed.first().vid}")
             // siempre en el reproductor de la app y seguido, aunque la reproducción continua esté quitada
             playVideo(context, store, mixed.first(), queue = mixed.drop(1), autoNext = true, own = true)
         } finally {

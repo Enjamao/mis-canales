@@ -220,8 +220,13 @@ adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 12
 enfocar "CNN" KEYCODE_DPAD_RIGHT 12
 tecla KEYCODE_DPAD_CENTER; sleep 2
+# y, manteniendo OK, otro canal más: los dos elegidos, mezclados a partes iguales
+enfocar "Marques Brownlee" KEYCODE_DPAD_RIGHT 3
+adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 3
+textos "dos canales elegidos (tele)"
+foco "tras elegir el segundo"
 enfocar "Aleatorio" KEYCODE_DPAD_LEFT 6
-tecla KEYCODE_DPAD_CENTER; sleep 40
+tecla KEYCODE_DPAD_CENTER; sleep 45
 adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 fallos "aleatorio (tele)"

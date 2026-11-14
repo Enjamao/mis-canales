@@ -70,6 +70,7 @@ fun HomeScreen(page: HomePage) {
         Filter.New -> newOnes
         Filter.Continue -> continuing
         is Filter.OneChannel -> all.filter { it.channelId == filter.id }
+        is Filter.Several -> all.filter { it.channelId in filter.ids }
     }
     // con un canal elegido, también sus vídeos anteriores (más allá de los últimos 15), si los pides
     val older = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }?.let { OlderVideos.of(it) }
@@ -100,6 +101,7 @@ fun HomeScreen(page: HomePage) {
                 filter == Filter.New -> Status("No tienes vídeos nuevos sin ver. ¡Al día!")
                 shown.isEmpty() -> Status("Tus canales son todos «Para niños»: salen en Mis Canales Kids. Para verlos también aquí, en Mis canales.")
                 filter is Filter.OneChannel -> Status("Este canal no tiene vídeos recientes.")
+                filter is Filter.Several -> Status("Estos canales no tienen vídeos recientes.")
                 chosen != null -> Status("Los canales de esta categoría no tienen vídeos recientes.")
                 feed.failed.isEmpty() -> Status("Tus canales no tienen vídeos recientes.")
                 else -> {}
@@ -216,14 +218,14 @@ fun HomeScreen(page: HomePage) {
                         icon = R.drawable.ic_refresh,
                     )
                 }
-                // lo que se ve, mezclado y seguido (con un canal elegido, entre unos cien vídeos suyos)
+                // lo que se ve, mezclado y seguido (con canales elegidos, entre unos cien vídeos suyos)
                 if (listed.isNotEmpty()) {
                     item(key = "shuffle") {
                         Chip(
                             if (Shuffle.busy) "Mezclando…" else "Aleatorio",
                             {
-                                val one = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
-                                scope.launch { Shuffle.play(context, store, listed, one) }
+                                val chosen = filter.channelIds().mapNotNull { store.channel(it) }
+                                scope.launch { Shuffle.play(context, store, listed, chosen) }
                             },
                             Modifier.restoreFocus(page, "filter:shuffle"),
                             icon = R.drawable.ic_shuffle,
@@ -235,9 +237,9 @@ fun HomeScreen(page: HomePage) {
                         channel.name,
                         { page.show(Filter.OneChannel(channel.id)) },
                         Modifier.restoreFocus(page, "channel:${channel.id}"),
-                        selected = filter == Filter.OneChannel(channel.id),
-                        // mantener OK sobre un canal abre su página
-                        onLongClick = { nav.open(ChannelPage(channel.id)) },
+                        selected = channel.id in filter.channelIds(),
+                        // mantener OK sobre un canal lo añade a los elegidos (o lo quita): varios a la vez
+                        onLongClick = { page.show(filter.toggled(channel.id)) },
                     )
                 }
             }

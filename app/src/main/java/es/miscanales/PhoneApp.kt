@@ -50,6 +50,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -139,7 +147,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                             onCategory = {
                                 category = it
                                 // un canal suelto de otra categoría ya no se vería en la fila
-                                if (filter is Filter.OneChannel) filter = Filter.All
+                                if (filter.channelIds().isNotEmpty()) filter = Filter.All
                             },
                             onDetails = { details = it },
                         )
@@ -205,6 +213,7 @@ private fun PhoneHome(
         Filter.New -> newOnes
         Filter.Continue -> continuing
         is Filter.OneChannel -> all.filter { it.channelId == filter.id }
+        is Filter.Several -> all.filter { it.channelId in filter.ids }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "#head") {
@@ -277,14 +286,14 @@ private fun PhoneHome(
                         )
                     }
                 }
-                // lo que se ve, mezclado y seguido (con un canal elegido, entre unos cien vídeos suyos)
+                // lo que se ve, mezclado y seguido (con canales elegidos, entre unos cien vídeos suyos)
                 if (videos.isNotEmpty()) {
                     item(key = "shuffle") {
                         FilterChip(
                             selected = false,
                             onClick = {
-                                val one = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
-                                scope.launch { Shuffle.play(context, store, videos, one) }
+                                val chosen = filter.channelIds().mapNotNull { store.channel(it) }
+                                scope.launch { Shuffle.play(context, store, videos, chosen) }
                             },
                             label = { Text(if (Shuffle.busy) "Mezclando…" else "Aleatorio") },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp)) },
@@ -292,10 +301,12 @@ private fun PhoneHome(
                     }
                 }
                 items(channels, key = { it.id }) { channel ->
-                    FilterChip(
-                        selected = filter == Filter.OneChannel(channel.id),
+                    // un toque: solo ese canal; mantenerlo pulsado: lo añade a los elegidos (o lo quita)
+                    ChannelChip(
+                        channel.name,
+                        selected = channel.id in filter.channelIds(),
                         onClick = { onFilter(Filter.OneChannel(channel.id)) },
-                        label = { Text(channel.name, maxLines = 1) },
+                        onLongClick = { onFilter(filter.toggled(channel.id)) },
                     )
                 }
             }
@@ -819,6 +830,35 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } },
         )
     }
+}
+
+/** La pastilla de un canal en Inicio, que además se puede mantener pulsada (las de Material no saben). */
+@Composable
+private fun ChannelChip(name: String, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val timeout = LocalViewConfiguration.current.longPressTimeoutMillis
+    val haptic = LocalHapticFeedback.current
+    val long by rememberUpdatedState(onLongClick)
+    // si el último toque acabó siendo un pulsado largo (para que al soltar no cuente además como toque)
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(source) {
+        // al soltar o arrastrar llega otra interacción, que corta la espera
+        source.interactions.collectLatest { interaction ->
+            if (interaction is PressInteraction.Press) {
+                held = false
+                delay(timeout)
+                held = true
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                long()
+            }
+        }
+    }
+    FilterChip(
+        selected = selected,
+        onClick = { if (!held) onClick() },
+        label = { Text(name, maxLines = 1) },
+        interactionSource = source,
+    )
 }
 
 /** En Inicio, cuando hay una versión nueva en GitHub: un botón para bajarla e instalarla. */

@@ -424,7 +424,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.16.0"; sleep 25
+pulsar "Actualizar a la 0.17.0"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -441,7 +441,25 @@ adb shell am force-stop $PKG; sleep 1
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 6
-pulsar "CNN"; sleep 2
+# un toque en un canal lo elige; mantenerlo pulsado lo quita de los elegidos
+elegido() {
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 -c "
+import re, sys
+for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
+    if 'text=\"Virtumaniacos\"' in n and 'clickable=\"true\"' in n:
+        b = re.search(r'bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"', n)
+        print('$1:', re.search(r'selected=\"(\w+)\"', n).group(1), (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2)
+        break
+" | tee elegido.txt
+}
+elegido "antes"
+X=$(cut -d' ' -f3 elegido.txt); Y=$(cut -d' ' -f4 elegido.txt)
+adb shell input tap $X $Y; sleep 2
+elegido "tras un toque"
+adb shell input swipe $X $Y $X $Y 1200; sleep 2
+elegido "tras mantenerlo pulsado"
+adb shell input tap $X $Y; sleep 2
 pulsar "Aleatorio"; sleep 25
 adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 fallos "aleatorio"

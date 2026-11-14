@@ -34,6 +34,26 @@ sealed interface Filter {
     data object New : Filter
     data object Continue : Filter
     data class OneChannel(val id: String) : Filter
+
+    /** Varios canales a la vez (dos o más), elegidos manteniendo pulsado. */
+    data class Several(val ids: Set<String>) : Filter
+}
+
+/** Los canales elegidos en el filtro (ninguno, con "Todos", "Sin ver"…). */
+fun Filter.channelIds(): Set<String> = when (this) {
+    is Filter.OneChannel -> setOf(id)
+    is Filter.Several -> ids
+    else -> emptySet()
+}
+
+/** El filtro con el canal [id] añadido a los elegidos, o quitado si ya lo estaba. */
+fun Filter.toggled(id: String): Filter {
+    val ids = channelIds().let { if (id in it) it - id else it + id }
+    return when (ids.size) {
+        0 -> Filter.All
+        1 -> Filter.OneChannel(ids.first())
+        else -> Filter.Several(ids)
+    }
 }
 
 /** En Inicio, la categoría "Otros": los canales sin ninguna (una categoría no puede estar en blanco). */
@@ -66,7 +86,7 @@ class HomePage : Page() {
         grid = LazyGridState()
         rows.clear()
         this.category = category
-        if (filter is Filter.OneChannel) filter = Filter.All
+        if (filter.channelIds().isNotEmpty()) filter = Filter.All
     }
 }
 
