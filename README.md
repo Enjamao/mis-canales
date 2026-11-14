@@ -91,6 +91,10 @@ Cada canal puede tener una categoría (Música, Noticias…), que se guarda tamb
   canales («Sin ver» y «Seguir viendo» también).
 - **Tele**: con «Todas» y «Todos», Inicio va por filas, una por categoría, con «Ver todos» al final.
 - La reproducción continua sigue la lista desde la que abriste el vídeo: una categoría entera, seguida.
+- **Siguiente y anterior**: en la tele, los botones de avance y retroceso rápido del mando (◀ ▶ siguen
+  saltando 10 s); en el móvil, al tocar la pantalla salen a los lados de la pausa, y están también en
+  el aviso de reproducción (y en los auriculares o el coche por Bluetooth). «Anterior» vuelve al
+  principio del vídeo si ya lleva un rato, y si no, al que sonó antes.
 - **Aleatorio** (en la fila de los filtros): mezcla lo que estás viendo (una categoría, «Sin ver»…) y
   lo pone seguido. Con un canal elegido, mezcla entre unos cien vídeos suyos (o los que tenga).
 

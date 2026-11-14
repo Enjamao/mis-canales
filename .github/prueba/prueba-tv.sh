@@ -226,6 +226,15 @@ adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 fallos "aleatorio (tele)"
 
+# Siguiente y anterior con los botones de avance y retroceso rápido del mando
+adb logcat -c
+tecla KEYCODE_MEDIA_FAST_FORWARD; sleep 3
+tecla KEYCODE_MEDIA_FAST_FORWARD; sleep 3
+tecla KEYCODE_MEDIA_REWIND; sleep 3
+adb logcat -d | grep -E "MisCanales: (Anterior|Siguiente)" | tail -4
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+fallos "siguiente y anterior (tele)"
+
 # Inicio arranca arriba: el foco en «Todos», con el título a la vista
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
