@@ -216,6 +216,20 @@ fun HomeScreen(page: HomePage) {
                         icon = R.drawable.ic_refresh,
                     )
                 }
+                // lo que se ve, mezclado y seguido (con un canal elegido, entre unos cien vídeos suyos)
+                if (listed.isNotEmpty()) {
+                    item(key = "shuffle") {
+                        Chip(
+                            if (Shuffle.busy) "Mezclando…" else "Aleatorio",
+                            {
+                                val one = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
+                                scope.launch { Shuffle.play(context, store, listed, one) }
+                            },
+                            Modifier.restoreFocus(page, "filter:shuffle"),
+                            icon = R.drawable.ic_shuffle,
+                        )
+                    }
+                }
                 items(channels, key = { it.id }) { channel ->
                     Chip(
                         channel.name,

@@ -1,5 +1,7 @@
 package es.miscanales
 
+import android.util.Log
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -138,23 +140,28 @@ class OlderVideos(val channel: Channel) {
     private var started = false
 
     fun load() {
-        if (loading || done) return
+        scope.launch { more() }
+    }
+
+    /** Carga la página siguiente y espera a tenerla. Devuelve si ha traído algo (no si ya estaba cargando, no quedan o falla). */
+    suspend fun more(): Boolean {
+        if (loading || done) return false
         loading = true
         error = null
-        scope.launch {
-            try {
-                val page = Search.channelVideos(channel, if (started) next else null)
-                started = true
-                videos = (videos + page.videos).distinctBy { it.vid }
-                next = page.more
-                done = page.more == null
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                error = "No se han podido cargar más vídeos (${e.message})."
-            } finally {
-                loading = false
-            }
+        return try {
+            val page = Search.channelVideos(channel, if (started) next else null)
+            started = true
+            videos = (videos + page.videos).distinctBy { it.vid }
+            next = page.more
+            done = page.more == null
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = "No se han podido cargar más vídeos (${e.message})."
+            false
+        } finally {
+            loading = false
         }
     }
 
@@ -163,5 +170,46 @@ class OlderVideos(val channel: Channel) {
         private val all = mutableMapOf<String, OlderVideos>()
 
         fun of(channel: Channel): OlderVideos = all.getOrPut(channel.id) { OlderVideos(channel) }
+    }
+}
+
+/** "Aleatorio": pone un vídeo al azar de una lista, con los demás mezclados detrás, seguidos. */
+object Shuffle {
+    /** Preparando la mezcla (cargando los vídeos anteriores del canal). */
+    var busy by mutableStateOf(false)
+        private set
+
+    /** Con un canal solo, los vídeos entre los que se mezcla, si los tiene (de serie hay 15). */
+    private const val WANTED = 100
+
+    /** Las páginas de vídeos anteriores que se piden como mucho para llegar a [WANTED]. */
+    private const val MAX_PAGES = 8
+
+    /**
+     * Mezcla [videos] y los pone. Con un [channel] solo, antes trae sus vídeos anteriores hasta tener
+     * unos cien; si tiene menos, o YouTube no contesta, se mezcla con los que haya.
+     */
+    suspend fun play(context: Context, store: Store, videos: List<Video>, channel: Channel? = null) {
+        if (busy) return
+        busy = true
+        try {
+            var list = videos
+            if (channel != null) {
+                val older = OlderVideos.of(channel)
+                var pages = 0
+                while ((videos + older.videos).distinctBy { it.vid }.size < WANTED && !older.done && pages < MAX_PAGES) {
+                    if (!older.more()) break
+                    pages++
+                }
+                list = (videos + older.videos).distinctBy { it.vid }
+            }
+            if (list.isEmpty()) return
+            val mixed = list.shuffled()
+            Log.i("MisCanales", "Aleatorio: ${mixed.size} vídeos; empieza ${mixed.first().vid}")
+            // siempre en el reproductor de la app y seguido, aunque la reproducción continua esté quitada
+            playVideo(context, store, mixed.first(), queue = mixed.drop(1), autoNext = true, own = true)
+        } finally {
+            busy = false
+        }
     }
 }

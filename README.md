@@ -91,6 +91,8 @@ Cada canal puede tener una categoría (Música, Noticias…), que se guarda tamb
   canales («Sin ver» y «Seguir viendo» también).
 - **Tele**: con «Todas» y «Todos», Inicio va por filas, una por categoría, con «Ver todos» al final.
 - La reproducción continua sigue la lista desde la que abriste el vídeo: una categoría entera, seguida.
+- **Aleatorio** (en la fila de los filtros): mezcla lo que estás viendo (una categoría, «Sin ver»…) y
+  lo pone seguido. Con un canal elegido, mezcla entre unos cien vídeos suyos (o los que tenga).
 
 ## Reproducción continua y ventana flotante
 

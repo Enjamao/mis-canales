@@ -424,12 +424,27 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.14.2"; sleep 25
+pulsar "Actualizar a la 0.15.0"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
 adb shell input keyevent KEYCODE_BACK; sleep 2
 fallos "actualizaciones"
+
+# 18. Aleatorio: mezcla lo que se ve y lo pone seguido; con un canal elegido, entre unos cien suyos
+adb logcat -c
+textos "Inicio con Aleatorio"
+pulsar "Aleatorio"; sleep 30
+adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 6
+pulsar "CNN"; sleep 2
+pulsar "Aleatorio"; sleep 25
+adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
+fallos "aleatorio"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

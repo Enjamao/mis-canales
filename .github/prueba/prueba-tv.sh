@@ -214,6 +214,18 @@ foco "arriba: un vídeo anterior"
 grep -c "visualizaciones" ui.xml
 fallos "anteriores en Inicio (tele)"
 
+# Aleatorio en la tele, con un canal elegido: entre unos cien vídeos suyos, seguidos
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 12
+enfocar "CNN" KEYCODE_DPAD_RIGHT 12
+tecla KEYCODE_DPAD_CENTER; sleep 2
+enfocar "Aleatorio" KEYCODE_DPAD_LEFT 6
+tecla KEYCODE_DPAD_CENTER; sleep 40
+adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+fallos "aleatorio (tele)"
+
 # Inicio arranca arriba: el foco en «Todos», con el título a la vista
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
