@@ -223,6 +223,11 @@ tecla KEYCODE_DPAD_CENTER; sleep 2
 # y, manteniendo OK, otro canal más: los dos elegidos, mezclados a partes iguales
 enfocar "Marques Brownlee" KEYCODE_DPAD_RIGHT 3
 adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 3
+# con el botón de play/pausa (el mando de la tele) se quita y se vuelve a poner
+tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 2
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+echo "vídeos de Marques Brownlee a la vista tras quitarlo: $(grep -o 'text="Marques Brownlee"' ui.xml | wc -l) (1: solo la pastilla)"
+tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 2
 textos "dos canales elegidos (tele)"
 foco "tras elegir el segundo"
 enfocar "Aleatorio" KEYCODE_DPAD_LEFT 6

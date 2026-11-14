@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import android.view.KeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
@@ -236,7 +238,17 @@ fun HomeScreen(page: HomePage) {
                     Chip(
                         channel.name,
                         { page.show(Filter.OneChannel(channel.id)) },
-                        Modifier.restoreFocus(page, "channel:${channel.id}"),
+                        // el botón de play/pausa sobre un canal lo añade a los elegidos (o lo quita), como mantener
+                        // OK: con el mando de la tele (por HDMI) no se puede mantener pulsado el botón central
+                        Modifier
+                            .onPreviewKeyEvent { event ->
+                                val media = event.nativeKeyEvent.keyCode in PLAY_KEYS
+                                if (media && event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && event.nativeKeyEvent.repeatCount == 0) {
+                                    page.show(filter.toggled(channel.id))
+                                }
+                                media
+                            }
+                            .restoreFocus(page, "channel:${channel.id}"),
                         selected = channel.id in filter.channelIds(),
                         // mantener OK sobre un canal lo añade a los elegidos (o lo quita): varios a la vez
                         onLongClick = { page.show(filter.toggled(channel.id)) },
@@ -292,6 +304,9 @@ private fun List<Video>.inCategory(store: Store, key: String): List<Video> {
 }
 
 private const val ALL = "filter:all"
+
+/** Los botones de play y pausa de un mando (el de la tele manda uno u otro, según el modelo). */
+private val PLAY_KEYS = setOf(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE)
 private const val OTHERS = "Otros"
 
 /** Los vídeos que salen en cada fila, antes de "Ver todos". */

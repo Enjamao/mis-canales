@@ -98,7 +98,7 @@ Cada canal puede tener una categoría (Música, Noticias…), que se guarda tamb
 - **Aleatorio** (en la fila de los filtros): mezcla lo que estás viendo (una categoría, «Sin ver»…) y
   lo pone seguido. Con un canal elegido, mezcla entre unos cien vídeos suyos (o los que tenga).
 - **Varios canales a la vez**: un toque en un canal lo elige solo; mantenerlo pulsado (en la tele,
-  mantener OK) lo añade a los elegidos, o lo quita. Con varios, «Aleatorio» mezcla unos cien vídeos
+  mantener OK, o el botón de play/pausa) lo añade a los elegidos, o lo quita. Con varios, «Aleatorio» mezcla unos cien vídeos
   entre todos, a partes iguales. (La página de un canal, en la tele, está en Mis canales.)
 
 ## Reproducción continua y ventana flotante
