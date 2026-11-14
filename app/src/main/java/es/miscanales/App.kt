@@ -240,19 +240,29 @@ private fun Logo(open: Boolean) {
  * Pone un vídeo. [queue] son los que van detrás en la lista desde la que se abre: con la
  * reproducción continua, al acabar sigue con ellos.
  */
-fun playVideo(context: Context, store: Store, video: Video, start: Int = -1, queue: List<Video> = emptyList()) {
+fun playVideo(
+    context: Context,
+    store: Store,
+    video: Video,
+    start: Int = -1,
+    queue: List<Video> = emptyList(),
+    /** Si al acabar sigue con [queue]. */
+    autoNext: Boolean = store.autoNext,
+    /** En el reproductor de la app, aunque esté elegida la app de YouTube (que no sabe seguir una lista). */
+    own: Boolean = false,
+) {
     store.setWatched(video.vid, true)
     NewVideos.dismiss(context, video.vid)
     when {
         // Kids: siempre en el reproductor de la app, con su tiempo contado
         store.kids -> PlayerActivity.start(
             context, video, store.subtitles, background = false, sponsorBlock = store.sponsorBlock,
-            kids = true, kidsLimit = store.kidsLimit, queue = queue, autoNext = store.autoNext,
+            kids = true, kidsLimit = store.kidsLimit, queue = queue, autoNext = autoNext,
         )
-        store.useYouTubeApp -> context.playOnYouTube(video.vid)
+        store.useYouTubeApp && !own -> context.playOnYouTube(video.vid)
         else -> PlayerActivity.start(
             context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start,
-            queue = queue, autoNext = store.autoNext,
+            queue = queue, autoNext = autoNext,
         )
     }
 }

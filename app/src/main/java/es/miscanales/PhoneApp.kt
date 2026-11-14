@@ -180,6 +180,7 @@ private fun PhoneHome(
     val store = LocalStore.current
     val feed = LocalFeed.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // los canales de Inicio (sin los de niños, salvo que se quiera) y sus vídeos
     val shown = store.shownChannels
     val shownIds = shown.map { it.id }.toSet()
@@ -273,6 +274,20 @@ private fun PhoneHome(
                             selected = filter == Filter.Continue,
                             onClick = { onFilter(Filter.Continue) },
                             label = { Text(if (continuing.isEmpty()) "Seguir viendo" else "Seguir viendo · ${continuing.size}") },
+                        )
+                    }
+                }
+                // lo que se ve, mezclado y seguido (con un canal elegido, entre unos cien vídeos suyos)
+                if (videos.isNotEmpty()) {
+                    item(key = "shuffle") {
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                val one = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }
+                                scope.launch { Shuffle.play(context, store, videos, one) }
+                            },
+                            label = { Text(if (Shuffle.busy) "Mezclando…" else "Aleatorio") },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp)) },
                         )
                     }
                 }
