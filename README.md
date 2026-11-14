@@ -49,8 +49,14 @@ propia lista de HA escribiendo el `@nombre` del canal (la app lo completa).
 2. En HA: tu perfil → Seguridad → **Tokens de acceso de larga duración** → Crear token.
 3. En el móvil: Canales → Sincronizar con Home Assistant: la dirección de fuera (DuckDNS), la de
    casa si quieres (se prueba primero) y el token. Al conectar, sube los canales que ya tenías.
-4. En la tele, por ADB (escribir el token con el mando no es práctico). El `-S` cierra la app antes,
-   para que reciba los datos aunque estuviera abierta:
+4. En la tele, desde el móvil: en la tele, Mis canales → **Home Assistant** (o, sin canales aún,
+   «Traer mis canales de Home Assistant»): sale un código. En el móvil, Canales → Sincronizar con
+   Home Assistant → **Pasar a la tele**: elige la tele y escribe el código. Va por la wifi de casa
+   (la tele se anuncia en la red solo mientras esa pantalla está abierta, y tras cinco códigos mal deja
+   de escuchar). En la misma pantalla de la tele se puede poner también a mano (con el teclado de la
+   app Amazon Fire TV del móvil se puede pegar el token).
+
+   O por ADB. El `-S` cierra la app antes, para que reciba los datos aunque estuviera abierta:
 
    ```sh
    adb shell am start -S -n es.miscanales/.MainActivity \

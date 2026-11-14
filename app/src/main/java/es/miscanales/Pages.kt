@@ -70,6 +70,15 @@ class HomePage : Page() {
     }
 }
 
+/** La conexión con Home Assistant en la tele: desde el móvil, con un código, o a mano. */
+class HaPage : Page() {
+    var url by mutableStateOf("")
+    var localUrl by mutableStateOf("")
+    var token by mutableStateOf("")
+    var busy by mutableStateOf(false)
+    var message by mutableStateOf<String?>(null)
+}
+
 /** Elegir la categoría de un canal en la tele. */
 class CategoryPage(val channelId: String) : Page() {
     var text by mutableStateOf("")
