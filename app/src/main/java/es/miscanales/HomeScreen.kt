@@ -71,6 +71,10 @@ fun HomeScreen(page: HomePage) {
         Filter.Continue -> continuing
         is Filter.OneChannel -> all.filter { it.channelId == filter.id }
     }
+    // con un canal elegido, también sus vídeos anteriores (más allá de los últimos 15), si los pides
+    val older = (filter as? Filter.OneChannel)?.let { store.channel(it.id) }?.let { OlderVideos.of(it) }
+    val recent = videos.map { it.vid }.toSet()
+    val listed = videos + older?.videos.orEmpty().filter { it.vid !in recent }
     // con categorías, "Todas" y "Todos" va por filas: una por categoría, y "Otros" con los canales sin ninguna
     val byRows = filter == Filter.All && chosen == null && categories.isNotEmpty()
     val rows = if (!byRows) {
@@ -82,7 +86,7 @@ fun HomeScreen(page: HomePage) {
     VideoGrid(
         page,
         // por filas, los vídeos van dentro de las filas, arriba
-        if (byRows) emptyList() else videos,
+        if (byRows) emptyList() else listed,
         page.grid,
         // al abrir, el foco en "Todos": arriba del todo, con el título a la vista (en la tele, la lista
         // lleva lo enfocado hacia el centro, y con el foco en el primer vídeo el título se salía)
@@ -99,6 +103,17 @@ fun HomeScreen(page: HomePage) {
                 chosen != null -> Status("Los canales de esta categoría no tienen vídeos recientes.")
                 feed.failed.isEmpty() -> Status("Tus canales no tienen vídeos recientes.")
                 else -> {}
+            }
+            if (older != null) {
+                MoreFooter(
+                    page,
+                    loading = older.loading,
+                    done = older.done,
+                    label = if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más",
+                    doneText = "Ya están todos los vídeos de ${older.channel.name}.",
+                    error = older.error,
+                    onClick = { older.load() },
+                )
             }
             if (feed.failed.isNotEmpty()) {
                 Status(

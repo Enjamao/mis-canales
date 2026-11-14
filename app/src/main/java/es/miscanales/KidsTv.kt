@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
@@ -89,7 +90,11 @@ private fun KidsTvHome(left: Int?, onSettings: () -> Unit, onMore: () -> Unit) {
     var only by remember { mutableStateOf<String?>(null) }
     val channels = store.kidsChannels.sortedBy { it.name.lowercase() }
     val ids = channels.map { it.id }.toSet()
-    val videos = feed.videos.filter { it.channelId in ids && (only == null || it.channelId == only) }
+    val recent = feed.videos.filter { it.channelId in ids && (only == null || it.channelId == only) }
+    // con un canal elegido (o si solo hay uno), también sus vídeos anteriores, si los piden
+    val older = (channels.firstOrNull { it.id == only } ?: channels.singleOrNull())?.let { OlderVideos.of(it) }
+    val recentIds = recent.map { it.vid }.toSet()
+    val videos = recent + older?.videos.orEmpty().filter { it.vid !in recentIds }
     val firstFocus = remember { FocusRequester() }
     val timeUp = left != null && left <= 0
     LaunchedEffect(channels.isEmpty(), timeUp, videos.isEmpty()) { runCatching { firstFocus.requestFocus() } }
@@ -161,6 +166,17 @@ private fun KidsTvHome(left: Int?, onSettings: () -> Unit, onMore: () -> Unit) {
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(top = 10.dp),
                                 )
+                            }
+                        }
+                    }
+                    if (older != null && !older.done) {
+                        item(key = "#older", span = { GridItemSpan(maxLineSpan) }) {
+                            Row {
+                                if (older.loading) {
+                                    Text("Cargando…", style = Type.sub)
+                                } else {
+                                    Pill(if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más", { older.load() })
+                                }
                             }
                         }
                     }
