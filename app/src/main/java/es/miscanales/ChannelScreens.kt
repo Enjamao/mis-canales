@@ -100,6 +100,13 @@ fun ChannelsScreen(page: ChannelsPage) {
                     Modifier.restoreFocus(page, "add", first = channels.isEmpty()),
                     icon = R.drawable.ic_add,
                 )
+                // los mismos canales que en el móvil
+                Pill(
+                    if (store.ha != null) "Home Assistant: conectado" else "Conectar con Home Assistant",
+                    { nav.open(HaPage()) },
+                    Modifier.restoreFocus(page, "ha"),
+                    selected = store.ha == null && channels.isEmpty(),
+                )
                 Pill(
                     if (store.hideShorts) "Shorts: ocultos" else "Shorts: se ven",
                     {
@@ -463,7 +470,7 @@ fun CategoryScreen(page: CategoryPage) {
 
 /** Una caja de texto, con borde azul mientras escribes, como el buscador de YouTube. */
 @Composable
-private fun TvTextField(
+internal fun TvTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,

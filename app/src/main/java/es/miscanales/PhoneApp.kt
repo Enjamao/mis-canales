@@ -5,6 +5,7 @@ package es.miscanales
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.net.nsd.NsdServiceInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
@@ -50,6 +51,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -66,6 +68,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -863,6 +866,7 @@ private fun HaSettings() {
     var tvs by remember { mutableStateOf<List<HaTv>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var passing by remember { mutableStateOf(false) }
     Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Sincronizar con Home Assistant", style = MaterialTheme.typography.titleMedium)
         val error = library.syncError
@@ -988,8 +992,89 @@ private fun HaSettings() {
             }
         }
         message?.let { Text(it) }
+        if (config != null) {
+            // la tele no puede escribir el token: se lo pasa el móvil por la wifi de casa
+            OutlinedButton(onClick = { passing = true }) { Text("Pasar a la tele") }
+            Hint("Para conectar un Fire TV con Mis Canales: en la tele, Mis canales → Home Assistant, y aquí el código que sale.")
+        }
         Spacer(Modifier.height(24.dp))
     }
+    if (passing && config != null) PassToTvDialog(config, onDismiss = { passing = false })
+}
+
+/** Busca teles con la pantalla de Home Assistant abierta y le manda a una la conexión, con su código. */
+@Composable
+private fun PassToTvDialog(config: HaConfig, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tvs by remember { mutableStateOf<List<NsdServiceInfo>>(emptyList()) }
+    var chosen by remember { mutableStateOf<String?>(null) }
+    var code by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(Unit) {
+        val stop = Pairing.discover(context) { found ->
+            tvs = found
+            if (chosen == null && found.size == 1) chosen = found[0].serviceName
+            if (found.none { it.serviceName == chosen }) chosen = found.singleOrNull()?.serviceName
+        }
+        onDispose { stop() }
+    }
+    val tv = tvs.firstOrNull { it.serviceName == chosen }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pasar a la tele") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("En la tele: Mis canales → Home Assistant. Sale un código. El móvil y la tele, en la misma wifi.")
+                if (tvs.isEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Text("Buscando teles…")
+                    }
+                }
+                for (found in tvs) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { chosen = found.serviceName },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = chosen == found.serviceName, onClick = { chosen = found.serviceName })
+                        Text(Pairing.name(found))
+                    }
+                }
+                OutlinedTextField(
+                    code,
+                    { code = it.filter(Char::isDigit).take(4) },
+                    label = { Text("Código de la tele") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                result?.let { Text(it) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && tv != null && code.length == 4,
+                onClick = {
+                    val target = tv ?: return@TextButton
+                    busy = true
+                    result = "Enviando… (la tele prueba la conexión)"
+                    scope.launch {
+                        result = try {
+                            "La tele dice: " + Pairing.send(context, target, code, config)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            "No se ha podido: ${e.message}"
+                        }
+                        busy = false
+                    }
+                },
+            ) { Text("Enviar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } },
+    )
 }
 
 @Composable

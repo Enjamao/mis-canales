@@ -24,14 +24,11 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
-import kotlinx.coroutines.flow.first
 
 @Composable
 fun HomeScreen(page: HomePage) {
@@ -76,20 +73,14 @@ fun HomeScreen(page: HomePage) {
         val names = categories + if (withOthers) listOf(OTHERS_KEY) else emptyList()
         names.map { it to all.inCategory(store, it) }.filter { it.second.isNotEmpty() }
     }
-    // Hasta que llegan los vídeos, el foco está en "Todos" (si no, se lo lleva el menú y lo abre).
-    // Luego pasa al primer vídeo, si no lo has movido tú.
-    LaunchedEffect(feed) {
-        snapshotFlow { feed.videos.isNotEmpty() }.first { it }
-        if (page.focus == ALL) {
-            page.focus = null
-            page.needsFocus = true
-        }
-    }
     VideoGrid(
         page,
         // por filas, los vídeos van dentro de las filas, arriba
         if (byRows) emptyList() else videos,
         page.grid,
+        // al abrir, el foco en "Todos": arriba del todo, con el título a la vista (en la tele, la lista
+        // lleva lo enfocado hacia el centro, y con el foco en el primer vídeo el título se salía)
+        focusFirst = false,
         status = {
             val error = feed.error
             when {
@@ -157,7 +148,7 @@ fun HomeScreen(page: HomePage) {
                     Chip(
                         "Todos",
                         { page.show(Filter.All) },
-                        Modifier.restoreFocus(page, ALL, first = feed.videos.isEmpty()),
+                        Modifier.restoreFocus(page, ALL, first = true),
                         selected = filter == Filter.All,
                     )
                 }
@@ -201,9 +192,9 @@ fun HomeScreen(page: HomePage) {
                 }
             }
         }
-        rows.forEachIndexed { r, (key, list) ->
+        rows.forEach { (key, list) ->
             fullWidth("row:$key") {
-                CategoryRow(page, key, list.take(ROW_SIZE), first = r == 0)
+                CategoryRow(page, key, list.take(ROW_SIZE))
             }
         }
     }
@@ -211,7 +202,7 @@ fun HomeScreen(page: HomePage) {
 
 /** Una fila de Inicio en la tele: los últimos vídeos de una categoría y, al final, "Ver todos". */
 @Composable
-private fun CategoryRow(page: HomePage, key: String, videos: List<Video>, first: Boolean) {
+private fun CategoryRow(page: HomePage, key: String, videos: List<Video>) {
     val state = page.rows.getOrPut(key) { LazyListState() }
     Column {
         Text(
@@ -224,9 +215,9 @@ private fun CategoryRow(page: HomePage, key: String, videos: List<Video>, first:
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
         ) {
-            itemsIndexed(videos, key = { _, video -> video.vid }) { i, video ->
+            itemsIndexed(videos, key = { _, video -> video.vid }) { _, video ->
                 Box(Modifier.width(CARD_WIDTH)) {
-                    VideoCard(video, Modifier.restoreFocus(page, video.vid, first = first && i == 0), list = videos)
+                    VideoCard(video, Modifier.restoreFocus(page, video.vid), list = videos)
                 }
             }
             item(key = "#all") {
@@ -281,6 +272,9 @@ private fun Welcome(page: HomePage) {
             icon = R.drawable.ic_add,
             selected = true,
         )
+        Spacer(Modifier.height(12.dp))
+        // o los mismos canales que en el móvil
+        Pill("Traer mis canales de Home Assistant", { nav.open(HaPage()) }, Modifier.restoreFocus(page, "ha"))
     }
 }
 
@@ -291,6 +285,8 @@ fun VideoGrid(
     videos: List<Video>,
     state: LazyGridState,
     showChannel: Boolean = true,
+    /** Si al abrir la página el foco va al primer vídeo (si no, lo coge alguien de la cabecera). */
+    focusFirst: Boolean = true,
     status: @Composable () -> Unit,
     header: LazyGridScope.() -> Unit,
 ) {
@@ -304,7 +300,7 @@ fun VideoGrid(
     ) {
         header()
         itemsIndexed(videos, key = { _, video -> video.vid }) { i, video ->
-            VideoCard(video, Modifier.restoreFocus(page, video.vid, first = i == 0), showChannel, list = videos)
+            VideoCard(video, Modifier.restoreFocus(page, video.vid, first = focusFirst && i == 0), showChannel, list = videos)
         }
         fullWidth("status") { Column { status() } }
     }
