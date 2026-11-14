@@ -219,6 +219,9 @@ private fun PhoneHome(
                 }
             }
         }
+        if (Updater.available != null) {
+            item(key = "#update") { UpdateBanner() }
+        }
         if (categories.isNotEmpty()) {
             // las categorías, en píldoras redondas, encima de la fila de siempre
             item(key = "#categories") {
@@ -715,6 +718,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
                 Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
                 KidsAdultSettings()
+                UpdateSetting()
                 SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
                     store.toggleNotifyNew()
                     NewVideos.schedule(context, store.notifyNew)
@@ -799,6 +803,39 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } },
         )
+    }
+}
+
+/** En Inicio, cuando hay una versión nueva en GitHub: un botón para bajarla e instalarla. */
+@Composable
+private fun UpdateBanner() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Button(
+            onClick = { scope.launch { Updater.install(context) } },
+            enabled = !Updater.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(Updater.label()) }
+        Updater.message?.let { Hint(it) }
+    }
+}
+
+/** En Ajustes: la versión que tienes y mirar si hay otra. */
+@Composable
+private fun UpdateSetting() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    Column(Modifier.padding(top = 20.dp, bottom = 8.dp)) {
+        Text("Versión ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
+        Hint("Las versiones nuevas se bajan de GitHub. La app mira sola al abrirse y avisa en Inicio.")
+        OutlinedButton(
+            onClick = {
+                scope.launch { if (Updater.available != null) Updater.install(context) else Updater.check(context, byHand = true) }
+            },
+            enabled = !Updater.busy,
+        ) { Text(Updater.label()) }
+        Updater.message?.let { Hint(it) }
     }
 }
 

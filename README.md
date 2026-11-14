@@ -38,6 +38,17 @@ pantalla de bloqueo), y al salir de la app queda en una ventana flotante. Se qui
 permiten la reproducción en segundo plano del reproductor insertado; es una app para uso propio,
 y YouTube puede cambiar su reproductor y romperlo.
 
+## Actualizaciones
+
+Cada cambio publica la versión nueva en Releases de GitHub. La app (la de los mayores, no Kids) mira
+al abrirse, cada unas horas, si hay una más nueva: en Inicio sale un botón «Actualizar a la …», que la
+baja y abre el instalador de Android (hay que confirmar). También en Ajustes (móvil) y en Mis canales
+(tele), con la versión que tienes y «Buscar actualizaciones».
+
+La primera vez hay que darle permiso para instalar: en el móvil, la app abre ese ajuste; en el Fire,
+Configuración → Mi Fire TV → Opciones para desarrolladores → Instalar aplicaciones desconocidas →
+Mis Canales.
+
 ## Sincronizar con Home Assistant
 
 Los canales pueden vivir en una lista de tareas de Home Assistant, compartida entre la tele y el
