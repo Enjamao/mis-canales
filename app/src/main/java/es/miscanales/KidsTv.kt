@@ -172,11 +172,11 @@ private fun KidsTvHome(left: Int?, onSettings: () -> Unit, onMore: () -> Unit) {
                     if (older != null && !older.done) {
                         item(key = "#older", span = { GridItemSpan(maxLineSpan) }) {
                             Row {
-                                if (older.loading) {
-                                    Text("Cargando…", style = Type.sub)
-                                } else {
-                                    Pill(if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más", { older.load() })
-                                }
+                                // mientras carga, el botón sigue ahí, para que el foco no salte arriba
+                                Pill(
+                                    if (older.loading) "Cargando…" else if (older.videos.isEmpty()) "Ver vídeos anteriores" else "Ver más",
+                                    { older.load() },
+                                )
                             }
                         }
                     }
