@@ -392,5 +392,26 @@ adb shell dumpsys window | grep -iE "PINNED|pip" | head -5
 textos "la app, con el vídeo en la ventana flotante"
 fallos "continua y ventana flotante"
 
+# 16. «Pasar a la tele», con un Home Assistant (falso) guardado: busca teles en la wifi sin romperse
+adb shell am force-stop $PKG; sleep 1
+adb shell run-as $PKG cat shared_prefs/store.xml > store-ahora.xml
+python3 - <<'PY'
+x = open('store-ahora.xml', encoding='utf-8').read()
+ha = '{&quot;url&quot;:&quot;http://127.0.0.1:1&quot;,&quot;token&quot;:&quot;falso&quot;}'
+x = x.replace('</map>', '    <string name="ha">' + ha + '</string>\n</map>')
+open('store-ha.xml', 'w', encoding='utf-8').write(x)
+PY
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store-ha.xml
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 3
+pulsar_abajo "Canales"; sleep 3
+bajar_hasta "Pasar a la tele"
+pulsar "Pasar a la tele"; sleep 6
+textos "Pasar a la tele: buscando teles"
+adb logcat -d | grep "Emparejar" | tail -3
+pulsar "Cerrar"; sleep 2
+fallos "pasar a la tele"
+
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0
