@@ -131,6 +131,8 @@ open class MainActivity : ComponentActivity() {
         // al abrir la app, y al volver de YouTube o de otra app, si hace rato de la última carga
         // (que trae antes los canales de Home Assistant); si no, solo la lista de canales
         if (!feed.reloadIfStale()) scope.launch { library.pullOnResume(before) }
+        // si hay versión nueva en GitHub (cada unas horas; en Kids no se ofrece)
+        if (!kidsMode) scope.launch { Updater.check(applicationContext) }
     }
 
     private fun handle(intent: Intent?, fresh: Boolean) {

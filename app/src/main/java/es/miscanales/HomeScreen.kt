@@ -24,6 +24,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import android.widget.Toast
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -39,6 +43,8 @@ fun HomeScreen(page: HomePage) {
         Welcome(page)
         return
     }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val filter = page.filter
     // los canales de Inicio (sin los de niños, salvo que se quiera) y sus vídeos
     val shown = store.shownChannels
@@ -106,6 +112,21 @@ fun HomeScreen(page: HomePage) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Wordmark()
                 Spacer(Modifier.weight(1f))
+                // hay una versión nueva en GitHub: bajarla e instalarla
+                if (Updater.available != null) {
+                    Chip(
+                        Updater.label(),
+                        {
+                            scope.launch {
+                                Updater.install(context)
+                                // lo que haya pasado (el permiso que falta, un error…)
+                                Updater.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                            }
+                        },
+                        Modifier.padding(end = 16.dp).restoreFocus(page, "update"),
+                        selected = true,
+                    )
+                }
                 val updated = if (feed.loading) "Actualizando…" else ago(feed.loadedAt)?.let { "Actualizado $it" }
                 if (updated != null) Text(updated, style = Type.sub.copy(fontSize = 13.sp))
             }

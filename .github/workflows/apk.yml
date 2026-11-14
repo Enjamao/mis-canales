@@ -44,8 +44,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # el número de la versión, para que la app sepa si hay una más nueva (ver Updater.kt)
+          code=$(grep -oE 'versionCode = [0-9]+' app/build.gradle.kts | grep -oE '[0-9]+')
+          name=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | cut -d'"' -f2)
+          printf '{"versionCode":%s,"versionName":"%s"}\n' "$code" "$name" > version.json
+          cat version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest mis-canales.apk \
+          gh release create latest mis-canales.apk version.json \
             --title "Mis Canales (última versión)" \
-            --notes "Compilado desde ${GITHUB_SHA::7}." \
+            --notes "Versión $name. Compilado desde ${GITHUB_SHA::7}." \
             --latest

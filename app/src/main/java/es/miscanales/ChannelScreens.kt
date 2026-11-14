@@ -53,6 +53,8 @@ fun ChannelsScreen(page: ChannelsPage) {
     val store = LocalStore.current
     val feed = LocalFeed.current
     val nav = LocalNavigator.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // pidiendo el PIN (para "Pedir PIN al abrir" o para cambiarlo): solo el teclado
     page.pin?.let { flow ->
         TvPinPad(flow, onCancel = { page.pin = null })
@@ -133,11 +135,29 @@ fun ChannelsScreen(page: ChannelsPage) {
             }
         }
         item(key = "#autonext") {
-            Pill(
-                if (store.autoNext) "Reproducción continua: sí" else "Reproducción continua: no",
-                { store.toggleAutoNext() },
-                Modifier.padding(bottom = 12.dp).restoreFocus(page, "autonext"),
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                Pill(
+                    if (store.autoNext) "Reproducción continua: sí" else "Reproducción continua: no",
+                    { store.toggleAutoNext() },
+                    Modifier.restoreFocus(page, "autonext"),
+                )
+                // las versiones nuevas, de GitHub
+                Pill(
+                    if (Updater.available != null) Updater.label() else "Versión ${BuildConfig.VERSION_NAME}: buscar otra",
+                    {
+                        scope.launch {
+                            if (Updater.available != null) Updater.install(context) else Updater.check(context, byHand = true)
+                            Updater.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                        }
+                    },
+                    Modifier.restoreFocus(page, "update"),
+                    selected = Updater.available != null,
+                )
+            }
         }
         item(key = "#kids") {
             Row(

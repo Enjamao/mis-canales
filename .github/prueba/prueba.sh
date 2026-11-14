@@ -413,5 +413,23 @@ adb logcat -d | grep "Emparejar" | tail -3
 pulsar "Cerrar"; sleep 2
 fallos "pasar a la tele"
 
+# 17. Actualizaciones: como si esta fuera una versión antigua. En Inicio sale el botón, baja la de GitHub
+#     y abre el instalador de Android
+adb shell am force-stop $PKG; sleep 1
+adb shell "run-as $PKG sed -i 's|</map>|<int name=\"test_version_code\" value=\"1\" /></map>|' shared_prefs/store.xml"
+adb shell appops set $PKG REQUEST_INSTALL_PACKAGES allow
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 6
+arriba_del_todo
+textos "Inicio con el botón de actualizar"
+adb logcat -d | grep "Actualizar:" | tail -3
+pulsar "Actualizar a la 0.14.0"; sleep 25
+adb logcat -d | grep "Actualizar:" | tail -3
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+textos "el instalador de Android"
+adb shell input keyevent KEYCODE_BACK; sleep 2
+fallos "actualizaciones"
+
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

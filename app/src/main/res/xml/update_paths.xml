@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- la versión nueva bajada de GitHub, para pasársela al instalador de Android -->
+<paths>
+    <cache-path name="update" path="update/" />
+</paths>

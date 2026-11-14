@@ -14,6 +14,9 @@
     <!-- para pedir la batería "Sin restricciones" (avisos con el móvil en reposo) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- para instalar las versiones nuevas que la app baja de GitHub (Android pide confirmar) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
@@ -87,6 +90,16 @@
             android:name=".NewVideosJob"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- la versión nueva bajada, para el instalador de Android -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.update"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
     </application>
 
     <!-- Para que Android 11+ deje ver si hay app de YouTube instalada -->
