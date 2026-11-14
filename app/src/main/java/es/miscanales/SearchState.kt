@@ -59,7 +59,11 @@ class SearchState {
         more = null
         loading = true
         // en tus canales, lo que ya está cargado sale al momento
-        videos = if (where == SearchMode.Mine) feed.videos.filter { Search.matches(it, text) } else emptyList()
+        // (solo los canales de Inicio: en la de los mayores, sin los de niños salvo que se quiera)
+        val shown = store.shownChannels
+        val shownIds = shown.map { it.id }.toSet()
+        val mine = feed.videos.filter { it.channelId in shownIds }
+        videos = if (where == SearchMode.Mine) mine.filter { Search.matches(it, text) } else emptyList()
         job = scope.launch {
             try {
                 if (where == SearchMode.YouTube) {
@@ -68,7 +72,7 @@ class SearchState {
                     videos = page.videos
                     more = page.more
                 } else {
-                    videos = Search.mine(text, store.channels.toList(), feed.videos, store.hideShorts)
+                    videos = Search.mine(text, shown, mine, store.hideShorts)
                 }
                 if (videos.isEmpty() && channels.isEmpty()) error = "No hay resultados para «$text»."
                 loading = false

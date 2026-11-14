@@ -63,7 +63,7 @@ fun SearchScreen(page: SearchPage) {
                 search.loading -> Status(
                     when {
                         search.searchedMode == SearchMode.YouTube -> "Buscando en YouTube…"
-                        search.videos.isEmpty() -> "Buscando en tus ${store.channels.size} canales…"
+                        search.videos.isEmpty() -> "Buscando en tus ${store.shownChannels.size} canales…"
                         else -> "Buscando también los vídeos antiguos de tus canales…"
                     },
                 )

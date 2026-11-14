@@ -177,15 +177,21 @@ private fun PhoneHome(
     val store = LocalStore.current
     val feed = LocalFeed.current
     val context = LocalContext.current
+    // los canales de Inicio (sin los de niños, salvo que se quiera) y sus vídeos
+    val shown = store.shownChannels
+    val shownIds = shown.map { it.id }.toSet()
+    val all = feed.videos.filter { it.channelId in shownIds }
     val categories = store.categories
+    // "Otros": los canales sin categoría, cuando hay alguna
+    val withOthers = categories.isNotEmpty() && shown.any { it.category == null }
     // la categoría elegida (si ya no la tiene ningún canal, como si no hubiera ninguna)
-    val chosen = category?.takeIf { it in categories }
-    val channels = (if (chosen == null) store.channels else store.channelsIn(chosen)).sortedBy { it.name.lowercase() }
+    val chosen = category?.takeIf { it in categories || (it == OTHERS_KEY && withOthers) }
+    val channels = (if (chosen == null) shown else store.channelsIn(categoryFor(chosen))).sortedBy { it.name.lowercase() }
     val inCategory = if (chosen == null) {
-        feed.videos
+        all
     } else {
         val ids = channels.map { it.id }.toSet()
-        feed.videos.filter { it.channelId in ids }
+        all.filter { it.channelId in ids }
     }
     val newOnes = inCategory.filter { store.isNew(it) }
     val continuing = inCategory.filter { store.progress[it.vid]?.started == true }
@@ -194,9 +200,7 @@ private fun PhoneHome(
         Filter.All -> inCategory
         Filter.New -> newOnes
         Filter.Continue -> continuing
-        is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
-        // (en el móvil, la categoría va aparte, en su fila)
-        is Filter.Category -> inCategory
+        is Filter.OneChannel -> all.filter { it.channelId == filter.id }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "#head") {
@@ -227,11 +231,11 @@ private fun PhoneHome(
                             shape = CircleShape,
                         )
                     }
-                    items(categories, key = { "cat:$it" }) { name ->
+                    items(categories + if (withOthers) listOf(OTHERS_KEY) else emptyList(), key = { "cat:$it" }) { key ->
                         FilterChip(
-                            selected = chosen == name,
-                            onClick = { onCategory(if (chosen == name) null else name) },
-                            label = { Text(name, maxLines = 1) },
+                            selected = chosen == key,
+                            onClick = { onCategory(if (chosen == key) null else key) },
+                            label = { Text(categoryFor(key) ?: "Otros", maxLines = 1) },
                             shape = CircleShape,
                         )
                     }
@@ -280,6 +284,7 @@ private fun PhoneHome(
             feed.error != null && videos.isEmpty() -> "No se ha podido conectar con YouTube. Mira la conexión a internet."
             (feed.loading || feed.loadedAt == 0L) && videos.isEmpty() -> "Cargando tus canales…"
             videos.isEmpty() && filter == Filter.New -> "No tienes vídeos nuevos sin ver. ¡Al día!"
+            shown.isEmpty() -> "Tus canales son todos «Para niños»: salen en Mis Canales Kids. Para verlos también aquí, en Ajustes."
             videos.isEmpty() -> "No hay vídeos recientes."
             else -> null
         }
@@ -402,7 +407,7 @@ private fun PhoneSearch(search: SearchState, onDetails: (Video) -> Unit) {
         if (search.loading && search.videos.isEmpty()) {
             item(key = "#loading") {
                 Searching(
-                    if (search.searchedMode == SearchMode.Mine) "Buscando en tus ${store.channels.size} canales…" else "Buscando en YouTube…",
+                    if (search.searchedMode == SearchMode.Mine) "Buscando en tus ${store.shownChannels.size} canales…" else "Buscando en YouTube…",
                 )
             }
         }
@@ -804,7 +809,7 @@ private fun CategoryDialog(channel: Channel, onDismiss: () -> Unit, onChoose: (S
         title = { Text("Categoría de ${channel.name}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                for (name in store.categories + listOf<String?>(null)) {
+                for (name in store.allCategories + listOf<String?>(null)) {
                     Row(
                         Modifier.fillMaxWidth().clickable { onChoose(name) }.padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,

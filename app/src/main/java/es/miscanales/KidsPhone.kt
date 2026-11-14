@@ -312,6 +312,8 @@ internal fun KidsAdultSettings() {
                 "(arriba, en cada canal), sin buscar en YouTube ni añadir canales, y con tiempo al día y " +
                 "modo peque en sus ajustes (con el PIN).",
         )
+        SettingSwitch("Ver aquí también los canales de niños", store.kidsInAdult) { store.toggleKidsInAdult() }
+        Hint("Si no, los canales «Para niños» salen solo en Kids (y en Canales, para cambiarlos), y no avisan de vídeos nuevos.")
         SettingSwitch("Pedir PIN al abrir Mis Canales", store.askPin) {
             if (store.askPin) {
                 store.toggleAskPin()

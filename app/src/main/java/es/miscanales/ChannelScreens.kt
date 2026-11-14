@@ -139,6 +139,12 @@ fun ChannelsScreen(page: ChannelsPage) {
                 modifier = Modifier.padding(bottom = 12.dp),
             ) {
                 Text("Kids:", style = Type.sub.copy(fontSize = 14.sp))
+                // si no, los canales «Para niños» salen solo en Kids (y aquí, para cambiarlos)
+                Pill(
+                    if (store.kidsInAdult) "Sus canales también en Inicio: sí" else "Sus canales también en Inicio: no",
+                    { store.toggleKidsInAdult() },
+                    Modifier.restoreFocus(page, "kidsinadult"),
+                )
                 Pill(
                     if (store.askPin) "Pedir PIN al abrir: sí" else "Pedir PIN al abrir: no",
                     {
@@ -162,11 +168,14 @@ fun ChannelsScreen(page: ChannelsPage) {
                         Modifier.restoreFocus(page, "changepin"),
                     )
                 }
-                Text(
-                    "La categoría y «Para niños» se ponen dentro de cada canal.",
-                    style = Type.sub.copy(fontSize = 14.sp),
-                )
             }
+        }
+        item(key = "#hint") {
+            Text(
+                "La categoría y «Para niños» se ponen dentro de cada canal.",
+                style = Type.sub.copy(fontSize = 14.sp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
         }
         itemsIndexed(channels, key = { _, channel -> channel.id }) { i, channel ->
             ChannelRow(channel, Modifier.widthIn(max = 900.dp).restoreFocus(page, channel.id, first = i == 0))
@@ -415,7 +424,7 @@ fun CategoryScreen(page: CategoryPage) {
         }
     }
 
-    val options = store.categories + listOf<String?>(null)
+    val options = store.allCategories + listOf<String?>(null)
     val current = options.indexOf(channel?.category).coerceAtLeast(0)
     Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
         PageHead(

@@ -154,7 +154,8 @@ object NewVideos {
     private suspend fun checkNow(context: Context) {
         val store = Store(context)
         if (!store.notifyNew) return
-        val channels = store.channels.toList()
+        // los de Inicio: los canales «Para niños» no avisan, salvo que se vean también en esta app
+        val channels = store.shownChannels
         if (channels.isEmpty()) return
         val (videos, _) = YouTube.everything(channels, store.hideShorts)
         if (videos.isEmpty()) return
