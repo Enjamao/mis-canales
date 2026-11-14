@@ -43,25 +43,38 @@ fun HomeScreen(page: HomePage) {
         return
     }
     val filter = page.filter
-    val newOnes = feed.videos.filter { store.isNew(it) }
-    // los empezados y sin acabar, el último que viste primero
-    val continuing = feed.videos.filter { store.progress[it.vid]?.started == true }
-        .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
+    // los canales de Inicio (sin los de niños, salvo que se quiera) y sus vídeos
+    val shown = store.shownChannels
+    val shownIds = shown.map { it.id }.toSet()
+    val all = feed.videos.filter { it.channelId in shownIds }
     val categories = store.categories
+    // "Otros": los canales sin categoría, cuando hay alguna
+    val withOthers = categories.isNotEmpty() && shown.any { it.category == null }
+    val chosen = page.category?.takeIf { it in categories || (it == OTHERS_KEY && withOthers) }
+    val channels = (if (chosen == null) shown else store.channelsIn(categoryFor(chosen))).sortedBy { it.name.lowercase() }
+    val inCategory = if (chosen == null) {
+        all
+    } else {
+        val ids = channels.map { it.id }.toSet()
+        all.filter { it.channelId in ids }
+    }
+    val newOnes = inCategory.filter { store.isNew(it) }
+    // los empezados y sin acabar, el último que viste primero
+    val continuing = inCategory.filter { store.progress[it.vid]?.started == true }
+        .sortedByDescending { store.progress[it.vid]?.at ?: 0L }
     val videos = when (filter) {
-        Filter.All -> feed.videos
+        Filter.All -> inCategory
         Filter.New -> newOnes
         Filter.Continue -> continuing
-        is Filter.OneChannel -> feed.videos.filter { it.channelId == filter.id }
-        is Filter.Category -> feed.videos.inCategory(store, filter.name)
+        is Filter.OneChannel -> all.filter { it.channelId == filter.id }
     }
-    // con categorías, "Todos" va por filas: una por categoría, y "Otros" con los canales sin ninguna
-    val byRows = filter == Filter.All && categories.isNotEmpty()
+    // con categorías, "Todas" y "Todos" va por filas: una por categoría, y "Otros" con los canales sin ninguna
+    val byRows = filter == Filter.All && chosen == null && categories.isNotEmpty()
     val rows = if (!byRows) {
         emptyList()
     } else {
-        val names = categories + if (store.channels.any { it.category == null }) listOf(null) else emptyList()
-        names.map { it to feed.videos.inCategory(store, it) }.filter { it.second.isNotEmpty() }
+        val names = categories + if (withOthers) listOf(OTHERS_KEY) else emptyList()
+        names.map { it to all.inCategory(store, it) }.filter { it.second.isNotEmpty() }
     }
     // Hasta que llegan los vídeos, el foco está en "Todos" (si no, se lo lleva el menú y lo abre).
     // Luego pasa al primer vídeo, si no lo has movido tú.
@@ -84,8 +97,9 @@ fun HomeScreen(page: HomePage) {
                 (feed.loading || feed.loadedAt == 0L) && videos.isEmpty() -> Status("Cargando tus canales…")
                 videos.isNotEmpty() -> {}
                 filter == Filter.New -> Status("No tienes vídeos nuevos sin ver. ¡Al día!")
+                shown.isEmpty() -> Status("Tus canales son todos «Para niños»: salen en Mis Canales Kids. Para verlos también aquí, en Mis canales.")
                 filter is Filter.OneChannel -> Status("Este canal no tiene vídeos recientes.")
-                filter is Filter.Category -> Status("Los canales de esta categoría no tienen vídeos recientes.")
+                chosen != null -> Status("Los canales de esta categoría no tienen vídeos recientes.")
                 feed.failed.isEmpty() -> Status("Tus canales no tienen vídeos recientes.")
                 else -> {}
             }
@@ -105,8 +119,36 @@ fun HomeScreen(page: HomePage) {
                 if (updated != null) Text(updated, style = Type.sub.copy(fontSize = 13.sp))
             }
         }
+        if (categories.isNotEmpty()) {
+            // arriba, las categorías (redondas), como en el móvil
+            fullWidth("categories") {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
+                ) {
+                    item(key = "#all") {
+                        Chip(
+                            "Todas",
+                            { page.showCategory(null) },
+                            Modifier.restoreFocus(page, "category:#all"),
+                            selected = chosen == null,
+                            shape = CircleShape,
+                        )
+                    }
+                    items(categories + if (withOthers) listOf(OTHERS_KEY) else emptyList(), key = { "cat:$it" }) { key ->
+                        Chip(
+                            categoryFor(key) ?: OTHERS,
+                            { page.showCategory(key) },
+                            Modifier.restoreFocus(page, "category:$key"),
+                            selected = chosen == key,
+                            shape = CircleShape,
+                        )
+                    }
+                }
+            }
+        }
         fullWidth("filters") {
-            // como la barra de píldoras de YouTube, pero solo con tus canales
+            // debajo, como la barra de píldoras de YouTube, pero solo con tus canales (los de la categoría)
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
@@ -147,17 +189,7 @@ fun HomeScreen(page: HomePage) {
                         icon = R.drawable.ic_refresh,
                     )
                 }
-                // las categorías, redondas: todos sus vídeos en cuadrícula
-                items(categories, key = { "cat:$it" }) { name ->
-                    Chip(
-                        name,
-                        { page.show(if (filter == Filter.Category(name)) Filter.All else Filter.Category(name)) },
-                        Modifier.restoreFocus(page, "category:$name"),
-                        selected = filter == Filter.Category(name),
-                        shape = CircleShape,
-                    )
-                }
-                items(store.channels.sortedBy { it.name.lowercase() }, key = { it.id }) { channel ->
+                items(channels, key = { it.id }) { channel ->
                     Chip(
                         channel.name,
                         { page.show(Filter.OneChannel(channel.id)) },
@@ -169,14 +201,9 @@ fun HomeScreen(page: HomePage) {
                 }
             }
         }
-        if (filter is Filter.Category) {
-            fullWidth("category") {
-                Text(filter.name ?: OTHERS, style = Type.pageTitle, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
-            }
-        }
-        rows.forEachIndexed { r, (name, list) ->
-            fullWidth("row:${name ?: ""}") {
-                CategoryRow(page, name, list.take(ROW_SIZE), first = r == 0)
+        rows.forEachIndexed { r, (key, list) ->
+            fullWidth("row:$key") {
+                CategoryRow(page, key, list.take(ROW_SIZE), first = r == 0)
             }
         }
     }
@@ -184,11 +211,11 @@ fun HomeScreen(page: HomePage) {
 
 /** Una fila de Inicio en la tele: los últimos vídeos de una categoría y, al final, "Ver todos". */
 @Composable
-private fun CategoryRow(page: HomePage, name: String?, videos: List<Video>, first: Boolean) {
-    val state = page.rows.getOrPut(name ?: "") { LazyListState() }
+private fun CategoryRow(page: HomePage, key: String, videos: List<Video>, first: Boolean) {
+    val state = page.rows.getOrPut(key) { LazyListState() }
     Column {
         Text(
-            name ?: OTHERS,
+            categoryFor(key) ?: OTHERS,
             style = Type.pageTitle.copy(fontSize = 20.sp),
             modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
         )
@@ -206,8 +233,8 @@ private fun CategoryRow(page: HomePage, name: String?, videos: List<Video>, firs
                 Box(Modifier.width(CARD_WIDTH).aspectRatio(16f / 9f), contentAlignment = Alignment.Center) {
                     Chip(
                         "Ver todos",
-                        { page.show(Filter.Category(name)) },
-                        Modifier.restoreFocus(page, "all:${name ?: ""}"),
+                        { page.showCategory(key) },
+                        Modifier.restoreFocus(page, "all:$key"),
                     )
                 }
             }
@@ -215,9 +242,9 @@ private fun CategoryRow(page: HomePage, name: String?, videos: List<Video>, firs
     }
 }
 
-/** Los vídeos de los canales de [category] (null: los de los canales sin categoría). */
-private fun List<Video>.inCategory(store: Store, category: String?): List<Video> {
-    val ids = store.channelsIn(category).map { it.id }.toSet()
+/** Los vídeos de los canales de la categoría [key] ([OTHERS_KEY]: los de los canales sin ninguna). */
+private fun List<Video>.inCategory(store: Store, key: String): List<Video> {
+    val ids = store.channelsIn(categoryFor(key)).map { it.id }.toSet()
     return filter { it.channelId in ids }
 }
 

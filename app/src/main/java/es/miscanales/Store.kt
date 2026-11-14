@@ -97,12 +97,31 @@ class Store(context: Context, val kids: Boolean = false) {
     /** Los canales que salen en Mis Canales Kids. */
     val kidsChannels: List<Channel> get() = channels.filter { it.kids }
 
-    /** Las categorías que tienen tus canales, por orden alfabético. */
+    /** En la app de los mayores: si salen también los canales «Para niños» (si no, solo en Kids). */
+    var kidsInAdult by mutableStateOf(prefs.getBoolean("kidsInAdult", false))
+        private set
+
+    /**
+     * Los canales que salen en Inicio, los filtros, el buscador y los avisos: en Kids, los de niños;
+     * en la de los mayores, los demás (o todos, con [kidsInAdult]). En Canales salen siempre todos.
+     */
+    val shownChannels: List<Channel>
+        get() = when {
+            kids -> kidsChannels
+            kidsInAdult -> channels.toList()
+            else -> channels.filter { !it.kids }
+        }
+
+    /** Las categorías que salen en Inicio (las de [shownChannels]), por orden alfabético. */
     val categories: List<String>
+        get() = shownChannels.mapNotNull { it.category }.distinct().sortedBy { it.lowercase() }
+
+    /** Todas las categorías que tienen tus canales, también los de niños (para elegir una). */
+    val allCategories: List<String>
         get() = channels.mapNotNull { it.category }.distinct().sortedBy { it.lowercase() }
 
-    /** Los canales de [category] (con null, los que no tienen). */
-    fun channelsIn(category: String?): List<Channel> = channels.filter { it.category == category }
+    /** Los canales de Inicio de [category] (con null, los que no tienen). */
+    fun channelsIn(category: String?): List<Channel> = shownChannels.filter { it.category == category }
 
     /** En el móvil: si los vídeos siguen sonando con la pantalla apagada. */
     var backgroundPlay by mutableStateOf(prefs.getBoolean("backgroundPlay", true))
@@ -187,6 +206,11 @@ class Store(context: Context, val kids: Boolean = false) {
     fun toggleAutoNext() {
         autoNext = !autoNext
         prefs.edit { putBoolean(if (kids) "kidsAutoNext" else "autoNext", autoNext) }
+    }
+
+    fun toggleKidsInAdult() {
+        kidsInAdult = !kidsInAdult
+        prefs.edit { putBoolean("kidsInAdult", kidsInAdult) }
     }
 
     fun toggleKidsSmall() {

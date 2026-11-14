@@ -147,7 +147,7 @@ class Library(val store: Store, val feed: Feed) {
         val channel = store.channel(id) ?: return
         val clean = category?.trim()?.replace(Regex("\\s+"), " ")?.ifEmpty { null }
         // si ya existe con otras mayúsculas, la misma
-        val name = clean?.let { c -> store.categories.firstOrNull { it.equals(c, ignoreCase = true) } ?: c }
+        val name = clean?.let { c -> store.allCategories.firstOrNull { it.equals(c, ignoreCase = true) } ?: c }
         val updated = channel.copy(category = name)
         val config = store.ha
         if (config != null) {

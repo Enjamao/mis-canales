@@ -34,24 +34,39 @@ sealed interface Filter {
     data object New : Filter
     data object Continue : Filter
     data class OneChannel(val id: String) : Filter
-
-    /** Todos los vídeos de los canales de una categoría (null: los que no tienen). */
-    data class Category(val name: String?) : Filter
 }
+
+/** En Inicio, la categoría "Otros": los canales sin ninguna (una categoría no puede estar en blanco). */
+const val OTHERS_KEY = ""
+
+/** La categoría de los canales de [key] ("Otros": ninguna). */
+fun categoryFor(key: String): String? = key.ifEmpty { null }
 
 class HomePage : Page() {
     var filter by mutableStateOf<Filter>(Filter.All)
         private set
+
+    /** La categoría elegida arriba (null: todas; [OTHERS_KEY]: los canales sin ninguna). */
+    var category by mutableStateOf<String?>(null)
+        private set
     var grid = LazyGridState()
         private set
 
-    /** En la tele, con categorías, Inicio va por filas: por dónde va cada una. */
+    /** En la tele, con categorías, "Todas" va por filas: por dónde va cada una. */
     val rows = mutableMapOf<String, LazyListState>()
 
     fun show(filter: Filter) {
         grid = LazyGridState()
         rows.clear()
         this.filter = filter
+    }
+
+    /** Elige una categoría (null: todas); un canal suelto de otra ya no se vería en la fila, así que vuelve a "Todos". */
+    fun showCategory(category: String?) {
+        grid = LazyGridState()
+        rows.clear()
+        this.category = category
+        if (filter is Filter.OneChannel) filter = Filter.All
     }
 }
 

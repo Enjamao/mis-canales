@@ -68,11 +68,11 @@ Cada canal puede tener una categoría (Música, Noticias…), que se guarda tamb
 
 - **Ponerla**: en el móvil, en Canales, el botón «Categoría» de cada canal (una de las que ya hay,
   «Sin categoría» o una nueva); en la tele, dentro del canal, «Poner categoría».
-- **Móvil**: en Inicio, encima de la fila de siempre, una fila con «Todas» y las categorías. Al
-  elegir una, solo salen los vídeos de sus canales, y la fila de debajo se queda con esos canales
-  («Sin ver» y «Seguir viendo» también).
-- **Tele**: «Todos» va por filas, una por categoría (y «Otros» con los canales sin categoría), con
-  «Ver todos» al final de cada una. Las categorías salen también en la fila de arriba.
+- **Inicio, en el móvil y en la tele**: arriba, una fila con «Todas», las categorías y «Otros» (los
+  canales sin categoría); debajo, la de siempre (Todos, Sin ver, Seguir viendo y los canales). Al
+  elegir una categoría, solo salen los vídeos de sus canales, y la fila de debajo se queda con esos
+  canales («Sin ver» y «Seguir viendo» también).
+- **Tele**: con «Todas» y «Todos», Inicio va por filas, una por categoría, con «Ver todos» al final.
 - La reproducción continua sigue la lista desde la que abriste el vídeo: una categoría entera, seguida.
 
 ## Reproducción continua y ventana flotante
@@ -95,6 +95,9 @@ mismo programa y la misma lista de canales, pero siempre en modo niños:
   tele, dentro de cada canal. Se guarda también en Home Assistant (una línea «niños» en la
   descripción del canal), así que se marca en un aparato y sale en todos. Kids lo ve al volver a ella
   (en el mismo aparato, al momento; con Home Assistant, desde otro aparato también).
+- En la app de los mayores, los canales «Para niños» no salen en Inicio, el buscador ni los avisos
+  (sí en Canales, para cambiarlos), salvo con «Ver aquí también los canales de niños» (en el móvil,
+  en Ajustes; en la tele, en Mis canales).
 - Sin buscar en YouTube, sin añadir canales, sin enlaces a YouTube desde el reproductor (y si un vídeo
   no se deja ver dentro de la app, no se abre en la app de YouTube) y sin sugerencias al acabar.
 - Sus vídeos vistos y por dónde van, aparte de los de los mayores (y sin sincronizar).
