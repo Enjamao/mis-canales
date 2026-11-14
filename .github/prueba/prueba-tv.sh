@@ -213,7 +213,10 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Mis canales (tele), con Home Assistant"
-pulsar "Conectar con Home Assistant"; sleep 1
+# con el mando: arriba hasta la primera fila de pastillas, a «Añadir canal» y la de al lado
+for i in 1 2 3 4 5 6; do tecla KEYCODE_DPAD_UP; done
+enfocar "Añadir canal" KEYCODE_DPAD_LEFT 6
+enfocar "Conectar con Home Assistant" KEYCODE_DPAD_RIGHT 3
 tecla KEYCODE_DPAD_CENTER; sleep 4
 textos "Home Assistant (tele): el código"
 foco "Home Assistant: en Conectar"
