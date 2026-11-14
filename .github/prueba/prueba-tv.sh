@@ -240,4 +240,24 @@ PY
   textos "Home Assistant (tele): tras recibir la conexión (falsa, no responde)"
 fi
 fallos "Home Assistant en la tele"
+
+# Actualizaciones en la tele: como si esta fuera una versión antigua. En Inicio, arriba, el botón;
+# baja la de GitHub y abre el instalador
+adb shell am force-stop $PKG; sleep 1
+adb shell "run-as $PKG sed -i 's|</map>|<int name=\"test_version_code\" value=\"1\" /></map>|' shared_prefs/store.xml"
+adb shell appops set $PKG REQUEST_INSTALL_PACKAGES allow
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 14
+textos "Inicio con el botón de actualizar (tele)"
+adb logcat -d | grep "Actualizar:" | tail -3
+# desde «Todos», arriba (a las categorías) y arriba otra vez
+tecla KEYCODE_DPAD_UP
+tecla KEYCODE_DPAD_UP
+foco "en el botón de actualizar"
+enfocar "Actualizar a la" KEYCODE_DPAD_RIGHT 4
+tecla KEYCODE_DPAD_CENTER; sleep 25
+adb logcat -d | grep "Actualizar:" | tail -3
+adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
+textos "el instalador (tele)"
+fallos "actualizaciones (tele)"
 exit 0
