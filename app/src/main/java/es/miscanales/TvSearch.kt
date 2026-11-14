@@ -253,9 +253,9 @@ fun FoundChannelScreen(page: FoundChannelPage) {
 fun MoreFooter(page: Page, loading: Boolean, done: Boolean, label: String, doneText: String, error: String?, onClick: () -> Unit) {
     Column(Modifier.padding(top = 8.dp)) {
         when {
-            loading -> Status("Cargando…")
             done -> Status(doneText)
-            else -> Pill(label, onClick, Modifier.restoreFocus(page, "more"))
+            // mientras carga, el botón sigue ahí: si desapareciera, el foco saltaría arriba del todo
+            else -> Pill(if (loading) "Cargando…" else label, { if (!loading) onClick() }, Modifier.restoreFocus(page, "more"))
         }
         if (error != null) Status(error)
     }

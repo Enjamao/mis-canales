@@ -208,7 +208,10 @@ for i in 1 2 3 4 5 6 7; do tecla KEYCODE_DPAD_DOWN; done
 enfocar "Ver vídeos anteriores" KEYCODE_DPAD_DOWN 4
 tecla KEYCODE_DPAD_CENTER; sleep 8
 textos "Inicio, CNN, con los anteriores (tele)"
-foco "tras cargar los anteriores"
+foco "tras cargar los anteriores (sigue en el botón)"
+tecla KEYCODE_DPAD_UP
+foco "arriba: un vídeo anterior"
+grep -c "visualizaciones" ui.xml
 fallos "anteriores en Inicio (tele)"
 
 # Inicio arranca arriba: el foco en «Todos», con el título a la vista
