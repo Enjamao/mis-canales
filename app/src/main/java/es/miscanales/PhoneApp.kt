@@ -849,17 +849,21 @@ private fun ChannelChip(name: String, selected: Boolean, onClick: () -> Unit, on
         // al soltar o arrastrar llega otra interacción, que corta la espera
         source.interactions.collectLatest { interaction ->
             if (interaction is PressInteraction.Press) {
-                held = false
                 delay(timeout)
                 held = true
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 long()
+            } else if (interaction is PressInteraction.Cancel) {
+                // se ha soltado fuera: no llega el toque que lo apunta abajo
+                held = false
             }
         }
     }
     FilterChip(
         selected = selected,
-        onClick = { if (!held) onClick() },
+        // al soltar tras un pulsado largo también llega un toque: ese no cuenta. (Se apunta aquí y no al
+        // empezar el toque siguiente, que con un toque rápido llega después de este aviso.)
+        onClick = { if (held) held = false else onClick() },
         label = { Text(name, maxLines = 1) },
         interactionSource = source,
     )
