@@ -478,6 +478,8 @@ elegido "tras un toque"
 adb shell input swipe $X $Y $X $Y 1200; sleep 2
 elegido "tras mantenerlo pulsado"
 adb shell input tap $X $Y; sleep 2
+elegido "tras otro toque"
+adb logcat -d | grep "MisCanales: Filtro" | tail -4
 pulsar "Aleatorio"; sleep 25
 adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 fallos "aleatorio"

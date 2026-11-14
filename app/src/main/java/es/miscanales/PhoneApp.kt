@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.net.nsd.NsdServiceInfo
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
@@ -143,7 +144,10 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                         Tab.Home -> PhoneHome(
                             filter,
                             category,
-                            onFilter = { filter = it },
+                            onFilter = {
+                                filter = it
+                                if (BuildConfig.DEBUG) Log.i("MisCanales", "Filtro: $it")
+                            },
                             onCategory = {
                                 category = it
                                 // un canal suelto de otra categoría ya no se vería en la fila
