@@ -199,6 +199,18 @@ textos "CNN con su categoría nueva (tele)"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
 fallos "poner categoría (tele)"
 
+# En Inicio, con un canal elegido: sus vídeos anteriores (la app sigue en Inicio tras Atrás)
+adb shell am force-stop $PKG; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 12
+enfocar "CNN" KEYCODE_DPAD_RIGHT 12
+tecla KEYCODE_DPAD_CENTER; sleep 2
+for i in 1 2 3 4 5 6 7; do tecla KEYCODE_DPAD_DOWN; done
+enfocar "Ver vídeos anteriores" KEYCODE_DPAD_DOWN 4
+tecla KEYCODE_DPAD_CENTER; sleep 8
+textos "Inicio, CNN, con los anteriores (tele)"
+foco "tras cargar los anteriores"
+fallos "anteriores en Inicio (tele)"
+
 # Inicio arranca arriba: el foco en «Todos», con el título a la vista
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
