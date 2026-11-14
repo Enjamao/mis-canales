@@ -220,7 +220,7 @@ enfocar "Conectar con Home Assistant" KEYCODE_DPAD_RIGHT 3
 tecla KEYCODE_DPAD_CENTER; sleep 4
 textos "Home Assistant (tele): el código"
 foco "Home Assistant: en Conectar"
-CODE=$(python3 -c "import re; x = open('ui.xml', encoding='utf-8').read(); m = re.search(r'text=\"(\d{4})\"', x); print(m.group(1) if m else '')")
+CODE=$(adb logcat -d | grep -oE "Emparejar: código [0-9]{4}" | tail -1 | grep -oE "[0-9]{4}$")
 PORT=$(adb logcat -d | grep -oE "anunciada como .*, puerto [0-9]+" | tail -1 | grep -oE "[0-9]+$")
 adb logcat -d | grep "Emparejar" | tail -3
 echo "código $CODE, puerto $PORT"

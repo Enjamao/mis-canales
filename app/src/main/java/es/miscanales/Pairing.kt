@@ -64,6 +64,8 @@ object Pairing {
             }
             server = socket
             register(socket.localPort)
+            // solo en la variante de prueba, para poder mandarle la conexión desde las pruebas
+            if (BuildConfig.DEBUG) Log.i(TAG, "Emparejar: código $code")
             var wrong = 0
             try {
                 while (true) {
