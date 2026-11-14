@@ -198,4 +198,43 @@ sleep 4
 textos "CNN con su categoría nueva (tele)"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
 fallos "poner categoría (tele)"
+
+# Inicio arranca arriba: el foco en «Todos», con el título a la vista
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 12
+textos "Inicio al abrir (tele): con el título"
+foco "Inicio al abrir: en Todos"
+
+# Home Assistant en la tele: por el menú a Mis canales, y su pastilla
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_CENTER
+sleep 3
+textos "Mis canales (tele), con Home Assistant"
+pulsar "Conectar con Home Assistant"; sleep 1
+tecla KEYCODE_DPAD_CENTER; sleep 4
+textos "Home Assistant (tele): el código"
+foco "Home Assistant: en Conectar"
+CODE=$(python3 -c "import re; x = open('ui.xml', encoding='utf-8').read(); m = re.search(r'text=\"(\d{4})\"', x); print(m.group(1) if m else '')")
+PORT=$(adb logcat -d | grep -oE "anunciada como .*, puerto [0-9]+" | tail -1 | grep -oE "[0-9]+$")
+adb logcat -d | grep "Emparejar" | tail -3
+echo "código $CODE, puerto $PORT"
+if [ -n "$PORT" ]; then
+  adb forward tcp:9876 tcp:$PORT
+  # como el móvil: una línea con el código y la conexión; contesta otra línea
+  cat > /tmp/mandar.py <<'PY'
+import json, socket, sys
+msg = {"code": sys.argv[1], "config": {"url": "http://127.0.0.1:1", "token": "falso"}}
+s = socket.create_connection(("127.0.0.1", 9876), timeout=60)
+s.sendall((json.dumps(msg) + "\n").encode())
+print("la tele contesta:", s.makefile(encoding="utf-8").readline().strip())
+PY
+  python3 /tmp/mandar.py 0000
+  python3 /tmp/mandar.py "$CODE"
+  sleep 2
+  textos "Home Assistant (tele): tras recibir la conexión (falsa, no responde)"
+fi
+fallos "Home Assistant en la tele"
 exit 0
