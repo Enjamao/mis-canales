@@ -334,11 +334,12 @@ adb shell input text 1234; sleep 4
 textos "tras el PIN bueno"
 fallos "PIN al abrir"
 
-# 13b. Categorías: Marques Brownlee en «Ciencia» y CNN en «Noticias» (las dos nuevas); en Inicio, su fila
+# 13b. Categorías: Virtumaniacos en «Ciencia» y CNN en «Noticias» (las dos nuevas); en Inicio, arriba
+#      las categorías. Marques Brownlee es «Para niños»: en la app de los mayores no sale en Inicio
 pulsar_abajo "Canales"; sleep 3
 arriba_del_todo
-pulsar_bajo "Marques Brownlee" "Categoría"; sleep 2
-textos "elegir la categoría de Marques Brownlee"
+pulsar_bajo "Virtumaniacos" "Categoría"; sleep 2
+textos "elegir la categoría de Virtumaniacos"
 escribir "Ciencia"; sleep 3
 pulsar_bajo "CNN" "Categoría"; sleep 2
 textos "elegir la categoría de CNN (ya sale Ciencia)"
@@ -346,9 +347,9 @@ escribir "Noticias"; sleep 3
 textos "canales con su categoría"
 adb shell run-as $PKG cat shared_prefs/store.xml | grep -oE "category&quot;:&quot;[^&]*"
 pulsar_abajo "Inicio"; sleep 3
-textos "Inicio con la fila de categorías"
+textos "Inicio con las categorías (sin Marques Brownlee, que es de niños)"
 pulsar "Ciencia"; sleep 2
-textos "solo Ciencia (Marques Brownlee)"
+textos "solo Ciencia (Virtumaniacos)"
 pulsar "Todas"; sleep 2
 fallos "categorías"
 

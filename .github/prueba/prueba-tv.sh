@@ -153,6 +153,12 @@ enfocar() {
 }
 adb shell am force-stop $PKG; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 15
+textos "Inicio sin los canales de niños (tele): sin Marques Brownlee ni «Otros»"
+# con «Sus canales también en Inicio: sí», Marques Brownlee (de niños, sin categoría) sale en «Otros»
+adb shell am force-stop $PKG; sleep 1
+adb shell "run-as $PKG sed -i 's|</map>|<boolean name=\"kidsInAdult\" value=\"true\" /></map>|' shared_prefs/store.xml"
+adb shell run-as $PKG grep -c kidsInAdult shared_prefs/store.xml
+adb shell am start -W -n $PKG/.MainActivity; sleep 15
 textos "Inicio por filas (tele)"
 foco "Inicio por filas: el primer vídeo de la primera fila"
 tecla KEYCODE_DPAD_DOWN
@@ -164,7 +170,14 @@ foco "una fila más arriba (Noticias)"
 fallos "Inicio por filas (tele)"
 
 # a la fila de arriba y hasta la píldora de CNN; mantener OK abre su página
-enfocar "Todos" KEYCODE_DPAD_UP 5
+# arriba: la fila de los filtros y canales, y encima la de las categorías
+tecla KEYCODE_DPAD_UP
+foco "fila de filtros y canales"
+tecla KEYCODE_DPAD_UP
+foco "fila de categorías"
+enfocar "Todas" KEYCODE_DPAD_LEFT 6
+tecla KEYCODE_DPAD_DOWN
+enfocar "Todos" KEYCODE_DPAD_LEFT 6
 enfocar "CNN" KEYCODE_DPAD_RIGHT 12
 adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 4
 textos "página de CNN (tele)"
