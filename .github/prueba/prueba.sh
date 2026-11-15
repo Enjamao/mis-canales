@@ -251,6 +251,22 @@ bajar_hasta "Más resultados"; pulsar "Más resultados"; sleep 12
 textos "más resultados"
 fallos "más resultados"
 
+# 6b. Una búsqueda en la que YouTube manda vídeos en su formato nuevo: tienen que salir con su canal
+pulsar_abajo "Inicio"; sleep 2; pulsar_abajo "Buscar"; sleep 2
+pulsar "Borrar"; sleep 1
+escribir "mago%sde%soz"; sleep 15
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
+for i in 1 2 3 4 5 6; do
+  adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/4)) 300; sleep 2
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 -c "
+import re
+t = re.findall(r' text=\"([^\"]+)\"', open('ui.xml', encoding='utf-8').read())
+print('datos de vídeos:', [x for x in t if 'hace ' in x])
+"
+done
+fallos "búsqueda con vídeos en formato nuevo"
+
 # 7. Un canal de los resultados: sus vídeos y el botón de añadir
 # arriba del todo (cambiando de pestaña) para tener a mano la caja y su botón de borrar
 pulsar_abajo "Inicio"; sleep 2; pulsar_abajo "Buscar"; sleep 2
