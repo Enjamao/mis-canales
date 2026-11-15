@@ -42,10 +42,10 @@ def report(data, title):
     tokens = [v["continuationEndpoint"]["continuationCommand"]["token"] for k, v, p in walk(data)
               if k == "continuationItemRenderer" and isinstance(v, dict) and "continuationEndpoint" in v
               and "continuationCommand" in v["continuationEndpoint"]]
-    for k, v, p in walk(data):
-        if k == "lockupMetadataViewModel":
-            print("\n--- lockupMetadataViewModel\n" + cut(v, 3000))
-            break
+    locks = [v for k, v, p in walk(data) if k == "lockupViewModel" and isinstance(v, dict)]
+    print("lockups:", Counter(v.get("contentType") for v in locks))
+    for v in [v for v in locks if v.get("contentType") == "LOCKUP_CONTENT_TYPE_VIDEO"][:2]:
+        print("\n--- lockupViewModel (vídeo), metadata\n" + cut(v.get("metadata"), 7000))
     vids = [v for k, v, p in walk(data) if k == "videoRenderer" and isinstance(v, dict)]
     for v in vids[:6]:
         short = "reelWatchEndpoint" in v.get("navigationEndpoint", {})
@@ -77,5 +77,5 @@ for k, v in vids[:5]:
     if k == "videoRenderer":
         print(k, v.get("videoId"), v["title"].get("runs", [{}])[0].get("text"), v.get("publishedTimeText"), v.get("viewCountText"), v.get("lengthText", {}).get("simpleText"), "owner:", "ownerText" in v)
     else:
-        print(k, v.get("contentId"), v.get("contentType"))
+        print(k, v.get("contentId"), v.get("contentType"), cut(v.get("metadata"), 5000))
 print("total:", len(vids), "continuaciones:", len([1 for k, v, p in walk(data) if k == "continuationItemRenderer"]))
