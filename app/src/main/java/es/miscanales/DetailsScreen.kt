@@ -3,6 +3,8 @@ package es.miscanales
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,6 +24,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 
 /** La ficha de un vídeo: la miniatura, la descripción y los botones de ver, visto e ir al canal. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailsScreen(page: DetailsPage) {
     val video = page.video
@@ -50,13 +53,24 @@ fun DetailsScreen(page: DetailsPage) {
         }
         Column(Modifier.weight(1f)) {
             Text(video.title, style = Type.pageTitle.copy(lineHeight = 32.sp), maxLines = 3)
-            Row(Modifier.padding(top = 16.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // (en varias filas: no caben todos en una)
+            FlowRow(
+                Modifier.padding(top = 16.dp, bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Pill(
                     "Ver",
                     { nav.play(video) },
                     Modifier.restoreFocus(page, "play", first = true),
                     icon = R.drawable.ic_play_arrow_filled,
                     selected = true,
+                )
+                Pill(
+                    "Añadir a lista",
+                    { nav.open(AddToListPage(video)) },
+                    Modifier.restoreFocus(page, "list"),
+                    icon = R.drawable.ic_playlist,
                 )
                 Pill(
                     if (watched) "Marcar como no visto" else "Marcar como visto",
@@ -75,12 +89,6 @@ fun DetailsScreen(page: DetailsPage) {
                         }
                     },
                     Modifier.restoreFocus(page, "channel"),
-                )
-                Pill(
-                    "Añadir a lista",
-                    { nav.open(AddToListPage(video)) },
-                    Modifier.restoreFocus(page, "list"),
-                    icon = R.drawable.ic_playlist,
                 )
                 Pill(
                     "Abrir en YouTube",

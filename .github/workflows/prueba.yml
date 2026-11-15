@@ -38,6 +38,14 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash .github/prueba/prueba.sh
 
+      - name: Capturas de pantalla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-movil
+          path: capturas
+          if-no-files-found: ignore
+
       - name: Fallos traducidos
         if: always()
         run: |
@@ -80,6 +88,14 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash .github/prueba/prueba-tv.sh
+
+      - name: Capturas de pantalla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-tele
+          path: capturas
+          if-no-files-found: ignore
 
       - name: Fallos traducidos
         if: always()

@@ -115,7 +115,7 @@ object Playlists {
         }
     }
 
-    /** Añade [video] a la lista [name] (nueva, si no existe). */
+    /** Añade [video] a la lista [name] (nueva, si no existe). Sin conexión con Home Assistant, se queda aquí hasta que la haya. */
     suspend fun add(context: Context, name: String, video: Video) {
         load(context)
         val list = clean(name) ?: return
@@ -128,9 +128,16 @@ object Playlists {
                 try {
                     HomeAssistant.add(config, summary(entry), encode(entry), entity(config))
                     synced = true
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: HaError) {
+                    // no está la lista en Home Assistant: aquí, y se subirá cuando esté
                     synced = false
                     entry = entry.copy(pending = true)
+                } catch (e: Exception) {
+                    // sin conexión: aquí, y se sube en cuanto la haya
+                    entry = entry.copy(pending = true)
+                    pulledAt = 0L
                 }
             } else {
                 entry = entry.copy(pending = true)

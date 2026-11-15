@@ -103,6 +103,12 @@ arriba_del_todo() {
   for i in 1 2 3 4 5 6; do adb shell input swipe $((W/2)) $((H/3)) $((W/2)) $((H*2/3)) 200; sleep 1; done
 }
 
+captura() {
+  # una captura de pantalla, para verla luego (se suben con la prueba)
+  mkdir -p capturas
+  adb exec-out screencap -p > "capturas/$1.png"
+}
+
 textos() {
   echo "--- pantalla: $1"
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
@@ -440,7 +446,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.18.0"; sleep 25
+pulsar "Actualizar a la 0.18.1"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -450,6 +456,7 @@ fallos "actualizaciones"
 # 18. Aleatorio: mezcla lo que se ve y lo pone seguido; con un canal elegido, entre unos cien suyos
 adb logcat -c
 textos "Inicio con Aleatorio"
+captura inicio
 pulsar "Aleatorio"; sleep 30
 adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
@@ -518,16 +525,20 @@ adb shell input text 1234; sleep 6
 SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
 adb shell input swipe $((W/2)) $((H*3/5)) $((W/2)) $((H*3/5)) 1000; sleep 2
 textos "opciones del vídeo"
+captura opciones
 pulsar "Añadir a lista"; sleep 2
 escribir "Rock"; sleep 4
 textos "las listas del vídeo"
+captura listas-del-video
 pulsar "Hecho"; sleep 1
 textos "opciones del vídeo, ya en una lista"
 adb shell input keyevent KEYCODE_BACK; sleep 1
 pulsar_abajo "Listas"; sleep 3
 textos "Listas"
+captura listas
 pulsar "Rock"; sleep 2
 textos "la lista Rock"
+captura lista-rock
 adb logcat -d | grep "MisCanales: Listas" | tail -3
 fallos "listas"
 

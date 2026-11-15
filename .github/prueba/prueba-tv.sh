@@ -12,6 +12,12 @@ fallos() {
   adb logcat -c -b crash
 }
 
+captura() {
+  # una captura de pantalla, para verla luego (se suben con la prueba)
+  mkdir -p capturas
+  adb exec-out screencap -p > "capturas/$1.png"
+}
+
 textos() {
   echo "--- pantalla: $1"
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
@@ -251,6 +257,7 @@ adb shell am force-stop $PKG; sleep 1
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 12
 textos "Inicio al abrir (tele): con el título"
+captura inicio
 foco "Inicio al abrir: en Todos"
 
 # Home Assistant en la tele: por el menú a Mis canales, y su pastilla
@@ -298,15 +305,18 @@ tecla KEYCODE_DPAD_DOWN
 foco "en un vídeo"
 tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 3
 textos "ficha del vídeo (tele)"
+captura ficha
 enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "añadir a lista (tele)"
+captura anadir-a-lista
 foco "añadir a lista: en Crear"
 tecla KEYCODE_DPAD_LEFT
 adb shell input text "Rock"; sleep 1
 tecla KEYCODE_ENTER
 sleep 4
 textos "tras crear la lista (tele)"
+captura tras-crear
 adb logcat -d | grep "MisCanales: Listas" | tail -3
 tecla KEYCODE_BACK; sleep 1
 tecla KEYCODE_BACK; sleep 2
@@ -316,9 +326,11 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Listas (tele)"
+captura listas
 foco "en la primera lista"
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "la lista Rock (tele)"
+captura lista-rock
 foco "en Aleatorio"
 fallos "listas (tele)"
 
