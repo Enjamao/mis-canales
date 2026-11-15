@@ -306,6 +306,12 @@ foco "en un vídeo"
 tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 3
 textos "ficha del vídeo (tele)"
 captura ficha
+python3 -c "
+import re
+for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
+    g = lambda k: (re.search(k + r'=\"([^\"]*)\"', n) or [None, ''])[1]
+    print('nodo', g('class').split('.')[-1], g('bounds'), 'foco' if g('focused') == 'true' else '', 'enfocable' if g('focusable') == 'true' else '', repr(g('text'))[:50])
+"
 enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "añadir a lista (tele)"

@@ -59,6 +59,8 @@ jobs:
 
   tele:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
@@ -96,6 +98,16 @@ jobs:
           name: capturas-tele
           path: capturas
           if-no-files-found: ignore
+
+      # también a una rama aparte (capturas), para poder verlas sin descargar el zip
+      - name: Capturas a la rama capturas
+        if: always()
+        run: |
+          cd capturas 2>/dev/null || exit 0
+          git init -q -b capturas
+          git add -A
+          git -c user.name=prueba -c user.email=prueba@users.noreply.github.com commit -q -m "Capturas de la prueba en la tele"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" capturas
 
       - name: Fallos traducidos
         if: always()
