@@ -41,6 +41,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.view.KeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
@@ -49,7 +51,10 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 
-/** La tarjeta de un vídeo: OK lo pone en YouTube, mantener OK abre su ficha. */
+/** Los botones de play y pausa de un mando (el de la tele manda uno u otro, según el modelo). */
+internal val PLAY_KEYS = setOf(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE)
+
+/** La tarjeta de un vídeo: OK lo pone, mantener OK (o play/pausa) abre su ficha. */
 @Composable
 fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean = true, list: List<Video> = emptyList()) {
     val nav = LocalNavigator.current
@@ -57,7 +62,17 @@ fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean 
         Surface(
             onClick = { nav.play(video, list.after(video)) },
             onLongClick = { nav.open(DetailsPage(video)) },
-            modifier = modifier,
+            // el botón de play/pausa, como mantener OK: con el mando de la tele (por HDMI) no se puede
+            // mantener pulsado el botón central
+            modifier = Modifier
+                .onPreviewKeyEvent { event ->
+                    val media = event.nativeKeyEvent.keyCode in PLAY_KEYS
+                    if (media && event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && event.nativeKeyEvent.repeatCount == 0) {
+                        nav.open(DetailsPage(video))
+                    }
+                    media
+                }
+                .then(modifier),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
             colors = ClickableSurfaceDefaults.colors(containerColor = Colors.bg2, focusedContainerColor = Colors.bg2),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),

@@ -90,6 +90,7 @@ import kotlin.coroutines.cancellation.CancellationException
 private enum class Tab(val label: String, @DrawableRes val icon: Int, @DrawableRes val currentIcon: Int) {
     Home("Inicio", R.drawable.ic_home, R.drawable.ic_home_filled),
     Search("Buscar", R.drawable.ic_search, R.drawable.ic_search),
+    Lists("Listas", R.drawable.ic_playlist, R.drawable.ic_playlist),
     Channels("Canales", R.drawable.ic_smart_display, R.drawable.ic_smart_display_filled),
     Add("Añadir", R.drawable.ic_add, R.drawable.ic_add),
 }
@@ -156,6 +157,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                             onDetails = { details = it },
                         )
                         Tab.Search -> PhoneSearch(search, onDetails = { details = it })
+                        Tab.Lists -> PhoneLists(onDetails = { details = it })
                         Tab.Channels -> PhoneChannels(onOpen = { id ->
                             filter = Filter.OneChannel(id)
                             category = null
@@ -615,12 +617,25 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
     val library = LocalLibrary.current
     val context = LocalContext.current
     val watched = store.isWatched(video.vid)
+    var listing by remember { mutableStateOf(false) }
+    if (listing) PlaylistDialog(video, onDismiss = { listing = false })
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(video.title, maxLines = 3, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(listOf(video.channelName, fullDate(video.published)).filter { it.isNotEmpty() }.joinToString(" • "), color = Colors.muted)
+                // en qué listas de reproducción está
+                val inLists = Playlists.listsOf(video.vid)
+                OutlinedButton(onClick = { listing = true }, modifier = Modifier.padding(top = 12.dp)) {
+                    Icon(painterResource(R.drawable.ic_playlist), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(
+                        if (inLists.isEmpty()) "Añadir a lista" else "En: " + inLists.sortedBy { it.lowercase() }.joinToString(", "),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
                 val config = store.ha
                 if (config != null) {
                     OutlinedButton(

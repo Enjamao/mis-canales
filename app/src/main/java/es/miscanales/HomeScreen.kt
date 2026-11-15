@@ -304,9 +304,6 @@ private fun List<Video>.inCategory(store: Store, key: String): List<Video> {
 }
 
 private const val ALL = "filter:all"
-
-/** Los botones de play y pausa de un mando (el de la tele manda uno u otro, según el modelo). */
-private val PLAY_KEYS = setOf(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE)
 private const val OTHERS = "Otros"
 
 /** Los vídeos que salen en cada fila, antes de "Ver todos". */

@@ -59,6 +59,7 @@ val LocalLibrary = staticCompositionLocalOf<Library> { error("No Library") }
 enum class Section(val label: String, @DrawableRes val icon: Int, @DrawableRes val currentIcon: Int) {
     Home("Inicio", R.drawable.ic_home, R.drawable.ic_home_filled),
     Search("Buscar", R.drawable.ic_search, R.drawable.ic_search),
+    Lists("Listas", R.drawable.ic_playlist, R.drawable.ic_playlist),
     Channels("Mis canales", R.drawable.ic_smart_display, R.drawable.ic_smart_display_filled),
     Add("Añadir canal", R.drawable.ic_add, R.drawable.ic_add),
 }
@@ -108,6 +109,9 @@ fun App(store: Store, feed: Feed, library: Library) {
                         is ChannelPage -> ChannelScreen(page)
                         is CategoryPage -> CategoryScreen(page)
                         is HaPage -> HaScreen(page)
+                        is ListsPage -> ListsScreen(page)
+                        is ListPage -> ListScreen(page)
+                        is AddToListPage -> AddToListScreen(page)
                         is DetailsPage -> DetailsScreen(page)
                         is SearchPage -> SearchScreen(page)
                         is FoundChannelPage -> FoundChannelScreen(page)
@@ -140,6 +144,7 @@ class Navigator(private val context: Context, private val store: Store) {
         when (section) {
             Section.Home -> Unit
             Section.Search -> stack += SearchPage()
+            Section.Lists -> stack += ListsPage()
             Section.Channels -> stack += ChannelsPage()
             Section.Add -> stack += AddChannelPage()
         }

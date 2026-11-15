@@ -53,6 +53,7 @@ open class MainActivity : ComponentActivity() {
         store = Store(this, kids = kidsMode)
         feed = Feed(store, filesDir)
         library = Library(store, feed)
+        Playlists.load(applicationContext)
         if (kidsMode) {
             setContent {
                 if (isTv()) MisCanalesTheme { KidsTvApp(store, feed, library) } else KidsPhoneApp(store, feed, library)
@@ -133,6 +134,8 @@ open class MainActivity : ComponentActivity() {
         if (!feed.reloadIfStale()) scope.launch { library.pullOnResume(before) }
         // si hay versión nueva en GitHub (cada unas horas; en Kids no se ofrece)
         if (!kidsMode) scope.launch { Updater.check(applicationContext) }
+        // las listas de reproducción, de Home Assistant
+        if (!kidsMode) scope.launch { Playlists.pull(applicationContext) }
     }
 
     private fun handle(intent: Intent?, fresh: Boolean) {

@@ -101,6 +101,20 @@ Cada canal puede tener una categoría (Música, Noticias…), que se guarda tamb
   mantener OK, o el botón de play/pausa) lo añade a los elegidos, o lo quita. Con varios, «Aleatorio» mezcla unos cien vídeos
   entre todos, a partes iguales. (La página de un canal, en la tele, está en Mis canales.)
 
+## Listas de reproducción
+
+Vídeos sueltos, de cualquier canal (también de la búsqueda), guardados en listas con nombre. En la
+app de los mayores: la pestaña **Listas** del móvil y la entrada **Listas** del menú de la tele.
+
+- **Añadir un vídeo**: en el móvil, mantenerlo pulsado → «Añadir a lista»; en la tele, mantener OK
+  sobre él (o el botón de play/pausa) → «Añadir a lista». Se marca una lista de las que hay o se
+  escribe una nueva. Para quitarlo, lo mismo, desmarcándola. Una lista existe mientras tiene vídeos.
+- **Dentro de una lista**: los vídeos en el orden en que se añadieron, seguidos, con «Aleatorio»;
+  y cambiarle el nombre o borrarla.
+- **En todos los aparatos**: si en Home Assistant hay una lista de tareas **Mis Canales listas**
+  (Local To-do; queda como `todo.mis_canales_listas`), las listas viven ahí, un elemento por vídeo.
+  Si no, cada aparato tiene las suyas (y se suben cuando la crees).
+
 ## Reproducción continua y ventana flotante
 
 - **Reproducción continua** (en Ajustes, encendida de entrada; en Kids, en sus ajustes y apagada): al

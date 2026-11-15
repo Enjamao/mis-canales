@@ -99,6 +99,7 @@ sleep 2
 # Mis canales → Marques Brownlee → vídeos anteriores
 tecla KEYCODE_DPAD_LEFT
 tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 pulsar "Marques Brownlee"
@@ -256,6 +257,7 @@ foco "Inicio al abrir: en Todos"
 tecla KEYCODE_DPAD_LEFT
 tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Mis canales (tele), con Home Assistant"
@@ -286,6 +288,39 @@ PY
   textos "Home Assistant (tele): tras recibir la conexión (falsa, no responde)"
 fi
 fallos "Home Assistant en la tele"
+
+# Listas de reproducción en la tele: con play/pausa sobre un vídeo se abre su ficha; «Añadir a lista»,
+# una lista nueva, y luego la lista, por el menú (la tercera entrada)
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 12
+tecla KEYCODE_DPAD_DOWN
+foco "en un vídeo"
+tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 3
+textos "ficha del vídeo (tele)"
+enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "añadir a lista (tele)"
+foco "añadir a lista: en Crear"
+tecla KEYCODE_DPAD_LEFT
+adb shell input text "Rock"; sleep 1
+tecla KEYCODE_ENTER
+sleep 4
+textos "tras crear la lista (tele)"
+adb logcat -d | grep "MisCanales: Listas" | tail -3
+tecla KEYCODE_BACK; sleep 1
+tecla KEYCODE_BACK; sleep 2
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_CENTER
+sleep 3
+textos "Listas (tele)"
+foco "en la primera lista"
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "la lista Rock (tele)"
+foco "en Aleatorio"
+fallos "listas (tele)"
 
 # Actualizaciones en la tele: como si esta fuera una versión antigua. En Inicio, arriba, el botón;
 # baja la de GitHub y abre el instalador

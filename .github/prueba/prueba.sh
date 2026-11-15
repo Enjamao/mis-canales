@@ -440,7 +440,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.17.3"; sleep 25
+pulsar "Actualizar a la 0.18.0"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -509,6 +509,27 @@ adb shell input tap 200 150; sleep 1
 adb logcat -d | grep -E "MisCanales: (Anterior|Siguiente)" | tail -4
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 fallos "siguiente y anterior"
+
+# 20. Listas de reproducción: mantener pulsado un vídeo → «Añadir a lista» → una nueva; y la pestaña Listas
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 6
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}
+adb shell input swipe $((W/2)) $((H*3/5)) $((W/2)) $((H*3/5)) 1000; sleep 2
+textos "opciones del vídeo"
+pulsar "Añadir a lista"; sleep 2
+escribir "Rock"; sleep 4
+textos "las listas del vídeo"
+pulsar "Hecho"; sleep 1
+textos "opciones del vídeo, ya en una lista"
+adb shell input keyevent KEYCODE_BACK; sleep 1
+pulsar_abajo "Listas"; sleep 3
+textos "Listas"
+pulsar "Rock"; sleep 2
+textos "la lista Rock"
+adb logcat -d | grep "MisCanales: Listas" | tail -3
+fallos "listas"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

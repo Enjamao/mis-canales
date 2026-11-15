@@ -77,6 +77,12 @@ fun DetailsScreen(page: DetailsPage) {
                     Modifier.restoreFocus(page, "channel"),
                 )
                 Pill(
+                    "Añadir a lista",
+                    { nav.open(AddToListPage(video)) },
+                    Modifier.restoreFocus(page, "list"),
+                    icon = R.drawable.ic_playlist,
+                )
+                Pill(
                     "Abrir en YouTube",
                     { nav.playOnYouTubeApp(video) },
                     Modifier.restoreFocus(page, "youtube"),

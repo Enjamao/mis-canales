@@ -90,6 +90,23 @@ class HomePage : Page() {
     }
 }
 
+/** Las listas de reproducción, en la tele. */
+class ListsPage : Page()
+
+/** Una lista de reproducción. */
+class ListPage(name: String) : Page() {
+    var name by mutableStateOf(name)
+    val grid = LazyGridState()
+    var renaming by mutableStateOf(false)
+    var text by mutableStateOf("")
+    var confirmDelete by mutableStateOf(false)
+}
+
+/** Elegir las listas de un vídeo, en la tele. */
+class AddToListPage(val video: Video) : Page() {
+    var text by mutableStateOf("")
+}
+
 /** La conexión con Home Assistant en la tele: desde el móvil, con un código, o a mano. */
 class HaPage : Page() {
     var url by mutableStateOf("")
