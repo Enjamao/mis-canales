@@ -87,6 +87,8 @@ jobs:
           api-level: 30
           target: android-tv
           arch: x86
+          # una tele de verdad (1280x720, 960x540 puntos, como un Fire TV); sin esto sale una pantalla de móvil
+          profile: tv_720p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash .github/prueba/prueba-tv.sh
