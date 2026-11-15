@@ -191,7 +191,10 @@ object Search {
         return video to short
     }
 
-    /** Un vídeo del formato nuevo (la pestaña Vídeos de los canales). */
+    /**
+     * Un vídeo del formato nuevo (la pestaña Vídeos de los canales y, cada vez más, las búsquedas).
+     * En las búsquedas trae el canal: el primer dato, con su enlace. En la pestaña de un canal, no.
+     */
     private fun fromLockup(l: JsonObject, now: Long): Video? {
         if (l["contentType"].str() != "LOCKUP_CONTENT_TYPE_VIDEO") return null
         val vid = l["contentId"].str() ?: return null
@@ -199,17 +202,23 @@ object Search {
         val title = meta.at("title", "content").str()?.ifBlank { null } ?: return null
         val parts = (meta.at("metadata", "contentMetadataViewModel", "metadataRows") as? JsonArray).orEmpty()
             .flatMap { row -> (row.at("metadataParts") as? JsonArray).orEmpty() }
-            .mapNotNull { it.at("text", "content").str() }
-        val published = parts.firstNotNullOfOrNull { ago(it, now) }
+        // el canal: el dato que lleva a una página de canal
+        fun channelOf(part: JsonElement): String? = (part.at("text", "commandRuns") as? JsonArray).orEmpty()
+            .firstNotNullOfOrNull { it.at("onTap", "innertubeCommand", "browseEndpoint", "browseId").str() }
+        val owner = parts.firstOrNull { channelOf(it) != null }
+        // los demás, con el texto entero si lo trae ("94 millones de visualizaciones", y no "94 M")
+        val texts = parts.filter { it !== owner }
+            .mapNotNull { it.at("accessibilityLabel").str()?.ifBlank { null } ?: it.at("text", "content").str() }
+        val published = texts.firstNotNullOfOrNull { ago(it, now) }
         val badges = mutableListOf<Pair<String, JsonObject>>()
         collectBadges(l["contentImage"], badges)
         return Video(
             vid = vid,
             title = title,
-            channelId = "",
-            channelName = "",
+            channelId = owner?.let(::channelOf).orEmpty(),
+            channelName = owner.at("text", "content").str().orEmpty(),
             published = published ?: 0L,
-            views = parts.firstOrNull { ago(it, now) == null }?.let(::count),
+            views = texts.firstOrNull { ago(it, now) == null }?.let(::count),
             duration = badges.firstNotNullOfOrNull { it.second["text"].str() }.orEmpty(),
         )
     }
