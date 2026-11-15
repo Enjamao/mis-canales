@@ -306,18 +306,21 @@ foco "en un vídeo"
 tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 3
 textos "ficha del vídeo (tele)"
 captura ficha
-python3 -c "
-import re
-for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
-    g = lambda k: (re.search(k + r'=\"([^\"]*)\"', n) or [None, ''])[1]
-    print('nodo', g('class').split('.')[-1], g('bounds'), 'foco' if g('focused') == 'true' else '', 'enfocable' if g('focusable') == 'true' else '', repr(g('text'))[:50])
-"
-enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
+# (la pantalla de este emulador es muy estrecha, 320 puntos: los botones de la ficha quedan uno debajo
+# de otro y sin sitio para el texto; «Añadir a lista» es el segundo)
+tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "añadir a lista (tele)"
 captura anadir-a-lista
 foco "añadir a lista: en Crear"
-tecla KEYCODE_DPAD_LEFT
+# a la caja de la lista nueva (tocándola: coge el foco)
+python3 -c "
+import re, subprocess
+n = re.search(r'<node [^>]*class=\"android.widget.EditText\"[^>]*>', open('ui.xml', encoding='utf-8').read())
+b = re.search(r'bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"', n.group(0))
+subprocess.run(['adb', 'shell', 'input', 'tap', str((int(b.group(1)) + int(b.group(3))) // 2), str((int(b.group(2)) + int(b.group(4))) // 2)])
+"
+sleep 2
 adb shell input text "Rock"; sleep 1
 tecla KEYCODE_ENTER
 sleep 4
