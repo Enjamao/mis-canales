@@ -223,7 +223,8 @@ private fun Logo(open: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(36.dp).background(Colors.accent, RoundedCornerShape(9.dp)),
+            // el logo, del color del perfil (rojo, o morado en el de Montse)
+            Modifier.size(36.dp).background(LocalStore.current.profile.accent, RoundedCornerShape(9.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -257,7 +258,7 @@ fun playVideo(
     own: Boolean = false,
 ) {
     store.setWatched(video.vid, true)
-    NewVideos.dismiss(context, video.vid)
+    NewVideos.dismiss(context, video.vid, store.profile)
     when {
         // Kids: siempre en el reproductor de la app, con su tiempo contado
         store.kids -> PlayerActivity.start(
@@ -267,7 +268,7 @@ fun playVideo(
         store.useYouTubeApp && !own -> context.playOnYouTube(video.vid)
         else -> PlayerActivity.start(
             context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start,
-            queue = queue, autoNext = autoNext,
+            queue = queue, autoNext = autoNext, profile = store.profile,
         )
     }
 }

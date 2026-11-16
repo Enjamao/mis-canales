@@ -43,10 +43,11 @@ internal fun CoroutineScope.playlistChange(context: android.content.Context, blo
 /** Las listas de reproducción, en la tele: una fila por lista. */
 @Composable
 fun ListsScreen(page: ListsPage) {
+    val playlists = LocalStore.current.playlists
     val nav = LocalNavigator.current
     val context = LocalContext.current
-    LaunchedEffect(Unit) { Playlists.pull(context.applicationContext) }
-    val names = Playlists.names
+    LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
+    val names = playlists.names
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 48.dp),
@@ -63,7 +64,7 @@ fun ListsScreen(page: ListsPage) {
             )
         }
         itemsIndexed(names, key = { _, name -> name }) { i, name ->
-            val count = Playlists.videos(name).size
+            val count = playlists.videos(name).size
             Chip(
                 name,
                 { nav.open(ListPage(name)) },
@@ -79,12 +80,13 @@ fun ListsScreen(page: ListsPage) {
 /** Una lista: sus vídeos, en el orden en que se añadieron, y los botones de mezclar, renombrar y borrar. */
 @Composable
 fun ListScreen(page: ListPage) {
+    val playlists = LocalStore.current.playlists
     val store = LocalStore.current
     val nav = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
-    val videos = Playlists.videos(page.name)
+    val videos = playlists.videos(page.name)
 
     fun rename() {
         val to = page.text
@@ -92,8 +94,8 @@ fun ListScreen(page: ListPage) {
         keyboard?.hide()
         scope.playlistChange(context) {
             val old = page.name
-            Playlists.rename(context.applicationContext, old, to)
-            page.name = Playlists.clean(to) ?: old
+            playlists.rename(context.applicationContext, old, to)
+            page.name = playlists.clean(to) ?: old
             page.renaming = false
         }
     }
@@ -133,7 +135,7 @@ fun ListScreen(page: ListPage) {
                                 page.confirmDelete = true
                             } else {
                                 scope.playlistChange(context) {
-                                    Playlists.delete(context.applicationContext, page.name)
+                                    playlists.delete(context.applicationContext, page.name)
                                     nav.back()
                                 }
                             }
@@ -172,20 +174,21 @@ fun ListScreen(page: ListPage) {
 /** Elegir en qué listas está un vídeo: las que ya hay (se marcan y desmarcan) o una nueva. */
 @Composable
 fun AddToListScreen(page: AddToListPage) {
+    val playlists = LocalStore.current.playlists
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val video = page.video
-    LaunchedEffect(Unit) { Playlists.pull(context.applicationContext) }
-    val names = Playlists.names
-    val inLists = Playlists.listsOf(video.vid)
+    LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
+    val names = playlists.names
+    val inLists = playlists.listsOf(video.vid)
 
     fun create() {
         val name = page.text
         if (name.isBlank()) return
         keyboard?.hide()
         scope.playlistChange(context) {
-            Playlists.add(context.applicationContext, name, video)
+            playlists.add(context.applicationContext, name, video)
             page.text = ""
         }
     }
@@ -204,9 +207,9 @@ fun AddToListScreen(page: AddToListPage) {
                         {
                             scope.playlistChange(context) {
                                 if (inside) {
-                                    Playlists.remove(context.applicationContext, name, video.vid)
+                                    playlists.remove(context.applicationContext, name, video.vid)
                                 } else {
-                                    Playlists.add(context.applicationContext, name, video)
+                                    playlists.add(context.applicationContext, name, video)
                                 }
                             }
                         },

@@ -162,7 +162,8 @@ class DetailsPage(val video: Video) : Page()
  * Se guardan en [dir], para enseñarlos nada más abrir la app y cuando YouTube no responde.
  */
 class Feed(private val store: Store, dir: File) {
-    private val cache = File(dir, "videos.json")
+    // (cada perfil, la suya; Kids comparte la del principal, que tiene sus canales)
+    private val cache = File(dir, store.profile.cacheFile)
     private val json = Json { ignoreUnknownKeys = true }
     private val videoList = ListSerializer(Video.serializer())
 

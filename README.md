@@ -126,6 +126,21 @@ app de los mayores: la pestaña **Listas** del móvil y la entrada **Listas** de
   en una ventana pequeña y se sigue por la app. Tocándola vuelve a pantalla completa; arrastrándola
   fuera se cierra. En la tele, Atrás sale del vídeo como siempre.
 
+## Canales de Montse (otro adulto)
+
+Un tercer icono, **Canales de Montse** (morado), para el otro adulto de casa. Es la misma app, pero con
+todo lo suyo aparte: sus canales, categorías, vistos, por dónde va cada vídeo, listas y avisos. Cada
+uno añade lo suyo; Mis Canales Kids sigue saliendo de los canales «Para niños» de Mis Canales.
+
+- **Iconos en este móvil** (en Ajustes; en la tele, la fila «Iconos» de Mis canales): qué iconos salen
+  en este aparato. En el móvil de cada uno, solo el suyo; en las teles, todos. Quitar un icono no borra
+  nada. El icono que estás usando no se quita desde sí mismo.
+- **Home Assistant**: la misma conexión (dirección y token), con tres listas suyas: «Mis Canales
+  Montse» (`todo.mis_canales_montse`), «Mis Canales Montse progreso» y «Mis Canales Montse listas»,
+  creadas como Local To-do. Para pasarla a su móvil: en el de Enjamao, «Pasar a la tele o a otro móvil»;
+  en el suyo, en Ajustes, «Recibir de otro móvil», y el código.
+- El PIN, «Pedir PIN al abrir» y los ajustes de Kids son del aparato, los mismos para todos.
+
 ## Mis Canales Kids
 
 La app trae un segundo icono, **Mis Canales Kids** (ámbar, con una estrella), para los niños. Es el

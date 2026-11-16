@@ -178,7 +178,8 @@ object Pairing {
                 // la tele prueba la conexión con Home Assistant antes de contestar
                 socket.soTimeout = 45_000
                 val out = socket.getOutputStream().bufferedWriter()
-                out.write(json.encodeToString(Message.serializer(), Message(code.trim(), config.copy(tv = ""))))
+                // la conexión común (sin las listas de un perfil: cada aparato pone las del suyo)
+                out.write(json.encodeToString(Message.serializer(), Message(code.trim(), Profile.shared(config).copy(tv = ""))))
                 out.newLine()
                 out.flush()
                 socket.getInputStream().bufferedReader().readLine() ?: "La tele no ha contestado."

@@ -49,10 +49,11 @@ import kotlinx.coroutines.launch
 /** Las listas de reproducción, en el móvil: todas, o una abierta con sus vídeos. */
 @Composable
 internal fun PhoneLists(onDetails: (Video) -> Unit) {
+    val playlists = LocalStore.current.playlists
     val context = LocalContext.current
     var open by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { Playlists.pull(context.applicationContext) }
-    val names = Playlists.names
+    LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
+    val names = playlists.names
     val name = open?.takeIf { it in names }
     if (name != null) {
         PhoneList(name, onBack = { open = null }, onRenamed = { open = it }, onDetails = onDetails)
@@ -70,7 +71,7 @@ internal fun PhoneLists(onDetails: (Video) -> Unit) {
             )
         }
         items(names, key = { it }) { list ->
-            val videos = Playlists.videos(list)
+            val videos = playlists.videos(list)
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { open = list },
                 verticalAlignment = Alignment.CenterVertically,
@@ -92,10 +93,11 @@ internal fun PhoneLists(onDetails: (Video) -> Unit) {
 /** Una lista abierta: sus vídeos en el orden en que se añadieron, mezclarla, renombrarla y borrarla. */
 @Composable
 private fun PhoneList(name: String, onBack: () -> Unit, onRenamed: (String) -> Unit, onDetails: (Video) -> Unit) {
+    val playlists = LocalStore.current.playlists
     val store = LocalStore.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val videos = Playlists.videos(name)
+    val videos = playlists.videos(name)
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -144,8 +146,8 @@ private fun PhoneList(name: String, onBack: () -> Unit, onRenamed: (String) -> U
                     onClick = {
                         renaming = false
                         scope.playlistChange(context) {
-                            Playlists.rename(context.applicationContext, name, text)
-                            Playlists.clean(text)?.let(onRenamed)
+                            playlists.rename(context.applicationContext, name, text)
+                            playlists.clean(text)?.let(onRenamed)
                         }
                     },
                 ) { Text("Guardar") }
@@ -161,7 +163,7 @@ private fun PhoneList(name: String, onBack: () -> Unit, onRenamed: (String) -> U
             confirmButton = {
                 TextButton(onClick = {
                     deleting = false
-                    scope.playlistChange(context) { Playlists.delete(context.applicationContext, name) }
+                    scope.playlistChange(context) { playlists.delete(context.applicationContext, name) }
                 }) { Text("Borrar") }
             },
             dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancelar") } },
@@ -172,16 +174,17 @@ private fun PhoneList(name: String, onBack: () -> Unit, onRenamed: (String) -> U
 /** Las listas de un vídeo: marcar y desmarcar las que ya hay, o crear una nueva con él. */
 @Composable
 internal fun PlaylistDialog(video: Video, onDismiss: () -> Unit) {
+    val playlists = LocalStore.current.playlists
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
-    val inLists = Playlists.listsOf(video.vid)
+    val inLists = playlists.listsOf(video.vid)
 
     fun create() {
         val name = text
         if (name.isBlank()) return
         text = ""
-        scope.playlistChange(context) { Playlists.add(context.applicationContext, name, video) }
+        scope.playlistChange(context) { playlists.add(context.applicationContext, name, video) }
     }
 
     AlertDialog(
@@ -189,14 +192,14 @@ internal fun PlaylistDialog(video: Video, onDismiss: () -> Unit) {
         title = { Text("Añadir a lista") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                for (name in Playlists.names) {
+                for (name in playlists.names) {
                     val inside = name in inLists
                     val toggle = {
                         scope.playlistChange(context) {
                             if (inside) {
-                                Playlists.remove(context.applicationContext, name, video.vid)
+                                playlists.remove(context.applicationContext, name, video.vid)
                             } else {
-                                Playlists.add(context.applicationContext, name, video)
+                                playlists.add(context.applicationContext, name, video)
                             }
                         }
                         Unit

@@ -31,10 +31,20 @@ data class Channel(
 /**
  * Tus canales, los vídeos que ya has visto y los ajustes, guardados en el aparato. Con [kids]
  * (Mis Canales Kids), los vídeos vistos y por dónde se va en cada uno son los de los niños, aparte.
+ * Cada [profile] (cada icono de los mayores) tiene lo suyo; lo del aparato (Home Assistant, el PIN y
+ * los ajustes de Kids) es común.
  */
-class Store(context: Context, val kids: Boolean = false) {
+class Store(context: Context, val kids: Boolean = false, val profile: Profile = Profile.Main) {
     private val appContext = context.applicationContext
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** Lo de este perfil: canales, vistos, progreso, listas y sus ajustes. */
+    private val prefs = context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE)
+
+    /** Lo del aparato, común a todos los perfiles (en el principal, el mismo sitio). */
+    private val device = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** Las listas de reproducción de este perfil. */
+    val playlists: Playlists get() = Playlists.of(profile)
     private val json = Json { ignoreUnknownKeys = true }
     private val channelList = ListSerializer(Channel.serializer())
 
@@ -58,13 +68,11 @@ class Store(context: Context, val kids: Boolean = false) {
         private set
 
     /** Dónde está tu Home Assistant, si los canales se sincronizan con él. */
-    var ha by mutableStateOf(
-        prefs.getString("ha", null)?.let { saved -> runCatching { json.decodeFromString(HaConfig.serializer(), saved) }.getOrNull() },
-    )
+    var ha by mutableStateOf(readHaConfig(context, profile))
         private set
 
     /** Por dónde vas en cada vídeo. Lo escribe el reproductor; aquí se lee para las barras de progreso. */
-    val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context, kids)) }
+    val progress = mutableStateMapOf<String, Progress>().apply { putAll(Progresses.all(context, kids, profile)) }
 
     /** En el móvil: avisar de los vídeos nuevos (ver [NewVideos]). */
     var notifyNew by mutableStateOf(prefs.getBoolean("notifyNew", true))
@@ -79,26 +87,26 @@ class Store(context: Context, val kids: Boolean = false) {
         private set
 
     /** Mis Canales Kids: minutos al día que pueden ver (0: sin límite). */
-    var kidsLimit by mutableStateOf(prefs.getInt("kidsLimit", 0))
+    var kidsLimit by mutableStateOf(device.getInt("kidsLimit", 0))
         private set
 
     /** Mis Canales Kids: miniaturas grandes y sin textos, para quien aún no lee. */
-    var kidsSmall by mutableStateOf(prefs.getBoolean("kidsSmall", false))
+    var kidsSmall by mutableStateOf(device.getBoolean("kidsSmall", false))
         private set
 
     /** En la app de los mayores: pedir el PIN al abrirla (en un aparato que usan también los niños). */
-    var askPin by mutableStateOf(prefs.getBoolean("askPin", false))
+    var askPin by mutableStateOf(device.getBoolean("askPin", false))
         private set
 
     /** Si ya hay PIN en este aparato. */
-    var hasPin by mutableStateOf(prefs.getString("pin", null) != null)
+    var hasPin by mutableStateOf(device.getString("pin", null) != null)
         private set
 
     /** Los canales que salen en Mis Canales Kids. */
     val kidsChannels: List<Channel> get() = channels.filter { it.kids }
 
     /** En la app de los mayores: si salen también los canales «Para niños» (si no, solo en Kids). */
-    var kidsInAdult by mutableStateOf(prefs.getBoolean("kidsInAdult", false))
+    var kidsInAdult by mutableStateOf(device.getBoolean("kidsInAdult", false))
         private set
 
     /**
@@ -182,10 +190,12 @@ class Store(context: Context, val kids: Boolean = false) {
         saveChannels()
     }
 
+    /** Guarda la conexión con Home Assistant (común a todos los perfiles; cada uno, con sus listas). */
     fun saveHa(config: HaConfig?) {
-        ha = config
-        prefs.edit {
-            if (config == null) remove("ha") else putString("ha", json.encodeToString(HaConfig.serializer(), config))
+        val shared = config?.let(Profile::shared)
+        ha = shared?.let(profile::forProfile)
+        device.edit {
+            if (shared == null) remove("ha") else putString("ha", json.encodeToString(HaConfig.serializer(), shared))
         }
     }
 
@@ -200,7 +210,7 @@ class Store(context: Context, val kids: Boolean = false) {
 
     fun changeKidsLimit(minutes: Int) {
         kidsLimit = minutes
-        prefs.edit { putInt("kidsLimit", minutes) }
+        device.edit { putInt("kidsLimit", minutes) }
     }
 
     fun toggleAutoNext() {
@@ -210,25 +220,25 @@ class Store(context: Context, val kids: Boolean = false) {
 
     fun toggleKidsInAdult() {
         kidsInAdult = !kidsInAdult
-        prefs.edit { putBoolean("kidsInAdult", kidsInAdult) }
+        device.edit { putBoolean("kidsInAdult", kidsInAdult) }
     }
 
     fun toggleKidsSmall() {
         kidsSmall = !kidsSmall
-        prefs.edit { putBoolean("kidsSmall", kidsSmall) }
+        device.edit { putBoolean("kidsSmall", kidsSmall) }
     }
 
     fun toggleAskPin() {
         askPin = !askPin
-        prefs.edit { putBoolean("askPin", askPin) }
+        device.edit { putBoolean("askPin", askPin) }
     }
 
     fun setPin(pin: String) {
-        prefs.edit { putString("pin", Pin.hash(pin)) }
+        device.edit { putString("pin", Pin.hash(pin)) }
         hasPin = true
     }
 
-    fun checkPin(pin: String): Boolean = prefs.getString("pin", null) == Pin.hash(pin)
+    fun checkPin(pin: String): Boolean = device.getString("pin", null) == Pin.hash(pin)
 
     fun toggleShorts() {
         hideShorts = !hideShorts
@@ -259,7 +269,7 @@ class Store(context: Context, val kids: Boolean = false) {
 
     /** Vuelve a leer el progreso, que el reproductor escribe por su cuenta. */
     fun reloadProgress() {
-        val all = Progresses.all(appContext, kids)
+        val all = Progresses.all(appContext, kids, profile)
         progress.keys.filter { it !in all }.forEach { progress.remove(it) }
         progress.putAll(all)
     }
@@ -268,7 +278,7 @@ class Store(context: Context, val kids: Boolean = false) {
     fun mergeProgress(remote: Map<String, Progress>) {
         // lo de los niños no se mezcla con lo de los mayores
         if (remote.isEmpty() || kids) return
-        Progresses.put(appContext, remote)
+        Progresses.put(appContext, remote, profile = profile)
         reloadProgress()
         val nuevos = remote.keys.filter { it !in watched }
         if (nuevos.isNotEmpty()) {
@@ -280,7 +290,7 @@ class Store(context: Context, val kids: Boolean = false) {
 
     /** "Marcar como no visto" también olvida por dónde ibas. */
     fun forgetProgress(vid: String) {
-        Progresses.remove(appContext, vid, kids)
+        Progresses.remove(appContext, vid, kids, profile)
         progress.remove(vid)
     }
 
@@ -298,10 +308,10 @@ class Store(context: Context, val kids: Boolean = false) {
         resumed++
         subtitles = prefs.getBoolean(SUBTITLES, false)
         // el PIN y los ajustes de Kids se pueden haber cambiado desde el otro icono (Kids o los mayores)
-        hasPin = prefs.getString("pin", null) != null
-        askPin = prefs.getBoolean("askPin", false)
-        kidsLimit = prefs.getInt("kidsLimit", 0)
-        kidsSmall = prefs.getBoolean("kidsSmall", false)
+        hasPin = device.getString("pin", null) != null
+        askPin = device.getBoolean("askPin", false)
+        kidsLimit = device.getInt("kidsLimit", 0)
+        kidsSmall = device.getBoolean("kidsSmall", false)
         // los canales (y cuáles son para niños) también
         reloadChannels()
         // la reproducción continua marca como vistos los que va poniendo
@@ -311,7 +321,7 @@ class Store(context: Context, val kids: Boolean = false) {
             watched.addAll(seen)
         }
         // el reproductor puede haber guardado la tele de "Ver en la tele"
-        ha = readHaConfig(appContext)
+        ha = readHaConfig(appContext, profile)
         reloadProgress()
     }
 
@@ -338,27 +348,27 @@ internal const val PREFS = "store"
 private const val SUBTITLES = "subtitles"
 
 /** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
-fun saveSubtitles(context: Context, on: Boolean) {
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
+fun saveSubtitles(context: Context, on: Boolean, profile: Profile = Profile.Main) {
+    context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE).edit { putBoolean(SUBTITLES, on) }
 }
 
 /** Marca un vídeo como visto desde el reproductor (la reproducción continua), que no tiene el [Store]. */
-fun markWatched(context: Context, vid: String, kids: Boolean) {
-    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+fun markWatched(context: Context, vid: String, kids: Boolean, profile: Profile = Profile.Main) {
+    val prefs = context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE)
     val key = if (kids) "kids_watched" else "watched"
     val list = prefs.getString(key, "").orEmpty().split(",").filter { it.isNotEmpty() && it != vid } + vid
     prefs.edit { putString(key, list.takeLast(3000).joinToString(",")) }
 }
 
-/** Guarda la configuración de Home Assistant desde el reproductor (que no tiene el [Store]). */
+/** Guarda la configuración de Home Assistant desde el reproductor (que no tiene el [Store]); es común a todos los perfiles. */
 fun saveHaConfig(context: Context, config: HaConfig) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-        putString("ha", Json.encodeToString(HaConfig.serializer(), config))
+        putString("ha", Json.encodeToString(HaConfig.serializer(), Profile.shared(config)))
     }
 }
 
-/** La configuración de Home Assistant, para el reproductor (que no tiene el [Store]). */
-fun readHaConfig(context: Context): HaConfig? =
+/** La configuración de Home Assistant, con las listas de [profile] (para el reproductor, que no tiene el [Store]). */
+fun readHaConfig(context: Context, profile: Profile = Profile.Main): HaConfig? =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("ha", null)?.let { saved ->
         runCatching { Json { ignoreUnknownKeys = true }.decodeFromString(HaConfig.serializer(), saved) }.getOrNull()
-    }
+    }?.let(profile::forProfile)

@@ -20,9 +20,17 @@ class KidsActivity : MainActivity() {
     override val kidsMode = true
 }
 
+/** Canales de Montse: la app de los mayores con su propio icono, morado, y sus canales (ver [Profile]). */
+class MontseActivity : MainActivity() {
+    override val profile = Profile.Montse
+}
+
 open class MainActivity : ComponentActivity() {
     /** Si esta es la entrada de los niños (el icono de Mis Canales Kids). */
     protected open val kidsMode = false
+
+    /** De quién es este icono (en Kids, el principal: sus canales «Para niños»). */
+    protected open val profile = Profile.Main
 
     /** "Pedir PIN al abrir": la app de los mayores, tapada por el PIN hasta que se escribe. */
     private val locked = mutableStateOf(false)
@@ -50,10 +58,10 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        store = Store(this, kids = kidsMode)
+        store = Store(this, kids = kidsMode, profile = profile)
         feed = Feed(store, filesDir)
         library = Library(store, feed)
-        Playlists.load(applicationContext)
+        store.playlists.load(applicationContext)
         if (kidsMode) {
             setContent {
                 if (isTv()) MisCanalesTheme { KidsTvApp(store, feed, library) } else KidsPhoneApp(store, feed, library)
@@ -68,8 +76,8 @@ open class MainActivity : ComponentActivity() {
         val tv = isTv()
         if (!tv) {
             // los avisos de vídeos nuevos (la primera vez que se abre con ellos, se pide el permiso)
-            NewVideos.schedule(this, store.notifyNew)
-            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            NewVideos.schedule(this, NewVideos.wanted(this))
+            val prefs = getSharedPreferences(profile.prefs, MODE_PRIVATE)
             if (store.notifyNew && savedInstanceState == null && !prefs.getBoolean("askedNotifications", false)) {
                 prefs.edit().putBoolean("askedNotifications", true).apply()
                 askNotifications()
@@ -98,7 +106,7 @@ open class MainActivity : ComponentActivity() {
         if (tv) {
             MisCanalesTheme { TvPinPad(flow, onCancel = { finish() }) }
         } else {
-            androidx.compose.material3.MaterialTheme(colorScheme = phoneColors()) {
+            androidx.compose.material3.MaterialTheme(colorScheme = phoneColors(profile.accent)) {
                 androidx.compose.foundation.layout.Box(
                     androidx.compose.ui.Modifier.fillMaxSize().background(Colors.bg),
                 ) { PhonePinDialog(flow, onDismiss = { finish() }) }
@@ -135,7 +143,7 @@ open class MainActivity : ComponentActivity() {
         // si hay versión nueva en GitHub (cada unas horas; en Kids no se ofrece)
         if (!kidsMode) scope.launch { Updater.check(applicationContext) }
         // las listas de reproducción, de Home Assistant
-        if (!kidsMode) scope.launch { Playlists.pull(applicationContext) }
+        if (!kidsMode) scope.launch { store.playlists.pull(applicationContext) }
     }
 
     private fun handle(intent: Intent?, fresh: Boolean) {

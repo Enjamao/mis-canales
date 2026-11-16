@@ -30,30 +30,31 @@ object Progresses {
     private val json = Json { ignoreUnknownKeys = true }
     private val map = MapSerializer(String.serializer(), Progress.serializer())
 
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context, profile: Profile) = context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE)
 
-    /** El progreso de los mayores o, con [kids], el de los niños (Mis Canales Kids), que va aparte. */
-    fun all(context: Context, kids: Boolean = false): Map<String, Progress> =
-        runCatching { json.decodeFromString(map, prefs(context).getString(key(kids), null) ?: "{}") }.getOrDefault(emptyMap())
+    /** El progreso de los mayores (el de [profile]) o, con [kids], el de los niños (Mis Canales Kids), que va aparte. */
+    fun all(context: Context, kids: Boolean = false, profile: Profile = Profile.Main): Map<String, Progress> =
+        runCatching { json.decodeFromString(map, prefs(context, profile).getString(key(kids), null) ?: "{}") }.getOrDefault(emptyMap())
 
-    fun get(context: Context, vid: String, kids: Boolean = false): Progress? = all(context, kids)[vid]
+    fun get(context: Context, vid: String, kids: Boolean = false, profile: Profile = Profile.Main): Progress? =
+        all(context, kids, profile)[vid]
 
     /** Guarda [entries]; de cada vídeo se queda con lo más reciente. */
     @Synchronized
-    fun put(context: Context, entries: Map<String, Progress>, kids: Boolean = false) {
-        val merged = all(context, kids).toMutableMap()
+    fun put(context: Context, entries: Map<String, Progress>, kids: Boolean = false, profile: Profile = Profile.Main) {
+        val merged = all(context, kids, profile).toMutableMap()
         for ((vid, progress) in entries) {
             val old = merged[vid]
             if (old == null || progress.at >= old.at) merged[vid] = progress
         }
         val kept = merged.entries.sortedByDescending { it.value.at }.take(MAX).associate { it.key to it.value }
-        prefs(context).edit().putString(key(kids), json.encodeToString(map, kept)).apply()
+        prefs(context, profile).edit().putString(key(kids), json.encodeToString(map, kept)).apply()
     }
 
     @Synchronized
-    fun remove(context: Context, vid: String, kids: Boolean = false) {
-        val all = all(context, kids) - vid
-        prefs(context).edit().putString(key(kids), json.encodeToString(map, all)).apply()
+    fun remove(context: Context, vid: String, kids: Boolean = false, profile: Profile = Profile.Main) {
+        val all = all(context, kids, profile) - vid
+        prefs(context, profile).edit().putString(key(kids), json.encodeToString(map, all)).apply()
     }
 }
 
@@ -79,8 +80,8 @@ object ProgressSync {
         }.toMap()
 
     /** Sube el progreso de un vídeo, sin esperar ni avisar si falla. */
-    fun push(context: Context, vid: String, title: String, progress: Progress) {
-        val config = readHaConfig(context) ?: return
+    fun push(context: Context, vid: String, title: String, progress: Progress, profile: Profile = Profile.Main) {
+        val config = readHaConfig(context, profile) ?: return
         scope.launch {
             try {
                 val items = HomeAssistant.items(config, list(config))
@@ -107,8 +108,8 @@ object ProgressSync {
     }
 
     /** Quita un vídeo (al marcarlo como no visto). */
-    fun forget(context: Context, vid: String) {
-        val config = readHaConfig(context) ?: return
+    fun forget(context: Context, vid: String, profile: Profile = Profile.Main) {
+        val config = readHaConfig(context, profile) ?: return
         scope.launch {
             try {
                 HomeAssistant.items(config, list(config))

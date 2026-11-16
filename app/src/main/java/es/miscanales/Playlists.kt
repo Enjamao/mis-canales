@@ -28,13 +28,25 @@ data class PlaylistEntry(
  * categorías, una lista existe mientras tiene vídeos). Si en Home Assistant hay una lista de tareas
  * "Mis Canales listas" (todo.mis_canales_listas), viven ahí, un elemento por vídeo, y son las mismas
  * en el móvil y en las teles; si no, cada aparato tiene las suyas. Solo en la app de los mayores.
+ * Cada perfil tiene las suyas ([of]); los demás perfiles, en su lista ("Mis Canales Montse listas").
  */
-object Playlists {
-    private const val TAG = "MisCanales"
-    private const val KEY = "playlists"
+class Playlists private constructor(val profile: Profile) {
+    companion object {
+        private const val TAG = "MisCanales"
+        private const val KEY = "playlists"
 
-    /** Cada cuánto se vuelven a traer de Home Assistant, como mucho. */
-    private const val EVERY = 20_000L
+        /** Cada cuánto se vuelven a traer de Home Assistant, como mucho. */
+        private const val EVERY = 20_000L
+
+        private val all = mutableMapOf<Profile, Playlists>()
+
+        /** Las listas de [profile] (una sola vez cada una, aunque estén abiertos varios iconos). */
+        @Synchronized
+        fun of(profile: Profile): Playlists = all.getOrPut(profile) { Playlists(profile) }
+
+        fun entity(config: HaConfig): String = config.entity + "_listas"
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val serializer = ListSerializer(PlaylistEntry.serializer())
     private val mutex = Mutex()
@@ -46,8 +58,6 @@ object Playlists {
         private set
     private var loaded = false
     private var pulledAt = 0L
-
-    fun entity(config: HaConfig): String = config.entity + "_listas"
 
     /** Los nombres de las listas, por orden alfabético. */
     val names: List<String> get() = entries.map { it.list }.distinct().sortedBy { it.lowercase() }
@@ -62,12 +72,12 @@ object Playlists {
     fun load(context: Context) {
         if (loaded) return
         loaded = true
-        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) ?: return
+        val saved = context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE).getString(KEY, null) ?: return
         runCatching { json.decodeFromString(serializer, saved) }.getOrNull()?.let { entries.addAll(it) }
     }
 
     private fun save(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY, json.encodeToString(serializer, entries.toList())) }
+        context.getSharedPreferences(profile.prefs, Context.MODE_PRIVATE).edit { putString(KEY, json.encodeToString(serializer, entries.toList())) }
     }
 
     /** El nombre limpio; si ya hay una lista que se llama igual con otras mayúsculas, ese. */
@@ -79,7 +89,7 @@ object Playlists {
     /** Trae las listas de Home Assistant (y sube las que se guardaron solo aquí). Sin Home Assistant no hace nada. */
     suspend fun pull(context: Context, force: Boolean = false) {
         load(context)
-        val config = readHaConfig(context)
+        val config = readHaConfig(context, profile)
         if (config == null) {
             synced = false
             return
@@ -205,7 +215,7 @@ object Playlists {
     }
 
     /** Home Assistant, si las listas van por él. */
-    private fun remote(context: Context): HaConfig? = if (synced == false) null else readHaConfig(context)
+    private fun remote(context: Context): HaConfig? = if (synced == false) null else readHaConfig(context, profile)
 
     private fun summary(entry: PlaylistEntry): String = "${entry.list} · ${entry.video.title.take(80)}"
 

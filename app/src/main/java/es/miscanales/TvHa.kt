@@ -69,7 +69,7 @@ fun HaScreen(page: HaPage) {
             Column(Modifier.weight(1f)) {
                 Text("Desde el móvil (lo más fácil)", style = Type.pageTitle.copy(fontSize = 20.sp))
                 Text(
-                    "En Mis Canales del móvil: Canales → Sincronizar con Home Assistant → «Pasar a la tele». " +
+                    "En Mis Canales del móvil: Canales → Sincronizar con Home Assistant → «Pasar a la tele o a otro móvil». " +
                         "Elige «${Pairing.deviceName(context)}» y escribe este código:",
                     style = Type.body.copy(fontSize = 16.sp, lineHeight = 23.sp),
                     modifier = Modifier.padding(top = 8.dp),

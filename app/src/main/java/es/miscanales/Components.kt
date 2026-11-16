@@ -238,10 +238,12 @@ fun Pill(
 
 @Composable
 fun Wordmark(modifier: Modifier = Modifier) {
+    // "Mis Canales" o, en otro perfil, "Canales de Montse" (con su color)
+    val profile = LocalStore.current.profile
     Text(
         buildAnnotatedString {
-            append("Mis ")
-            withStyle(SpanStyle(color = Colors.accent)) { append("Canales") }
+            append(profile.titleStart)
+            withStyle(SpanStyle(color = profile.accent)) { append(profile.titleEnd) }
         },
         fontSize = 22.sp,
         fontWeight = FontWeight.Bold,

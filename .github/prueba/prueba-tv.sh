@@ -355,4 +355,26 @@ adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador (tele)"
 fallos "actualizaciones (tele)"
+
+# El perfil de Montse en la tele: su icono, su Inicio (vacío) y la fila de iconos en Mis canales
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER | grep miscanales
+adb shell am start -W -n $PKG/.MontseActivity; sleep 12
+textos "Inicio de Montse (tele)"
+captura montse-inicio
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_DOWN
+tecla KEYCODE_DPAD_CENTER
+sleep 3
+textos "Mis canales de Montse (tele)"
+captura montse-canales
+pulsar "Mis Canales Kids: sí"; sleep 2
+textos "sin el icono de Kids (tele)"
+adb shell dumpsys package $PKG | grep -A3 "disabledComponents"
+pulsar "Mis Canales Kids: no"; sleep 2
+adb shell dumpsys package $PKG | grep -c "disabledComponents"
+fallos "montse (tele)"
 exit 0

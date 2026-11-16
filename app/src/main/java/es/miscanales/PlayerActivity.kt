@@ -62,6 +62,9 @@ class PlayerActivity : ComponentActivity() {
      * flotante ni sonido con la pantalla apagada, y con el tiempo del día contado ([kidsLimit] min).
      */
     private var kids = false
+
+    /** De quién es lo que se ve: ahí se guardan los vistos, por dónde va y los subtítulos. */
+    private var profile = Profile.Main
     private var kidsLimit = 0
     private var playingSince = 0L
 
@@ -110,6 +113,7 @@ class PlayerActivity : ComponentActivity() {
         videoTitle = title
         sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
         kids = intent.getBooleanExtra(EXTRA_KIDS, false)
+        profile = Profile.of(intent.getStringExtra(EXTRA_PROFILE))
         autoNext = intent.getBooleanExtra(EXTRA_AUTONEXT, false)
         queue.clear()
         intent.getStringExtra(EXTRA_QUEUE)?.let { saved ->
@@ -122,7 +126,7 @@ class PlayerActivity : ComponentActivity() {
         kidsLimit = intent.getIntExtra(EXTRA_KIDS_LIMIT, 0)
         // desde un momento concreto (mandado desde el móvil) o donde lo dejaste (si no lo acabaste)
         val forced = intent.getIntExtra(EXTRA_START, -1)
-        val saved = Progresses.get(this, vid, kids)
+        val saved = Progresses.get(this, vid, kids, profile)
         val start = when {
             forced >= 0 -> forced
             saved != null && saved.started -> saved.pos
@@ -157,7 +161,7 @@ class PlayerActivity : ComponentActivity() {
             // mantiene la app viva con la pantalla apagada, con play y pausa en la pantalla de bloqueo
             PlaybackService.start(this, title, channel)
         }
-        val webView = createWebView(title, channel, subtitles, tv, stats, description, start, cast = !tv && !kids && readHaConfig(this) != null)
+        val webView = createWebView(title, channel, subtitles, tv, stats, description, start, cast = !tv && !kids && readHaConfig(this, profile) != null)
         if (tv) {
             // en la tele, la página sola en la ventana (con algo detrás, en Fire TV el vídeo se ve negro)
             setContentView(webView)
@@ -182,11 +186,11 @@ class PlayerActivity : ComponentActivity() {
             }
         })
         // si lo has seguido viendo en otro aparato, salta a donde lo dejaste allí
-        val config = readHaConfig(this).takeIf { !kids }
+        val config = readHaConfig(this, profile).takeIf { !kids }
         if (config != null && forced < 0) {
             scope.launch {
                 val remote = runCatching { ProgressSync.fetch(config)[vid] }.getOrNull() ?: return@launch
-                val local = Progresses.get(this@PlayerActivity, vid)
+                val local = Progresses.get(this@PlayerActivity, vid, profile = profile)
                 if (remote.started && (local == null || remote.at > local.at) && abs(remote.pos - lastPos) > 10) {
                     web?.evaluateJavascript("jumpTo(${remote.pos})", null)
                     Toast.makeText(this@PlayerActivity, "Sigues por donde ibas en otro aparato (${clock(remote.pos)})", Toast.LENGTH_SHORT).show()
@@ -276,10 +280,10 @@ class PlayerActivity : ComponentActivity() {
         ended = false
         lastDur = 0
         lastSaved = 0L
-        val saved = Progresses.get(this, vid, kids)
+        val saved = Progresses.get(this, vid, kids, profile)
         lastPos = if (saved != null && saved.started) saved.pos else 0
-        markWatched(this, vid, kids)
-        NewVideos.dismiss(this, vid)
+        markWatched(this, vid, kids, profile)
+        NewVideos.dismiss(this, vid, profile)
         if (keepPlaying) PlaybackService.start(this, next.title, next.channelName)
         // para que girar la pantalla o volver desde el aviso sigan con este vídeo y con lo que queda
         setIntent(
@@ -310,9 +314,9 @@ class PlayerActivity : ComponentActivity() {
     private fun saveProgress(sync: Boolean) {
         if (lastDur <= 0) return
         val progress = Progress(lastPos, lastDur, System.currentTimeMillis())
-        Progresses.put(this, mapOf(vid to progress), kids)
+        Progresses.put(this, mapOf(vid to progress), kids, profile)
         lastSaved = progress.at
-        if (sync && !kids) ProgressSync.push(this, vid, videoTitle, progress)
+        if (sync && !kids) ProgressSync.push(this, vid, videoTitle, progress, profile)
     }
 
     /** Cada pocos segundos, mientras suena. */
@@ -395,10 +399,10 @@ class PlayerActivity : ComponentActivity() {
 
     /** "Ver en la tele": se para aquí y se manda a la tele por Home Assistant, desde este momento. */
     fun sendToTv(start: Int) {
-        val config = readHaConfig(this) ?: return
+        val config = readHaConfig(this, profile) ?: return
         lastPos = start
         saveProgress(sync = true)
-        Tele.sendAndTell(this, config, vid, start) { tv -> saveHaConfig(this, config.copy(tv = tv)) }
+        Tele.sendAndTell(this, config, vid, start, profile) { tv -> saveHaConfig(this, config.copy(tv = tv)) }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -520,7 +524,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
     fun onCaptions(on: Boolean) {
-        saveSubtitles(this, on)
+        saveSubtitles(this, on, profile)
     }
 
     /** El vídeo no se puede ver insertado (lo ha prohibido su autor, por ejemplo): a la app de YouTube. */
@@ -576,6 +580,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_DESCRIPTION = "description"
         private const val EXTRA_START = "start"
         private const val EXTRA_KIDS = "kids"
+        private const val EXTRA_PROFILE = "profile"
         private const val EXTRA_QUEUE = "queue"
         private const val EXTRA_HISTORY = "history"
         private const val EXTRA_AUTONEXT = "autoNext"
@@ -739,6 +744,7 @@ class PlayerActivity : ComponentActivity() {
             kidsLimit: Int = 0,
             queue: List<Video> = emptyList(),
             autoNext: Boolean = false,
+            profile: Profile = Profile.Main,
         ) {
             val next = queue.take(MAX_QUEUE).map { QueueItem(it.vid, it.title, it.channelId, it.channelName, it.stats()) }
             context.startActivity(
@@ -749,6 +755,7 @@ class PlayerActivity : ComponentActivity() {
                     .putExtra(EXTRA_AUTONEXT, autoNext)
                     .putExtra(EXTRA_QUEUE, queueJson.encodeToString(ListSerializer(QueueItem.serializer()), next))
                     .putExtra(EXTRA_KIDS, kids)
+                    .putExtra(EXTRA_PROFILE, profile.key)
                     .putExtra(EXTRA_KIDS_LIMIT, kidsLimit)
                     .putExtra(EXTRA_VID, video.vid)
                     .putExtra(EXTRA_TITLE, video.title)

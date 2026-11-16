@@ -38,7 +38,18 @@ class Library(val store: Store, val feed: Feed) {
     suspend fun add(channel: Channel): Pair<Channel, Boolean> {
         val already = store.has(channel.id)
         val config = store.ha
-        if (config != null && !already) HomeAssistant.add(config, channel.name, describe(channel))
+        if (config != null && !already) {
+            try {
+                HomeAssistant.add(config, channel.name, describe(channel))
+            } catch (e: HaError) {
+                // en otro perfil, lo normal es que aún no esté su lista
+                if (store.profile == Profile.Main) throw e
+                throw HaError(
+                    "${e.message}. ¿Está creada la lista «${store.profile.haListName}» (${config.entity})? " +
+                        "Créala en Home Assistant con Local To-do",
+                )
+            }
+        }
         store.add(channel)
         feed.reload()
         return channel to already
@@ -117,7 +128,9 @@ class Library(val store: Store, val feed: Feed) {
     }
 
     /** Prueba la configuración, sube a Home Assistant los canales que falten allí, la guarda y sincroniza. */
-    suspend fun connect(config: HaConfig): String {
+    suspend fun connect(received: HaConfig): String {
+        // con las listas de este perfil (llegue como llegue: del formulario, del móvil o por ADB)
+        val config = store.profile.forProfile(Profile.shared(received))
         // si no responde o el token no vale, esto falla y no se guarda nada
         val inHa = HomeAssistant.items(config).mapNotNull(::idOf).toSet()
         val missing = store.channels.filter { it.id !in inHa }
@@ -172,12 +185,12 @@ class Library(val store: Store, val feed: Feed) {
         }
         if (value) {
             val done = Progress(1, 1, System.currentTimeMillis())
-            Progresses.put(store.appContextForSync(), mapOf(video.vid to done))
+            Progresses.put(store.appContextForSync(), mapOf(video.vid to done), profile = store.profile)
             store.reloadProgress()
-            ProgressSync.push(store.appContextForSync(), video.vid, video.title, done)
+            ProgressSync.push(store.appContextForSync(), video.vid, video.title, done, store.profile)
         } else {
             store.forgetProgress(video.vid)
-            ProgressSync.forget(store.appContextForSync(), video.vid)
+            ProgressSync.forget(store.appContextForSync(), video.vid, store.profile)
         }
     }
 

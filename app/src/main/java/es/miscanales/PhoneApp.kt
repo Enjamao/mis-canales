@@ -112,7 +112,7 @@ internal fun phoneColors(accent: Color = Colors.accent) = darkColorScheme(
 
 @Composable
 fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<String?>) {
-    MaterialTheme(colorScheme = phoneColors()) {
+    MaterialTheme(colorScheme = phoneColors(store.profile.accent)) {
         CompositionLocalProvider(LocalStore provides store, LocalFeed provides feed, LocalLibrary provides library) {
             var tab by rememberSaveable { mutableStateOf(Tab.Home) }
             var filter by remember { mutableStateOf<Filter>(Filter.All) }
@@ -613,6 +613,7 @@ internal fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Un
 /** Mantener pulsado un vídeo: su descripción y qué hacer con él. */
 @Composable
 private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> Unit) {
+    val playlists = LocalStore.current.playlists
     val store = LocalStore.current
     val library = LocalLibrary.current
     val context = LocalContext.current
@@ -626,7 +627,7 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(listOf(video.channelName, fullDate(video.published)).filter { it.isNotEmpty() }.joinToString(" • "), color = Colors.muted)
                 // en qué listas de reproducción está
-                val inLists = Playlists.listsOf(video.vid)
+                val inLists = playlists.listsOf(video.vid)
                 OutlinedButton(onClick = { listing = true }, modifier = Modifier.padding(top = 12.dp)) {
                     Icon(painterResource(R.drawable.ic_playlist), contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(
@@ -644,7 +645,7 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
                             store.setWatched(video.vid, true)
                             // desde donde ibas, si lo habías empezado y no acabado
                             val start = store.progress[video.vid]?.takeIf { it.started && !it.finished }?.pos ?: 0
-                            Tele.sendAndTell(context, config, video.vid, start) { tv -> store.saveHa(config.copy(tv = tv)) }
+                            Tele.sendAndTell(context, config, video.vid, start, store.profile) { tv -> store.saveHa(config.copy(tv = tv)) }
                         },
                         modifier = Modifier.padding(top = 12.dp),
                     ) { Text("📺 Ver en la tele") }
@@ -726,8 +727,8 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                             label = { Text(channel.category ?: "Categoría", fontSize = 12.sp, maxLines = 1) },
                             shape = CircleShape,
                         )
-                        // para Mis Canales Kids (se guarda también en Home Assistant)
-                        FilterChip(
+                        // para Mis Canales Kids (se guarda también en Home Assistant); Kids sale de los canales del principal
+                        if (store.profile == Profile.Main) FilterChip(
                             selected = channel.kids,
                             onClick = {
                                 scope.launch {
@@ -762,11 +763,12 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
                 SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
                 Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
-                KidsAdultSettings()
+                if (store.profile == Profile.Main) KidsAdultSettings()
+                IconsSetting()
                 UpdateSetting()
                 SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
                     store.toggleNotifyNew()
-                    NewVideos.schedule(context, store.notifyNew)
+                    NewVideos.schedule(context, NewVideos.wanted(context))
                     if (store.notifyNew) (context as? MainActivity)?.askNotifications()
                 }
                 if (store.notifyNew) {
@@ -795,7 +797,7 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                     if (latest != null) {
                         TextButton(onClick = {
                             (context as? MainActivity)?.askNotifications()
-                            NewVideos.preview(context, latest)
+                            NewVideos.preview(context, latest, store.profile)
                         }) { Text("Probar con el último vídeo") }
                     }
                 }
@@ -917,6 +919,31 @@ private fun UpdateSetting() {
     }
 }
 
+/** Qué iconos de la app salen en este móvil (cada uno, el suyo). El que se está usando no se quita desde dentro. */
+@Composable
+private fun IconsSetting() {
+    val context = LocalContext.current
+    val store = LocalStore.current
+    var shown by remember { mutableStateOf(Launcher.icons.associate { it.second to Launcher.shown(context, it.second) }) }
+    Column(Modifier.padding(top = 20.dp)) {
+        Text("Iconos en este móvil", style = MaterialTheme.typography.titleMedium)
+        Hint("En el móvil de cada uno, solo el suyo; en las teles, todos. Quitar un icono no borra nada.")
+        for ((label, activity) in Launcher.icons) {
+            val mine = activity == store.profile.activity
+            SettingSwitch(if (mine) "$label (el que usas ahora)" else label, shown[activity] == true) {
+                if (mine) {
+                    Toast.makeText(context, "Es el que estás usando: se quita desde otro icono", Toast.LENGTH_LONG).show()
+                } else {
+                    runCatching { Launcher.set(context, activity, shown[activity] != true) }
+                    shown = shown + (activity to Launcher.shown(context, activity))
+                    // los avisos, solo de los perfiles con icono
+                    NewVideos.schedule(context, NewVideos.wanted(context))
+                }
+            }
+        }
+    }
+}
+
 /** Elegir la categoría de un canal: una de las que ya hay, ninguna, o una nueva. */
 @Composable
 private fun CategoryDialog(channel: Channel, onDismiss: () -> Unit, onChoose: (String?) -> Unit) {
@@ -982,17 +1009,23 @@ private fun HaSettings() {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var passing by remember { mutableStateOf(false) }
+    var receiving by remember { mutableStateOf(false) }
     Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Sincronizar con Home Assistant", style = MaterialTheme.typography.titleMedium)
         val error = library.syncError
         Hint(
             when {
                 config == null -> "Los canales se guardan en una lista de tareas de tu Home Assistant y se comparten entre el móvil y la tele."
+                // en otro perfil, lo normal es que aún no estén sus listas
+                error != null && store.profile != Profile.Main ->
+                    "Home Assistant: $error. Si aún no está, crea en Home Assistant (Local To-do) la lista " +
+                        "\"${store.profile.haListName}\" (${config.entity}) para guardar ahí tus canales, y para lo demás " +
+                        "\"${store.profile.haListName} progreso\" y \"${store.profile.haListName} listas\"."
                 error != null -> "No responde: $error"
                 else -> "Conectado" + (ago(library.syncedAt)?.let { ", sincronizado $it" } ?: "") + "." +
                     if (library.progressSynced == false) {
                         " Para compartir también por dónde vas en cada vídeo, crea en HA otra lista de tareas " +
-                            "llamada \"Mis Canales progreso\" (${config?.let { ProgressSync.list(it) }.orEmpty()})."
+                            "llamada \"${store.profile.haListName} progreso\" (${config?.let { ProgressSync.list(it) }.orEmpty()})."
                     } else {
                         ""
                     }
@@ -1109,12 +1142,60 @@ private fun HaSettings() {
         message?.let { Text(it) }
         if (config != null) {
             // la tele no puede escribir el token: se lo pasa el móvil por la wifi de casa
-            OutlinedButton(onClick = { passing = true }) { Text("Pasar a la tele") }
-            Hint("Para conectar un Fire TV con Mis Canales: en la tele, Mis canales → Home Assistant, y aquí el código que sale.")
+            OutlinedButton(onClick = { passing = true }) { Text("Pasar a la tele o a otro móvil") }
+            Hint(
+                "Para conectar un Fire TV con Mis Canales: en la tele, Mis canales → Home Assistant, y aquí el código " +
+                    "que sale. A otro móvil: en el otro, Canales → \"Recibir de otro móvil\".",
+            )
+        } else {
+            // o desde otro móvil que ya lo tenga (así no hay que copiar el token)
+            OutlinedButton(onClick = { receiving = true }) { Text("Recibir de otro móvil") }
+            Hint("Si otro móvil de casa ya tiene Mis Canales conectado: allí, Canales → \"Pasar a la tele o a otro móvil\".")
         }
         Spacer(Modifier.height(24.dp))
     }
     if (passing && config != null) PassToTvDialog(config, onDismiss = { passing = false })
+    if (receiving) ReceiveDialog(onDismiss = { receiving = false })
+}
+
+/** Recibe la conexión con Home Assistant de otro móvil (como la tele): enseña un código y espera. */
+@Composable
+private fun ReceiveDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val library = LocalLibrary.current
+    val receiver = remember { Pairing.Receiver(context.applicationContext) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(receiver) {
+        receiver.run { config ->
+            message = "Probando Home Assistant…"
+            val result = try {
+                library.connect(config)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "No se ha podido conectar con Home Assistant: ${e.message}"
+            }
+            message = result
+            result
+        }
+    }
+    DisposableEffect(receiver) { onDispose { receiver.stop() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Recibir de otro móvil") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "En el otro móvil: Canales → \"Pasar a la tele o a otro móvil\". Elige \"${Pairing.deviceName(context)}\" " +
+                        "y escribe este código:",
+                )
+                Text(receiver.code, style = MaterialTheme.typography.displaySmall, letterSpacing = 8.sp)
+                Text("Los dos móviles, en la misma wifi.", color = Colors.muted)
+                message?.let { Text(it) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } },
+    )
 }
 
 /** Busca teles con la pantalla de Home Assistant abierta y le manda a una la conexión, con su código. */
@@ -1138,7 +1219,7 @@ private fun PassToTvDialog(config: HaConfig, onDismiss: () -> Unit) {
     val tv = tvs.firstOrNull { it.serviceName == chosen }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pasar a la tele") },
+        title = { Text("Pasar a la tele o a otro móvil") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("En la tele: Mis canales → Home Assistant. Sale un código. El móvil y la tele, en la misma wifi.")

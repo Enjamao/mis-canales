@@ -128,19 +128,29 @@ object NewVideos {
     private val scope = MainScope()
 
     /** Un aviso de prueba con [video], para ver cómo queda y si llegan. */
-    fun preview(context: Context, video: Video) {
+    fun preview(context: Context, video: Video, profile: Profile = Profile.Main) {
         val app = context.applicationContext
         if (!allowed(app)) {
             Toast.makeText(app, "Falta darle permiso a la app para poner avisos", Toast.LENGTH_LONG).show()
             return
         }
-        scope.launch { show(app, listOf(video)) }
+        scope.launch { show(app, listOf(video), profile) }
     }
 
     /** Quita el aviso de un vídeo (al verlo). */
-    fun dismiss(context: Context, vid: String) {
-        context.getSystemService(NotificationManager::class.java)?.cancel(vid, 1)
+    fun dismiss(context: Context, vid: String, profile: Profile = Profile.Main) {
+        context.getSystemService(NotificationManager::class.java)?.cancel(tag(vid, profile), 1)
     }
+
+    /** El aviso de cada vídeo, de cada perfil (si los dos siguen el mismo canal, uno cada uno). */
+    private fun tag(vid: String, profile: Profile) = if (profile.key.isEmpty()) vid else "${profile.key}:$vid"
+
+    /** Los perfiles que avisan en este aparato: los que tienen su icono y los avisos puestos. */
+    private fun profiles(context: Context): List<Profile> =
+        Profile.entries.filter { Launcher.shown(context, it) && Store(context, profile = it).notifyNew }
+
+    /** Si hace falta la revisión: algún perfil de este aparato quiere avisos. */
+    fun wanted(context: Context): Boolean = profiles(context).isNotEmpty()
 
     /**
      * Mira los canales y avisa de lo nuevo. La primera vez (o con un canal recién añadido) solo
@@ -152,17 +162,22 @@ object NewVideos {
     }
 
     private suspend fun checkNow(context: Context) {
-        val store = Store(context)
-        if (!store.notifyNew) return
+        for (profile in profiles(context)) checkProfile(context, profile)
+    }
+
+    private suspend fun checkProfile(context: Context, profile: Profile) {
+        val store = Store(context, profile = profile)
         // los de Inicio: los canales «Para niños» no avisan, salvo que se vean también en esta app
         val channels = store.shownChannels
         if (channels.isEmpty()) return
         val (videos, _) = YouTube.everything(channels, store.hideShorts)
         if (videos.isEmpty()) return
 
+        // lo ya visto de cada perfil, aparte ("videos" y "channels" el principal; "videos_montse"…)
+        val suffix = if (profile.key.isEmpty()) "" else "_${profile.key}"
         val prefs = context.getSharedPreferences(PREFS_KNOWN, Context.MODE_PRIVATE)
-        val knownVideos = prefs.getString("videos", null)?.split(",")?.filter { it.isNotEmpty() }
-        val knownChannels = prefs.getString("channels", "").orEmpty().split(",").filter { it.isNotEmpty() }.toSet()
+        val knownVideos = prefs.getString("videos$suffix", null)?.split(",")?.filter { it.isNotEmpty() }
+        val knownChannels = prefs.getString("channels$suffix", "").orEmpty().split(",").filter { it.isNotEmpty() }.toSet()
         val now = System.currentTimeMillis()
         val fresh = if (knownVideos == null) {
             emptyList()
@@ -174,14 +189,16 @@ object NewVideos {
             }
         }
         prefs.edit {
-            putString("videos", (videos.map { it.vid } + knownVideos.orEmpty()).distinct().take(3000).joinToString(","))
-            putString("channels", (knownChannels + videos.map { it.channelId }).joinToString(","))
+            putString("videos$suffix", (videos.map { it.vid } + knownVideos.orEmpty()).distinct().take(3000).joinToString(","))
+            putString("channels$suffix", (knownChannels + videos.map { it.channelId }).joinToString(","))
         }
-        Log.i(TAG, "Avisos: ${videos.size} vídeos, ${fresh.size} nuevos")
-        if (fresh.isNotEmpty()) show(context, fresh.sortedBy { it.published })
+        Log.i(TAG, "Avisos (${profile.label}): ${videos.size} vídeos, ${fresh.size} nuevos")
+        if (fresh.isNotEmpty()) show(context, fresh.sortedBy { it.published }, profile)
     }
 
-    private suspend fun show(context: Context, videos: List<Video>) {
+    private suspend fun show(context: Context, videos: List<Video>, profile: Profile = Profile.Main) {
+        // en otro perfil, su nombre en el aviso (por si en el aparato hay más de uno)
+        val who = profile.titleEnd.takeIf { profile.key.isNotEmpty() }
         if (!allowed(context)) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
@@ -199,8 +216,9 @@ object NewVideos {
                     .setWhen(video.published.takeIf { it > 0 } ?: System.currentTimeMillis())
                     .setShowWhen(true)
                     .setAutoCancel(true)
-                    .setGroup(GROUP)
-                    .setContentIntent(open(context, video))
+                    .setGroup(GROUP + profile.key)
+                    .setSubText(who)
+                    .setContentIntent(open(context, video, profile))
                     .apply {
                         if (picture != null) {
                             setLargeIcon(picture)
@@ -215,7 +233,7 @@ object NewVideos {
                         }
                     }
                     .build()
-                manager.notify(video.vid, 1, notification)
+                manager.notify(tag(video.vid, profile), 1, notification)
             }
         }
         // el resumen agrupa los avisos (y, si son muchos, los sustituye)
@@ -227,24 +245,25 @@ object NewVideos {
                 .setContentTitle("${videos.size} vídeos nuevos")
                 .setContentText(videos.map { it.channelName }.distinct().joinToString(", "))
                 .setStyle(inbox)
-                .setGroup(GROUP)
+                .setGroup(GROUP + profile.key)
+                .setSubText(who)
                 .setGroupSummary(true)
                 .setAutoCancel(true)
                 .setContentIntent(
                     PendingIntent.getActivity(
-                        context, 0,
-                        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        context, profile.ordinal,
+                        Intent(context, profile.activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
                 .build()
-            manager.notify(SUMMARY_ID, summary)
+            manager.notify(SUMMARY_ID + profile.ordinal * 100, summary)
         }
     }
 
-    /** Al tocar el aviso: Mis Canales con ese vídeo (lo recoge [MainActivity], como "Ver en la tele"). */
-    private fun open(context: Context, video: Video): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java)
+    /** Al tocar el aviso: Mis Canales (el icono de su perfil) con ese vídeo (lo recoge [MainActivity], como "Ver en la tele"). */
+    private fun open(context: Context, video: Video, profile: Profile): PendingIntent {
+        val intent = Intent(context, profile.activity)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra("play", video.vid)
             .putExtra("title", video.title)
@@ -252,7 +271,7 @@ object NewVideos {
             .putExtra("channelName", video.channelName)
             .putExtra("published", video.published)
         return PendingIntent.getActivity(
-            context, video.vid.hashCode(), intent,
+            context, tag(video.vid, profile).hashCode(), intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
@@ -309,7 +328,7 @@ class NewVideosReceiver : BroadcastReceiver() {
         if (intent.action != "es.miscanales.MIRAR_NUEVOS") {
             // encendido o app actualizada: las alarmas se habían borrado
             app.getSharedPreferences("nuevos", Context.MODE_PRIVATE).edit { remove("nextAlarm") }
-            NewVideos.schedule(app, Store(app).notifyNew)
+            NewVideos.schedule(app, NewVideos.wanted(app))
             return
         }
         NewVideos.arm(app)

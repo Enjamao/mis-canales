@@ -18,12 +18,12 @@ object Tele {
     private val scope = MainScope()
 
     /** Manda el vídeo y lo cuenta con avisos cortos. Si se encuentra la tele, se guarda con [remember]. */
-    fun sendAndTell(context: Context, config: HaConfig, vid: String, start: Int, remember: (String) -> Unit) {
+    fun sendAndTell(context: Context, config: HaConfig, vid: String, start: Int, profile: Profile, remember: (String) -> Unit) {
         val app = context.applicationContext
         Toast.makeText(app, "Mandando a la tele…", Toast.LENGTH_SHORT).show()
         scope.launch {
             val message = try {
-                send(config, vid, start, remember)
+                send(config, vid, start, remember, profile)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -33,10 +33,13 @@ object Tele {
         }
     }
 
-    /** El comando para la tele. El ID del vídeo solo lleva letras, números, - y _, así que no hay nada que escapar. */
-    fun command(vid: String, start: Int): String {
+    /**
+     * El comando para la tele: el icono del mismo perfil (así, en la tele, se apunta en el de quien
+     * lo manda). El ID del vídeo solo lleva letras, números, - y _, así que no hay nada que escapar.
+     */
+    fun command(vid: String, start: Int, profile: Profile = Profile.Main): String {
         require(videoId.matches(vid)) { "ID de vídeo raro: $vid" }
-        return "input keyevent KEYCODE_WAKEUP; am start -n es.miscanales/.MainActivity " +
+        return "input keyevent KEYCODE_WAKEUP; am start -n es.miscanales/${profile.activity.name} " +
             "--activity-clear-top --activity-single-top --es play $vid --ei start ${start.coerceAtLeast(0)}"
     }
 
@@ -44,7 +47,7 @@ object Tele {
      * Manda el vídeo a la tele y devuelve qué decirle al usuario. Si no hay tele elegida y Home
      * Assistant solo tiene una, se usa esa y se guarda con [remember].
      */
-    suspend fun send(config: HaConfig, vid: String, start: Int, remember: (String) -> Unit): String {
+    suspend fun send(config: HaConfig, vid: String, start: Int, remember: (String) -> Unit, profile: Profile = Profile.Main): String {
         val tv = config.tv.ifBlank {
             val found = HomeAssistant.tvs(config)
             when (found.size) {
@@ -54,7 +57,7 @@ object Tele {
                 else -> return "Home Assistant tiene varias teles: elige cuál en Canales → Ajustes."
             }
         }
-        HomeAssistant.adb(config, tv, command(vid, start))
+        HomeAssistant.adb(config, tv, command(vid, start, profile))
         return "Enviado a la tele" + if (start > 0) " (desde ${clock(start)})" else ""
     }
 

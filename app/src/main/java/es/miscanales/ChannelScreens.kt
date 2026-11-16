@@ -83,7 +83,11 @@ fun ChannelsScreen(page: ChannelsPage) {
                 val library = LocalLibrary.current
                 val error = library.syncError
                 Text(
-                    if (error != null) {
+                    if (error != null && store.profile != Profile.Main) {
+                        "Home Assistant: $error. Si aún no está, crea en Home Assistant (Local To-do) la lista " +
+                            "«${store.profile.haListName}» (${ha.entity}) para guardar ahí tus canales, y para lo demás " +
+                            "«${store.profile.haListName} progreso» y «${store.profile.haListName} listas»."
+                    } else if (error != null) {
                         "Home Assistant no responde: $error. Se ven los canales de la última vez."
                     } else {
                         "Sincronizado con Home Assistant (${ha.entity})" + (ago(library.syncedAt)?.let { ", $it" } ?: "") + "." +
@@ -159,7 +163,8 @@ fun ChannelsScreen(page: ChannelsPage) {
                 )
             }
         }
-        item(key = "#kids") {
+        item(key = "#icons") { IconsRow(page) }
+        if (store.profile == Profile.Main) item(key = "#kids") {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -199,13 +204,48 @@ fun ChannelsScreen(page: ChannelsPage) {
         }
         item(key = "#hint") {
             Text(
-                "La categoría y «Para niños» se ponen dentro de cada canal.",
+                if (store.profile == Profile.Main) "La categoría y «Para niños» se ponen dentro de cada canal." else "La categoría se pone dentro de cada canal.",
                 style = Type.sub.copy(fontSize = 14.sp),
                 modifier = Modifier.padding(bottom = 12.dp),
             )
         }
         itemsIndexed(channels, key = { _, channel -> channel.id }) { i, channel ->
             ChannelRow(channel, Modifier.widthIn(max = 900.dp).restoreFocus(page, channel.id, first = i == 0))
+        }
+    }
+}
+
+/**
+ * Qué iconos de la app salen en esta tele (en el móvil de cada uno, el suyo; en las teles, todos).
+ * El que se está usando no se puede quitar desde dentro.
+ */
+@Composable
+private fun IconsRow(page: ChannelsPage) {
+    val context = LocalContext.current
+    val store = LocalStore.current
+    var shown by remember { mutableStateOf(Launcher.icons.associate { it.second to Launcher.shown(context, it.second) }) }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(bottom = 12.dp),
+    ) {
+        Text("Iconos:", style = Type.sub.copy(fontSize = 14.sp))
+        for ((label, activity) in Launcher.icons) {
+            val on = shown[activity] == true
+            Pill(
+                "$label: ${if (on) "sí" else "no"}",
+                {
+                    if (activity == store.profile.activity) {
+                        Toast.makeText(context, "Es el que estás usando: se quita desde otro icono", Toast.LENGTH_LONG).show()
+                    } else {
+                        runCatching { Launcher.set(context, activity, !on) }
+                        shown = shown + (activity to Launcher.shown(context, activity))
+                        NewVideos.schedule(context, NewVideos.wanted(context))
+                    }
+                },
+                Modifier.restoreFocus(page, "icon:$label"),
+                icon = if (on) R.drawable.ic_check else null,
+            )
         }
     }
 }
@@ -307,8 +347,8 @@ fun ChannelScreen(page: ChannelPage) {
                         Modifier.restoreFocus(page, "category"),
                         selected = channel.category != null,
                     )
-                    // para Mis Canales Kids (se guarda también en Home Assistant)
-                    Pill(
+                    // para Mis Canales Kids (se guarda también en Home Assistant); Kids sale de los canales del principal
+                    if (store.profile == Profile.Main) Pill(
                         if (channel.kids) "Para niños: sí" else "Para niños: no",
                         {
                             scope.launch {
