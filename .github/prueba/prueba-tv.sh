@@ -371,10 +371,16 @@ tecla KEYCODE_DPAD_CENTER
 sleep 3
 textos "Mis canales de Montse (tele)"
 captura montse-canales
-pulsar "Mis Canales Kids: sí"; sleep 2
+# con el mando: arriba del todo, abajo hasta la fila de iconos y a la derecha hasta el de Kids
+for i in 1 2 3 4 5 6; do tecla KEYCODE_DPAD_UP; done
+enfocar "Mis Canales" KEYCODE_DPAD_DOWN 6
+enfocar "Mis Canales Kids" KEYCODE_DPAD_RIGHT 3
+tecla KEYCODE_DPAD_CENTER; sleep 2
 textos "sin el icono de Kids (tele)"
+captura montse-sin-kids
 adb shell dumpsys package $PKG | grep -A3 "disabledComponents"
-pulsar "Mis Canales Kids: no"; sleep 2
+tecla KEYCODE_DPAD_CENTER; sleep 2
+foco "otra vez con Kids"
 adb shell dumpsys package $PKG | grep -c "disabledComponents"
 fallos "montse (tele)"
 exit 0
