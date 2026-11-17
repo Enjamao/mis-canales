@@ -262,8 +262,8 @@ Resultados:
 
 - El registro de cada trabajo, en Actions. Si la app se cierra, el fallo sale traducido con el
   `mapping.txt` de R8, en el paso «Fallos traducidos».
-- Las capturas: en los artefactos `capturas-movil` y `capturas-tele`, y las de la tele, además, en la rama
-  `capturas` del repositorio (`git fetch origin capturas`).
+- Las capturas: en los artefactos `capturas-movil` y `capturas-tele`, y además en las ramas
+  `capturas-movil` y `capturas` del repositorio (`git fetch origin capturas-movil`).
 
 ## Explorar YouTube
 

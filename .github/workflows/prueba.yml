@@ -8,6 +8,8 @@ on:
 jobs:
   prueba:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
@@ -45,6 +47,16 @@ jobs:
           name: capturas-movil
           path: capturas
           if-no-files-found: ignore
+
+      # también a una rama aparte (capturas-movil), para poder verlas sin descargar el zip
+      - name: Capturas a la rama capturas-movil
+        if: always()
+        run: |
+          cd capturas 2>/dev/null || exit 0
+          git init -q -b capturas-movil
+          git add -A
+          git -c user.name=prueba -c user.email=prueba@users.noreply.github.com commit -q -m "Capturas de la prueba en el móvil"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" capturas-movil
 
       - name: Fallos traducidos
         if: always()

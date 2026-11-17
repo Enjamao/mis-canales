@@ -146,6 +146,8 @@ nodes = re.findall(r'<node [^>]*>', xml)
 for i, n in enumerate(nodes):
     if 'focused="true"' in n:
         texts = [re.search(r' text="([^"]*)"', m).group(1) for m in nodes[i:i + 8] if re.search(r' text="([^"]+)"', m)]
+        # sin la inicial de la foto de un canal (una letra sola), para que cuente su nombre
+        texts = [t for t in texts if len(t) > 1]
         print(re.search(r'bounds="[^"]*"', n).group(0), texts[:3])
         open('foco.txt', 'w', encoding='utf-8').write(texts[0] if texts else '')
 PY
@@ -264,7 +266,7 @@ tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 2
 tecla KEYCODE_BACK; sleep 3
 textos "dos canales elegidos (tele)"
 foco "tras elegir el segundo"
-enfocar "Aleatorio" KEYCODE_DPAD_LEFT 6
+enfocar "Aleatorio" KEYCODE_DPAD_RIGHT 6
 tecla KEYCODE_DPAD_CENTER; sleep 45
 adb logcat -d | grep -E "MisCanales: (Aleatorio|Siguiente)" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1

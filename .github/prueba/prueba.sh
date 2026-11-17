@@ -509,14 +509,13 @@ pulsar_arriba "Virtumaniacos"; sleep 3
 textos "Inicio con Virtumaniacos elegido"
 pulsar "Quitar"; sleep 2
 textos "tras la ✕: otra vez todos"
+# (aquí solo hay un canal de mayores: mantenerlo pulsado lo marca, y el panel sigue abierto)
 pulsar_arriba "Canales"; sleep 3
 mantener "Virtumaniacos"; sleep 2
-mantener "CNN"; sleep 2
-textos "panel con dos elegidos"
-captura canales-panel-dos
-pulsar "Ver los 2 elegidos"; sleep 3
-textos "Inicio con 2 canales"
-captura inicio-dos-canales
+textos "panel con Virtumaniacos marcado (sigue abierto)"
+captura canales-panel-marcado
+adb shell input keyevent KEYCODE_BACK; sleep 2
+textos "Inicio con Virtumaniacos elegido, tras cerrar el panel"
 adb logcat -d | grep "MisCanales: Filtro" | tail -4
 deslizar_fila "Todos"
 pulsar "Aleatorio"; sleep 25
