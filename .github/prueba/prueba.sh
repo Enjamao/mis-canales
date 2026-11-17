@@ -147,7 +147,7 @@ bajar_hasta() {
 adb install -r "$APK"
 adb logcat -c; adb logcat -c -b crash
 
-# Como el móvil de Enjamao: con canales (y una versión anterior ya usada: sin avisos apuntados)
+# Como un móvil ya en uso: con canales (y una versión anterior ya usada: sin avisos apuntados)
 CHANNELS='[{&quot;id&quot;:&quot;UCBJycsmduvYEL83R_U4JriQ&quot;,&quot;name&quot;:&quot;Marques Brownlee&quot;},{&quot;id&quot;:&quot;UCupvZG-5ko_eiXAupbDfxWw&quot;,&quot;name&quot;:&quot;CNN&quot;}]'
 cat > store.xml <<XML
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
@@ -172,7 +172,7 @@ sleep 5
 fallos "permiso"
 
 # 1b. Con el móvil en reposo profundo (Doze) la alarma tiene que sonar igual (en la prueba, cada 3 min).
-#     La app, como en el móvil de Enjamao, con la batería "Sin restricciones".
+#     La app, como en un móvil de verdad, con la batería "Sin restricciones".
 adb shell dumpsys deviceidle whitelist +$PKG
 adb shell input keyevent KEYCODE_HOME
 adb shell dumpsys battery unplug
@@ -564,13 +564,13 @@ adb shell dumpsys package $PKG | grep -c "disabledComponents"
 pulsar "Canales M (el que usas ahora)"; sleep 1
 adb shell run-as $PKG ls shared_prefs
 fallos "montse"
-# y Enjamao sigue con lo suyo
+# y Mis Canales sigue con lo suyo
 adb shell am force-stop $PKG; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 6
 pulsar_abajo "Canales"; sleep 3
 textos "Mis Canales, después de abrir Canales M"
-fallos "Enjamao tras montse"
+fallos "mis canales tras canales m"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

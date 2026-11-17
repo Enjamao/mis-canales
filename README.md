@@ -10,9 +10,9 @@ para el mando. Trae tres iconos, cada uno con lo suyo:
 
 | Icono | Color | Para quién | Sus datos |
 |---|---|---|---|
-| **Mis Canales** | rojo | Enjamao | sus canales, vistos, listas y avisos |
-| **Canales M** | morado | el otro adulto de casa | los suyos, aparte |
-| **Mis Canales Kids** | ámbar, con estrella | los niños | los canales que Enjamao marca «Para niños» |
+| **Mis Canales** | rojo | un adulto (el perfil principal) | sus canales, vistos, listas y avisos |
+| **Canales M** | morado | otro adulto de casa | los suyos, aparte |
+| **Mis Canales Kids** | ámbar, con estrella | los niños | los canales de Mis Canales marcados «Para niños» |
 
 Esta guía explica cómo se usa y cómo se configura. Lo técnico (cómo está hecha, cómo se compila, las
 pruebas y cómo publicar una versión) está en [docs/desarrollo.md](docs/desarrollo.md), y lo que ha ido
@@ -265,10 +265,10 @@ desde sí mismo: se quita desde otro.
    conexión se prueba con su lista de canales, y si no existe no se guarda nada.
 2. Instala el APK y abre **Canales M**.
 3. En ese móvil: Canales → **Recibir de otro móvil**. Sale un código.
-4. En el móvil de Enjamao: Canales → **Pasar a la tele o a otro móvil** → elige el otro móvil y escribe el
+4. En el móvil que ya está conectado (el de Mis Canales): Canales → **Pasar a la tele o a otro móvil** → elige el otro móvil y escribe el
    código.
    Los dos móviles tienen que estar en la wifi de casa.
-5. En el otro móvil, en **Iconos en este móvil**, quita «Mis Canales» y «Mis Canales Kids». En el de Enjamao,
+5. En el otro móvil, en **Iconos en este móvil**, quita «Mis Canales» y «Mis Canales Kids». En el otro,
    quita «Canales M».
 
 Si sus listas no existen, al añadir un canal sale un error que dice qué lista falta.
@@ -277,7 +277,7 @@ Si sus listas no existen, al añadir un canal sale un error que dice qué lista 
 
 Es el icono de los niños: el mismo programa, pero siempre en modo niños.
 
-- Solo salen los canales que Enjamao marca **Para niños** en Mis Canales. Kids se pone al día al volver a
+- Solo salen los canales marcados **Para niños** en Mis Canales. Kids se pone al día al volver a
   ella: al momento en el mismo aparato, y con Home Assistant también desde otro.
 - No hay búsqueda en YouTube, ni añadir canales, ni enlaces a YouTube desde el reproductor, ni
   sugerencias al acabar. Si un vídeo no se deja ver dentro de la app, no se abre en la de YouTube.
@@ -313,7 +313,7 @@ vez por lista, con estos nombres exactos:
 
 | Lista (nombre) | Entidad | Para qué | ¿Hace falta? |
 |---|---|---|---|
-| Mis Canales | `todo.mis_canales` | los canales de Enjamao (y los de Kids) | sí, para sincronizar |
+| Mis Canales | `todo.mis_canales` | los canales de Mis Canales (y los de Kids) | sí, para sincronizar |
 | Mis Canales progreso | `todo.mis_canales_progreso` | vistos y por dónde va cada vídeo | para compartirlos |
 | Mis Canales listas | `todo.mis_canales_listas` | listas de reproducción | para compartirlas |
 | Mis Canales Montse | `todo.mis_canales_montse` | los canales de Canales M | para Canales M |
@@ -423,8 +423,8 @@ vez solo los apunta.
 
 - Va en la carpeta de packages, por ejemplo `/config/packages/mis_canales.yaml`. Después: Herramientas
   para desarrolladores → YAML → Comprobar la configuración, y reiniciar.
-- Cómo se envía el aviso está en un solo sitio, el script `mis_canales_enviar`, con la entidad `notify` del
-  bot de Telegram.
+- Cómo se envía el aviso está en un solo sitio, el script `mis_canales_enviar`. Antes de usarlo, cambia
+  `notify.telegram_bot_XXXX` por la entidad `notify` de tu chat de Telegram.
 - Para probarlo: Herramientas para desarrolladores → Eventos → `mis_canales_probar` → Lanzar evento.
 - Si ya te llegan los avisos del móvil, puedes apagar la automatización «Mis Canales: aviso de vídeos
   nuevos».

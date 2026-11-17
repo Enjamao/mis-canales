@@ -39,7 +39,7 @@ object Pairing {
     @Serializable
     private data class Message(val code: String, val config: HaConfig)
 
-    /** El nombre de este aparato ("Fire TV de Enjamao"), o su modelo. */
+    /** El nombre de este aparato ("Fire TV del comedor"), o su modelo. */
     fun deviceName(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() }
             ?: Build.MODEL
