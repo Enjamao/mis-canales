@@ -176,21 +176,35 @@ tecla KEYCODE_DPAD_UP
 foco "una fila más arriba (Noticias)"
 fallos "Inicio por filas (tele)"
 
-# a la fila de arriba y hasta la píldora de CNN; mantener OK abre su página
-# arriba: la fila de los filtros y canales, y encima la de las categorías
+# arriba, la fila de los filtros: «Canales» abre el panel con todos los canales (por categorías)
+# arriba: la fila de los filtros, y encima la de las categorías
 tecla KEYCODE_DPAD_UP
-foco "fila de filtros y canales"
+foco "fila de filtros"
 tecla KEYCODE_DPAD_UP
 foco "fila de categorías"
 enfocar "Todas" KEYCODE_DPAD_LEFT 6
 tecla KEYCODE_DPAD_DOWN
 enfocar "Todos" KEYCODE_DPAD_LEFT 6
-enfocar "CNN" KEYCODE_DPAD_RIGHT 12
-adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 4
+enfocar "Canales" KEYCODE_DPAD_RIGHT 4
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "panel de canales (tele)"
+foco "panel de canales, al abrirlo"
+captura canales-panel
+tecla KEYCODE_BACK; sleep 2
+foco "de vuelta en Inicio (en «Canales»)"
+fallos "panel de canales (tele)"
+
+# Mis canales → CNN → «Categoría»: una categoría nueva
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_LEFT
+tecla KEYCODE_DPAD_LEFT
+foco "en el menú"
+enfocar "Mis canales" KEYCODE_DPAD_DOWN 5
+tecla KEYCODE_DPAD_CENTER; sleep 3
+enfocar "CNN" KEYCODE_DPAD_DOWN 20
+tecla KEYCODE_DPAD_CENTER; sleep 4
 textos "página de CNN (tele)"
 foco "página de CNN, al abrirla"
-# (si el foco se ha quedado en el menú, a la derecha sale de él)
-grep -q "^Inicio" foco.txt 2>/dev/null && tecla KEYCODE_DPAD_RIGHT
 enfocar "Categoría" KEYCODE_DPAD_UP 4
 enfocar "Categoría" KEYCODE_DPAD_LEFT 3
 tecla KEYCODE_DPAD_CENTER; sleep 3
@@ -209,8 +223,13 @@ fallos "poner categoría (tele)"
 # En Inicio, con un canal elegido: sus vídeos anteriores (la app sigue en Inicio tras Atrás)
 adb shell am force-stop $PKG; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 12
-enfocar "CNN" KEYCODE_DPAD_RIGHT 12
-tecla KEYCODE_DPAD_CENTER; sleep 2
+# «Canales» → CNN: OK lo elige y vuelve a Inicio
+enfocar "Canales" KEYCODE_DPAD_RIGHT 4
+tecla KEYCODE_DPAD_CENTER; sleep 3
+enfocar "CNN" KEYCODE_DPAD_RIGHT 6
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "Inicio con CNN elegido (tele)"
+foco "tras elegir CNN (en su pastilla)"
 for i in 1 2 3 4 5 6 7; do tecla KEYCODE_DPAD_DOWN; done
 enfocar "Ver vídeos anteriores" KEYCODE_DPAD_DOWN 4
 tecla KEYCODE_DPAD_CENTER; sleep 8
@@ -225,16 +244,24 @@ fallos "anteriores en Inicio (tele)"
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 12
-enfocar "CNN" KEYCODE_DPAD_RIGHT 12
-tecla KEYCODE_DPAD_CENTER; sleep 2
-# y, manteniendo OK, otro canal más: los dos elegidos, mezclados a partes iguales
-enfocar "Marques Brownlee" KEYCODE_DPAD_RIGHT 3
-adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 3
-# con el botón de play/pausa (el mando de la tele) se quita y se vuelve a poner
+# en el panel, OK en CNN lo elige solo
+enfocar "Canales" KEYCODE_DPAD_RIGHT 4
+tecla KEYCODE_DPAD_CENTER; sleep 3
+enfocar "CNN" KEYCODE_DPAD_RIGHT 6
+tecla KEYCODE_DPAD_CENTER; sleep 3
+# y otra vez el panel (la pastilla ya se llama «CNN»): play/pausa en Marques Brownlee lo añade; mantener OK
+# lo quita, y play/pausa lo vuelve a poner; Atrás vuelve a Inicio con los dos
+foco "la pastilla con el canal elegido"
+tecla KEYCODE_DPAD_CENTER; sleep 3
+# (otro grupo: «Otros», en la fila de abajo)
+enfocar "Marques Brownlee" KEYCODE_DPAD_DOWN 3
 tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 2
-adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-echo "vídeos de Marques Brownlee a la vista tras quitarlo: $(grep -o 'text="Marques Brownlee"' ui.xml | wc -l) (1: solo la pastilla)"
+textos "panel con dos elegidos (tele)"
+captura canales-panel-dos
+adb shell input keyevent --longpress KEYCODE_DPAD_CENTER; sleep 2
+textos "panel tras mantener OK en Marques Brownlee (tele): solo CNN"
 tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 2
+tecla KEYCODE_BACK; sleep 3
 textos "dos canales elegidos (tele)"
 foco "tras elegir el segundo"
 enfocar "Aleatorio" KEYCODE_DPAD_LEFT 6

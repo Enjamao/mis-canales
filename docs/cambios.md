@@ -3,6 +3,12 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.20 — 17 nov 2026
+
+- **0.20.0**: **Panel de canales**. En Inicio, en vez de una pastilla por canal, una sola, **Canales ▾**,
+  que abre todos los canales en cuadrícula con su foto. Van por categorías, con los que tienen vídeos sin
+  ver primero. Un toque elige uno y mantener pulsado elige varios. En el móvil y en la tele.
+
 ## 0.19 — 16 y 17 nov 2026
 
 - **0.19.1**:

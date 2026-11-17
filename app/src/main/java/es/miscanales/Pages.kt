@@ -90,6 +90,11 @@ class HomePage : Page() {
     }
 }
 
+/** El panel «Canales» de Inicio en la tele: elegir uno o varios canales de [home]. */
+class ChannelPickerPage(val home: HomePage) : Page() {
+    val grid = LazyGridState()
+}
+
 /** Las listas de reproducción, en la tele. */
 class ListsPage : Page()
 

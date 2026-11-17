@@ -71,6 +71,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -221,6 +222,9 @@ private fun PhoneHome(
         is Filter.OneChannel -> all.filter { it.channelId == filter.id }
         is Filter.Several -> all.filter { it.channelId in filter.ids }
     }
+    // el panel con los canales, abierto desde la pastilla «Canales»
+    var picking by remember { mutableStateOf(false) }
+    if (picking) PhoneChannelsSheet(filter, chosen, onFilter, onDismiss = { picking = false })
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "#head") {
             Row(
@@ -276,6 +280,33 @@ private fun PhoneHome(
                         label = { Text(if (chosen == null) "Todos" else "Todos · ${channels.size}") },
                     )
                 }
+                // los canales: una pastilla que abre el panel con todos; con canales elegidos, su nombre (o
+                // "3 canales") y una ✕ para quitarlos
+                item(key = "channels") {
+                    val ids = filter.channelIds()
+                    val one = ids.singleOrNull()?.let { store.channel(it) }
+                    FilterChip(
+                        selected = ids.isNotEmpty(),
+                        onClick = { picking = true },
+                        label = { Text(channelsLabel(store, ids), maxLines = 1) },
+                        leadingIcon = if (one != null) {
+                            { Avatar(one, 18.dp) }
+                        } else {
+                            null
+                        },
+                        trailingIcon = {
+                            if (ids.isEmpty()) {
+                                Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
+                            } else {
+                                Icon(
+                                    painterResource(R.drawable.ic_close),
+                                    contentDescription = "Quitar",
+                                    modifier = Modifier.size(18.dp).clip(CircleShape).clickable { onFilter(Filter.All) },
+                                )
+                            }
+                        },
+                    )
+                }
                 item(key = "new") {
                     FilterChip(
                         selected = filter == Filter.New,
@@ -305,15 +336,6 @@ private fun PhoneHome(
                             leadingIcon = { Icon(painterResource(R.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp)) },
                         )
                     }
-                }
-                items(channels, key = { it.id }) { channel ->
-                    // un toque: solo ese canal; mantenerlo pulsado: lo añade a los elegidos (o lo quita)
-                    ChannelChip(
-                        channel.name,
-                        selected = channel.id in filter.channelIds(),
-                        onClick = { onFilter(Filter.OneChannel(channel.id)) },
-                        onLongClick = { onFilter(filter.toggled(channel.id)) },
-                    )
                 }
             }
         }
@@ -851,39 +873,6 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } },
         )
     }
-}
-
-/** La pastilla de un canal en Inicio, que además se puede mantener pulsada (las de Material no saben). */
-@Composable
-private fun ChannelChip(name: String, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
-    val source = remember { MutableInteractionSource() }
-    val timeout = LocalViewConfiguration.current.longPressTimeoutMillis
-    val haptic = LocalHapticFeedback.current
-    val long by rememberUpdatedState(onLongClick)
-    // si el último toque acabó siendo un pulsado largo (para que al soltar no cuente además como toque)
-    var held by remember { mutableStateOf(false) }
-    LaunchedEffect(source) {
-        // al soltar o arrastrar llega otra interacción, que corta la espera
-        source.interactions.collectLatest { interaction ->
-            if (interaction is PressInteraction.Press) {
-                delay(timeout)
-                held = true
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                long()
-            } else if (interaction is PressInteraction.Cancel) {
-                // se ha soltado fuera: no llega el toque que lo apunta abajo
-                held = false
-            }
-        }
-    }
-    FilterChip(
-        selected = selected,
-        // al soltar tras un pulsado largo también llega un toque: ese no cuenta. (Se apunta aquí y no al
-        // empezar el toque siguiente, que con un toque rápido llega después de este aviso.)
-        onClick = { if (held) held = false else onClick() },
-        label = { Text(name, maxLines = 1) },
-        interactionSource = source,
-    )
 }
 
 /** En Inicio, cuando hay una versión nueva en GitHub: un botón para bajarla e instalarla. */

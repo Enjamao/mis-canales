@@ -123,8 +123,8 @@ canales. Con «Todas» y «Todos» elegidos, cada categoría tiene su fila de v�
   **Añadir a lista**, **Marcar como visto / no visto**, **Ir al canal** y **Abrir en YouTube** (en la
   app de YouTube de la tele).
 
-**Sobre la pastilla de un canal** (en Inicio): OK lo elige solo; **mantener OK** o **play/pausa** lo
-añade a los elegidos o lo quita.
+**En el panel «Canales»** (ver [Inicio](#inicio-filtros-aleatorio-siguiente-y-anterior)): OK en un canal
+lo elige solo y vuelve a Inicio; **mantener OK** o **play/pausa** lo añade a los elegidos o lo quita.
 
 **En el reproductor**:
 
@@ -181,13 +181,20 @@ vuelve a mirar los canales al abrirse si hace más de 15 minutos; **Actualizar**
 **Filtros** (arriba de Inicio):
 
 - Primera fila: **Todas**, una pastilla por categoría y **Otros** (los canales sin categoría).
-- Segunda fila: **Todos**, **Sin ver** (con el número de vídeos nuevos), **Seguir viendo**,
-  **Aleatorio**, **Actualizar** y una pastilla por canal.
-- Al elegir una categoría, solo salen los vídeos de sus canales, y la segunda fila se queda con esos
-  canales.
+- Segunda fila: **Todos**, **Canales ▾**, **Sin ver** (con el número de vídeos nuevos), **Seguir
+  viendo**, **Aleatorio** y, en la tele, **Actualizar** (en el móvil va arriba, junto al título).
+- Al elegir una categoría, solo salen los vídeos de sus canales.
 
-**Varios canales a la vez**: un toque en un canal lo elige solo. Mantenerlo pulsado (en la tele,
-mantener OK o play/pausa) lo añade a los elegidos, o lo quita.
+**Canales ▾** abre un panel con todos tus canales en cuadrícula, con su foto. En el móvil sale desde
+abajo y en la tele ocupa la pantalla.
+
+- Van separados por categoría, y en cada una, primero los que tienen vídeos sin ver, con el número en
+  rojo. Con una categoría elegida arriba, salen solo los suyos.
+- **Un canal**: un toque (en la tele, OK) lo elige solo y vuelve a Inicio.
+- **Varios a la vez**: mantenerlos pulsados (en la tele, mantener OK o play/pausa). Llevan una marca,
+  y se ven con **Ver los N elegidos** (en la tele, también con Atrás).
+- Con canales elegidos, la pastilla pasa a llamarse como el canal (o «3 canales»). En el móvil, su ✕ lo
+  quita; en la tele, **Todos** o **Todos los canales** en el panel.
 
 **Aleatorio**: mezcla lo que estás viendo (una categoría, «Sin ver», todo…) y lo pone seguido. Con un
 canal elegido, mezcla unos cien vídeos suyos (o los que tenga). Con varios, unos cien entre todos, a

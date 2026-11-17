@@ -104,6 +104,7 @@ fun App(store: Store, feed: Feed, library: Library) {
                 key(nav.page) {
                     when (val page = nav.page) {
                         is HomePage -> HomeScreen(page)
+                        is ChannelPickerPage -> ChannelPickerScreen(page)
                         is ChannelsPage -> ChannelsScreen(page)
                         is AddChannelPage -> AddChannelScreen(page)
                         is ChannelPage -> ChannelScreen(page)

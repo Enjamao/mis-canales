@@ -39,11 +39,13 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `App.kt` | La app de la tele: el menú lateral, las páginas y `playVideo`, que abre un vídeo desde cualquier sitio. |
 | `Pages.kt` | La pila de páginas de la tele (cada una guarda su scroll y su foco) y `Feed`, que carga los vídeos de tus canales. |
 | `HomeScreen.kt` | Inicio en la tele: filas por categoría, filtros, Aleatorio. |
+| `ChannelPicker.kt` | El panel «Canales» de Inicio: qué canales salen y en qué orden (para el móvil y la tele) y la pantalla de la tele. |
 | `ChannelScreens.kt` | Mis canales en la tele: la lista, la página de un canal, añadir canal, categorías y todos los ajustes. |
 | `DetailsScreen.kt` | La ficha de un vídeo en la tele. |
 | `TvSearch.kt`, `TvLists.kt`, `TvHa.kt` | Buscar, Listas y Home Assistant en la tele. |
 | `PhoneApp.kt` | Toda la app del móvil: pestañas, Inicio, Canales con los ajustes, Añadir, Home Assistant, pasar y recibir la conexión. |
 | `PhoneLists.kt` | Listas en el móvil. |
+| `PhonePicker.kt` | El panel «Canales» en el móvil, desde abajo. |
 | `KidsTv.kt`, `KidsPhone.kt` | Mis Canales Kids en la tele y en el móvil, con sus ajustes. |
 | `Components.kt`, `Theme.kt`, `Format.kt` | Piezas comunes: pastillas, miniaturas («NUEVO» y la barra de progreso), el título con el color del perfil, colores y textos («hace 3 días»). |
 

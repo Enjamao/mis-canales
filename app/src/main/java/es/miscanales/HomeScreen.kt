@@ -179,7 +179,7 @@ fun HomeScreen(page: HomePage) {
             }
         }
         fullWidth("filters") {
-            // debajo, como la barra de píldoras de YouTube, pero solo con tus canales (los de la categoría)
+            // debajo, los filtros: todos, los canales (en un panel aparte), sin ver, seguir viendo…
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
@@ -190,6 +190,18 @@ fun HomeScreen(page: HomePage) {
                         { page.show(Filter.All) },
                         Modifier.restoreFocus(page, ALL, first = true),
                         selected = filter == Filter.All,
+                    )
+                }
+                // los canales: una pastilla que abre el panel con todos (con su nombre, o "3 canales", si hay elegidos)
+                item(key = "channels") {
+                    val ids = filter.channelIds()
+                    Chip(
+                        channelsLabel(store, ids),
+                        { nav.open(ChannelPickerPage(page)) },
+                        Modifier.restoreFocus(page, "filter:channels"),
+                        selected = ids.isNotEmpty(),
+                        icon = R.drawable.ic_smart_display,
+                        trailing = if (ids.isEmpty()) "▾" else null,
                     )
                 }
                 item(key = "new") {
@@ -233,26 +245,6 @@ fun HomeScreen(page: HomePage) {
                             icon = R.drawable.ic_shuffle,
                         )
                     }
-                }
-                items(channels, key = { it.id }) { channel ->
-                    Chip(
-                        channel.name,
-                        { page.show(Filter.OneChannel(channel.id)) },
-                        // el botón de play/pausa sobre un canal lo añade a los elegidos (o lo quita), como mantener
-                        // OK: con el mando de la tele (por HDMI) no se puede mantener pulsado el botón central
-                        Modifier
-                            .onPreviewKeyEvent { event ->
-                                val media = event.nativeKeyEvent.keyCode in PLAY_KEYS
-                                if (media && event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && event.nativeKeyEvent.repeatCount == 0) {
-                                    page.show(filter.toggled(channel.id))
-                                }
-                                media
-                            }
-                            .restoreFocus(page, "channel:${channel.id}"),
-                        selected = channel.id in filter.channelIds(),
-                        // mantener OK sobre un canal lo añade a los elegidos (o lo quita): varios a la vez
-                        onLongClick = { page.show(filter.toggled(channel.id)) },
-                    )
                 }
             }
         }
