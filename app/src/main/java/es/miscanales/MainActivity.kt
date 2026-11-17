@@ -20,7 +20,7 @@ class KidsActivity : MainActivity() {
     override val kidsMode = true
 }
 
-/** Canales de Montse: la app de los mayores con su propio icono, morado, y sus canales (ver [Profile]). */
+/** Canales M (el perfil "montse"): la app de los mayores con su propio icono, morado, y sus canales (ver [Profile]). */
 class MontseActivity : MainActivity() {
     override val profile = Profile.Montse
 }

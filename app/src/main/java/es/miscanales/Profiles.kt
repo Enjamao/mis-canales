@@ -12,8 +12,8 @@ import androidx.compose.ui.graphics.Color
  * (que sale de los canales «Para niños» del perfil principal).
  *
  * En Home Assistant, cada perfil usa sus propias listas de tareas: el principal "Mis Canales",
- * "Mis Canales progreso" y "Mis Canales listas"; los demás, con su nombre detrás de "Mis Canales"
- * ("Mis Canales Montse", "Mis Canales Montse progreso" y "Mis Canales Montse listas").
+ * "Mis Canales progreso" y "Mis Canales listas"; los demás, con su clave detrás de "Mis Canales"
+ * (Canales M, clave "montse": "Mis Canales Montse", "Mis Canales Montse progreso" y "Mis Canales Montse listas").
  */
 enum class Profile(
     /** Lo que distingue sus datos ("" en el principal). */
@@ -29,7 +29,7 @@ enum class Profile(
     val activity: Class<out Activity>,
 ) {
     Main("", "Mis Canales", "Mis ", "Canales", Color(0xFFFF0033), MainActivity::class.java),
-    Montse("montse", "Canales de Montse", "Canales de ", "Montse", Color(0xFFA855F7), MontseActivity::class.java);
+    Montse("montse", "Canales M", "Canales ", "M", Color(0xFFA855F7), MontseActivity::class.java);
 
     /** Dónde se guardan sus datos (el principal, donde siempre: así no se pierde nada al actualizar). */
     val prefs: String get() = if (key.isEmpty()) PREFS else "${PREFS}_$key"
@@ -41,7 +41,8 @@ enum class Profile(
     fun forProfile(config: HaConfig): HaConfig = if (key.isEmpty()) config else config.copy(entity = config.entity + "_" + key)
 
     /** El nombre de su lista de canales en Home Assistant, como se escribe al crearla. */
-    val haListName: String get() = if (key.isEmpty()) "Mis Canales" else "Mis Canales ${titleEnd}"
+    // las listas de Home Assistant van por la clave del perfil, no por su nombre: "Mis Canales Montse"
+    val haListName: String get() = if (key.isEmpty()) "Mis Canales" else "Mis Canales " + key.replaceFirstChar { it.uppercase() }
 
     companion object {
         fun of(key: String?): Profile = entries.firstOrNull { it.key == key.orEmpty() } ?: Main

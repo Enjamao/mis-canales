@@ -356,12 +356,12 @@ adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador (tele)"
 fallos "actualizaciones (tele)"
 
-# El perfil de Montse en la tele: su icono, su Inicio (vacío) y la fila de iconos en Mis canales
+# Canales M en la tele: su icono, su Inicio (vacío) y la fila de iconos en Mis canales
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
 adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER | grep miscanales
 adb shell am start -W -n $PKG/.MontseActivity; sleep 12
-textos "Inicio de Montse (tele)"
+textos "Inicio de Canales M (tele)"
 captura montse-inicio
 tecla KEYCODE_DPAD_LEFT
 tecla KEYCODE_DPAD_DOWN
@@ -369,7 +369,7 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
-textos "Mis canales de Montse (tele)"
+textos "Mis canales de Canales M (tele)"
 captura montse-canales
 # con el mando: arriba del todo, abajo hasta la fila de iconos y a la derecha hasta el de Kids
 for i in 1 2 3 4 5 6; do tecla KEYCODE_DPAD_UP; done

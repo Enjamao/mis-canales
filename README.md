@@ -11,7 +11,7 @@ para el mando. Trae tres iconos, cada uno con lo suyo:
 | Icono | Color | Para quién | Sus datos |
 |---|---|---|---|
 | **Mis Canales** | rojo | Enjamao | sus canales, vistos, listas y avisos |
-| **Canales de Montse** | morado | Montse | los suyos, aparte |
+| **Canales M** | morado | el otro adulto de casa | los suyos, aparte |
 | **Mis Canales Kids** | ámbar, con estrella | los niños | los canales que Enjamao marca «Para niños» |
 
 Esta guía explica cómo se usa y cómo se configura. Lo técnico (cómo está hecha, cómo se compila, las
@@ -29,7 +29,7 @@ cambiando en cada versión, en [docs/cambios.md](docs/cambios.md).
 7. [Vistos y «Seguir viendo»](#vistos-y-seguir-viendo)
 8. [Listas de reproducción](#listas-de-reproducción)
 9. [Buscar](#buscar)
-10. [Perfiles: Mis Canales y Canales de Montse](#perfiles-mis-canales-y-canales-de-montse)
+10. [Perfiles: Mis Canales y Canales M](#perfiles-mis-canales-y-canales-m)
 11. [Mis Canales Kids](#mis-canales-kids)
 12. [Home Assistant](#home-assistant)
 13. [Ver en la tele desde el móvil](#ver-en-la-tele-desde-el-móvil)
@@ -69,12 +69,12 @@ Cada versión se instala encima de la anterior sin perder nada: el APK se firma 
 
 1. **Añadir canales**: en la pestaña **Añadir** (móvil) o **Añadir canal** (tele), escribe el `@nombre`
    del canal tal como sale en YouTube, o pega su enlace. En el móvil también se puede, desde la app de
-   YouTube, en cualquier vídeo: **Compartir → Añadir a Mis Canales** (o «Añadir a Canales de Montse»).
+   YouTube, en cualquier vídeo: **Compartir → Añadir a Mis Canales** (o «Añadir a Canales M»).
 2. **Conectar con Home Assistant** (opcional, pero recomendable): así los canales, lo visto y las listas
    son los mismos en el móvil y en las teles. Se configura una vez en el móvil y se pasa a los demás
    aparatos con un código. Está explicado en [Home Assistant](#home-assistant).
 3. **Elegir los iconos de cada aparato**: en el móvil de cada uno, solo el suyo. En las teles, todos.
-   Ver [Perfiles](#perfiles-mis-canales-y-canales-de-montse).
+   Ver [Perfiles](#perfiles-mis-canales-y-canales-m).
 
 ## En el móvil
 
@@ -152,7 +152,7 @@ porte como el Chrome de un PC. No pasa de 1440p porque a 2160p60 el Fire TV Stic
 
 ### Los iconos en el Fire TV
 
-Cada icono de la app (Mis Canales, Canales de Montse, Kids) sale como una entrada aparte en el launcher.
+Cada icono de la app (Mis Canales, Canales M, Kids) sale como una entrada aparte en el launcher.
 Si en una tele sobra alguno, se quita en Mis canales → fila **Iconos**.
 
 ## Canales
@@ -240,11 +240,11 @@ En el móvil, la pestaña **Buscar**; en la tele, **Buscar** en el menú.
   Al final, **Más resultados**.
 - En la tele se escribe con el teclado de la tele y se busca con Intro.
 
-## Perfiles: Mis Canales y Canales de Montse
+## Perfiles: Mis Canales y Canales M
 
-**Canales de Montse** es la misma app con todo aparte: canales, categorías, vistos, por dónde va cada
-vídeo, listas, avisos y ajustes de reproducción. Cada uno añade lo suyo. Se nota porque el título sale
-con su nombre en morado.
+**Canales M** es la misma app con todo aparte, para el otro adulto de casa: canales, categorías,
+vistos, por dónde va cada vídeo, listas, avisos y ajustes de reproducción. Cada uno añade lo suyo. Se
+nota porque el título sale como «Canales **M**», con la M en morado.
 
 **Qué es de cada perfil y qué es del aparato**:
 
@@ -259,16 +259,17 @@ con su nombre en morado.
 Mis canales → fila **Iconos**. Quitar un icono no borra nada. El que estás usando no se puede quitar
 desde sí mismo: se quita desde otro.
 
-**Montse en su móvil**:
+**Canales M en el otro móvil**:
 
 1. Antes, en Home Assistant, crea sus tres listas (ver [Las listas](#las-listas)). Al recibir la
    conexión se prueba con su lista de canales, y si no existe no se guarda nada.
-2. Instala el APK y abre **Canales de Montse**.
-3. En su móvil: Canales → **Recibir de otro móvil**. Sale un código.
-4. En el móvil de Enjamao: Canales → **Pasar a la tele o a otro móvil** → elige su móvil y escribe el código.
+2. Instala el APK y abre **Canales M**.
+3. En ese móvil: Canales → **Recibir de otro móvil**. Sale un código.
+4. En el móvil de Enjamao: Canales → **Pasar a la tele o a otro móvil** → elige el otro móvil y escribe el
+   código.
    Los dos móviles tienen que estar en la wifi de casa.
-5. En su móvil, en **Iconos en este móvil**, quita «Mis Canales» y «Mis Canales Kids». En el de Enjamao,
-   quita «Canales de Montse».
+5. En el otro móvil, en **Iconos en este móvil**, quita «Mis Canales» y «Mis Canales Kids». En el de Enjamao,
+   quita «Canales M».
 
 Si sus listas no existen, al añadir un canal sale un error que dice qué lista falta.
 
@@ -315,7 +316,7 @@ vez por lista, con estos nombres exactos:
 | Mis Canales | `todo.mis_canales` | los canales de Enjamao (y los de Kids) | sí, para sincronizar |
 | Mis Canales progreso | `todo.mis_canales_progreso` | vistos y por dónde va cada vídeo | para compartirlos |
 | Mis Canales listas | `todo.mis_canales_listas` | listas de reproducción | para compartirlas |
-| Mis Canales Montse | `todo.mis_canales_montse` | los canales de Montse | para su perfil |
+| Mis Canales Montse | `todo.mis_canales_montse` | los canales de Canales M | para Canales M |
 | Mis Canales Montse progreso | `todo.mis_canales_montse_progreso` | sus vistos y progreso | para compartirlos |
 | Mis Canales Montse listas | `todo.mis_canales_montse_listas` | sus listas | para compartirlas |
 
@@ -335,7 +336,8 @@ Si falta la de progreso o la de listas, eso se queda en cada aparato y lo demás
 1. En Home Assistant: tu perfil → Seguridad → **Tokens de acceso de larga duración** → Crear token.
 2. En el móvil: Canales → **Sincronizar con Home Assistant**. Rellena:
    - **Dirección de fuera**: la de DuckDNS, por ejemplo `https://micasa.duckdns.org:8123`.
-   - **Dirección de casa** (opcional): se prueba primero, y si no contesta, la de fuera.
+   - **Dirección de casa** (opcional): la de dentro de casa, por ejemplo `http://192.168.1.10:8123`.
+     Se prueba primero (es más rápida), y si no contesta, por ejemplo fuera de casa, la de fuera.
    - **Token**.
    - **Lista de tareas**: deja `todo.mis_canales`.
 3. **Conectar**. Sube los canales que ya tenías en el móvil.
@@ -357,7 +359,7 @@ Va por la wifi de casa, con un código de 4 cifras:
 
 El aparato que recibe se anuncia en la red solo mientras esa pantalla está abierta. Tras cinco códigos mal
 deja de escuchar. Se pasa la conexión (direcciones y token), y cada icono usa sus listas: si se recibe
-desde Canales de Montse, vale también para Mis Canales, y al revés. Antes de guardarla, se prueba
+desde Canales M, vale también para Mis Canales, y al revés. Antes de guardarla, se prueba
 leyendo la lista de canales del icono que tienes abierto: si esa lista no existe en Home Assistant, no
 se guarda.
 
@@ -377,8 +379,8 @@ adb shell am start -S -n es.miscanales/.MainActivity \
 
 En el móvil, mantén pulsado un vídeo y toca **📺 Ver en la tele**, o tócalo debajo del vídeo mientras lo
 ves. Home Assistant despierta el Fire TV y le abre la app con ese vídeo, desde donde ibas. El móvil se
-pone en pausa. Funciona también fuera de casa, y abre el mismo icono (si estás en Canales de Montse, se
-abre Canales de Montse en la tele).
+pone en pausa. Funciona también fuera de casa, y abre el mismo icono (si estás en Canales M, se abre
+Canales M en la tele).
 
 Lo que hace falta:
 
@@ -456,7 +458,7 @@ Los ajustes de Kids (tiempo al día, modo peque, reproducción continua de Kids)
 Cada cambio en el código publica la versión nueva en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest).
 
-- La app (Mis Canales o Canales de Montse; Kids no) mira al abrirse, como mucho cada 6 horas, si hay una
+- La app (Mis Canales o Canales M; Kids no) mira al abrirse, como mucho cada 6 horas, si hay una
   más nueva. Si la hay, en Inicio sale un botón **Actualizar a la …**: la baja y abre el instalador de
   Android, donde hay que confirmar.
 - También en Ajustes (móvil) o Mis canales (tele): la versión que tienes y **Buscar actualizaciones**.

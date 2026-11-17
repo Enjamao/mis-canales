@@ -223,7 +223,7 @@ private fun Logo(open: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            // el logo, del color del perfil (rojo, o morado en el de Montse)
+            // el logo, del color del perfil (rojo, o morado en Canales M)
             Modifier.size(36.dp).background(LocalStore.current.profile.accent, RoundedCornerShape(9.dp)),
             contentAlignment = Alignment.Center,
         ) {

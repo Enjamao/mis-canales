@@ -446,7 +446,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.19.0"; sleep 25
+pulsar "Actualizar a la 0.19.1"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -542,16 +542,16 @@ captura lista-rock
 adb logcat -d | grep "MisCanales: Listas" | tail -3
 fallos "listas"
 
-# 21. El perfil de Montse: otro icono, el título en morado y sus canales aparte (vacíos); el PIN es el mismo
+# 21. Canales M (el perfil "montse"): otro icono, el título en morado y sus canales aparte (vacíos); el PIN es el mismo
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c
 adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER | grep miscanales
 adb shell am start -W -n $PKG/.MontseActivity; sleep 4
 adb shell input text 1234; sleep 6
-textos "Inicio de Montse"
+textos "Inicio de Canales M"
 captura montse-inicio
 pulsar_abajo "Canales"; sleep 3
-textos "Canales de Montse: sin canales"
+textos "Canales M: sin canales"
 captura montse-canales
 bajar_hasta "Iconos en este móvil"
 textos "Iconos en este móvil"
@@ -561,7 +561,7 @@ pulsar "Mis Canales Kids"; sleep 2
 adb shell dumpsys package $PKG | grep -A3 "disabledComponents"
 pulsar "Mis Canales Kids"; sleep 2
 adb shell dumpsys package $PKG | grep -c "disabledComponents"
-pulsar "Canales de Montse (el que usas ahora)"; sleep 1
+pulsar "Canales M (el que usas ahora)"; sleep 1
 adb shell run-as $PKG ls shared_prefs
 fallos "montse"
 # y Enjamao sigue con lo suyo
@@ -569,7 +569,7 @@ adb shell am force-stop $PKG; sleep 1
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 6
 pulsar_abajo "Canales"; sleep 3
-textos "Canales de Enjamao, después de abrir el de Montse"
+textos "Mis Canales, después de abrir Canales M"
 fallos "Enjamao tras montse"
 
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40

@@ -198,7 +198,7 @@ object NewVideos {
 
     private suspend fun show(context: Context, videos: List<Video>, profile: Profile = Profile.Main) {
         // en otro perfil, su nombre en el aviso (por si en el aparato hay más de uno)
-        val who = profile.titleEnd.takeIf { profile.key.isNotEmpty() }
+        val who = profile.label.takeIf { profile.key.isNotEmpty() }
         if (!allowed(context)) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(

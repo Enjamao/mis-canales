@@ -20,13 +20,16 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- usesCleartextTraffic: la dirección de casa de Home Assistant suele ser http://192.168…
+         (sin https); sin esto Android no la deja usar y siempre se iba por la de fuera -->
     <application
         android:allowBackup="true"
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
         android:label="Mis Canales"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MisCanales">
+        android:theme="@style/Theme.MisCanales"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
@@ -60,7 +63,7 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Canales de Montse: otro icono (morado, y otra tarea en recientes) de la app de los mayores,
+        <!-- Canales M (perfil "montse"): otro icono (morado, y otra tarea en recientes) de la app de los mayores,
              con sus propios canales, vistos y listas (ver Profile) -->
         <activity
             android:name=".MontseActivity"
@@ -68,7 +71,7 @@
             android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_montse"
-            android:label="Canales de Montse"
+            android:label="Canales M"
             android:taskAffinity="es.miscanales.montse"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -76,8 +79,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-            <!-- Compartir un vídeo desde la app de YouTube, para añadir su canal a los de Montse -->
-            <intent-filter android:label="Añadir a Canales de Montse">
+            <!-- Compartir un vídeo desde la app de YouTube, para añadir su canal a Canales M -->
+            <intent-filter android:label="Añadir a Canales M">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />

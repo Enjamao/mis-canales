@@ -238,7 +238,7 @@ fun Pill(
 
 @Composable
 fun Wordmark(modifier: Modifier = Modifier) {
-    // "Mis Canales" o, en otro perfil, "Canales de Montse" (con su color)
+    // "Mis Canales" o, en otro perfil, "Canales M" (con su color)
     val profile = LocalStore.current.profile
     Text(
         buildAnnotatedString {

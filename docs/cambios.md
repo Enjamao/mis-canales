@@ -3,9 +3,15 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
-## 0.19 — 16 nov 2026
+## 0.19 — 16 y 17 nov 2026
 
-- **0.19.0**: **Canales de Montse**, un segundo perfil de adulto con su icono morado.
+- **0.19.1**:
+  - **Canales M**: el perfil morado se llama así (antes «Canales de Montse»). Sus listas de Home
+    Assistant siguen siendo «Mis Canales Montse…».
+  - La **dirección de casa** de Home Assistant (`http://192.168…`) ya funciona. Android no dejaba usar
+    direcciones sin https, y la app siempre se iba por la de fuera.
+- **0.19.0**: **Canales M** (entonces «Canales de Montse»), un segundo perfil de adulto con su icono
+  morado.
   - Sus canales, vistos, progreso, listas y avisos van aparte, con sus listas en Home Assistant.
   - **Iconos en este móvil** (en la tele, fila «Iconos»): cada aparato elige qué iconos enseña.
   - **Recibir de otro móvil**: la conexión con Home Assistant pasa también de un móvil a otro.

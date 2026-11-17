@@ -25,7 +25,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | Archivo | Qué hay |
 |---|---|
 | `MainActivity.kt` | La actividad de la app. `KidsActivity` y `MontseActivity` son subclases con su icono y su `taskAffinity`. Recoge los intents: compartir un enlace, `play`/`start` (Ver en la tele y avisos) y `ha_url`/`ha_token`/`ha_local_url`/`ha_entity` (configurar Home Assistant por ADB). |
-| `Profiles.kt` | `Profile` (Main y Montse): su archivo de preferencias, su caché, su color y su sufijo para las listas de Home Assistant. `Launcher`: enseñar u ocultar cada icono en este aparato. |
+| `Profiles.kt` | `Profile` (Main y Montse, que es Canales M): su archivo de preferencias, su caché, su color y su sufijo para las listas de Home Assistant. `Launcher`: enseñar u ocultar cada icono en este aparato. |
 | `Store.kt` | Lo guardado: canales, vistos, ajustes. Un `Store` por perfil (o Kids); lo del aparato va aparte. |
 | `Library.kt` | Añadir, quitar y sincronizar canales, categorías, «Para niños» y vistos, con Home Assistant si lo hay. |
 | `Progress.kt` | Por dónde vas en cada vídeo (`Progresses`) y su sincronización con Home Assistant (`ProgressSync`). |
@@ -87,7 +87,7 @@ En `SharedPreferences`:
 | Archivo | Qué guarda |
 |---|---|
 | `store` | Mis Canales (canales, vistos, progreso, listas, ajustes) y, además, lo del aparato: `ha` (conexión con Home Assistant, en JSON), `pin`, `askPin`, `kidsLimit`, `kidsSmall`, `kidsInAdult`, y lo de Kids (`kids_progress`…) |
-| `store_montse` | Lo de Canales de Montse |
+| `store_montse` | Lo de Canales M |
 | `nuevos` | Los vídeos y canales ya vistos por los avisos, por perfil (`videos`, `videos_montse`…) |
 
 Y en archivos: `videos.json` y `videos_montse.json`, la última carga de vídeos de cada perfil, para que
@@ -138,7 +138,8 @@ Todo va por la API REST, con el token de larga duración:
 - Añadir: `todo.add_item`. Cambiar: `todo.update_item`. Quitar: `todo.remove_item`.
 
 Cada petición prueba primero la dirección de casa (con un tiempo de espera corto) y después la de fuera.
-Un 401 es «no acepta el token».
+Un 401 es «no acepta el token». La dirección de casa suele ser `http://` sin cifrar: por eso el manifiesto
+lleva `android:usesCleartextTraffic="true"`, que Android pide para eso desde la versión 9.
 
 **Canales**: un elemento por canal; el nombre es el del canal. La descripción tiene una línea por dato:
 el ID `UC…`, la URL de la foto, `niños` y `categoría: X`. Si un elemento no tiene ID (alguien escribió
@@ -240,9 +241,9 @@ avisos cada 3 minutos en vez de 30. Luego la prueba en dos emuladores a la vez:
 
 - **prueba** (móvil, Android 15, `.github/prueba/prueba.sh`): Inicio, canales, categorías, Kids, PIN,
   avisos, búsqueda, Home Assistant y pasar a la tele, actualizaciones, aleatorio, varios canales,
-  siguiente/anterior, listas y el perfil de Montse.
+  siguiente/anterior, listas y Canales M.
 - **tele** (Android TV 11 a 720p, `.github/prueba/prueba-tv.sh`): lo mismo con el mando (D-pad, OK,
-  play/pausa), Kids en la tele, Home Assistant por código, listas, actualizaciones y Montse.
+  play/pausa), Kids en la tele, Home Assistant por código, listas, actualizaciones y Canales M.
 
 Los guiones van tocando la pantalla (`pulsar "texto"`) o moviendo el foco con las teclas
 (`enfocar "texto" KEYCODE_DPAD_DOWN`). Escriben en el registro lo que hay en pantalla en cada paso
