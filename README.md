@@ -141,9 +141,10 @@ lo elige solo y vuelve a Inicio; **mantener OK** o **play/pausa** lo añade a lo
 
 Al acabar un vídeo sale «Siguiente: …» unos segundos: OK lo pone ya y Atrás sale.
 
-**Calidad**: hasta 1440p a 60 fps. Dentro de una WebView del Fire TV, el reproductor de YouTube se
+**Calidad**: hasta 1080p a 60 fps. Dentro de una WebView del Fire TV, el reproductor de YouTube se
 quedaba en 720p. La app le pide ella misma la página del reproductor y le añade unos scripts para que se
-porte como el Chrome de un PC. No pasa de 1440p porque a 2160p60 el Fire TV Stick 4K va a saltos.
+porte como el Chrome de un PC. No pasa de 1080p: a 2160p60 el Fire TV Stick 4K va a saltos, y con 1440p
+alguna vez se cortaba (el Stick o la wifi no daban abasto); a la distancia de la tele apenas se nota.
 
 ### Los mandos
 

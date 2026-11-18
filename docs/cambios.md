@@ -5,6 +5,8 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.22 — 18 nov 2026
 
+- **0.22.1**: En la tele, la calidad llega hasta 1080p (antes, 1440p), para que no se corten los vídeos
+  cuando el Fire TV Stick o la wifi no dan abasto.
 - **0.22.0**: **Ver más tarde** e **Historial**, siempre arriba en Listas.
   - «Ver más tarde» se añade con un toque desde las opciones del vídeo. Dentro, «Quitar los vistos» y
     «Vaciar».

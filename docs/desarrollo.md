@@ -131,7 +131,8 @@ workflow, con lo que quieras buscar. Enseña la estructura de la respuesta.
   API de JavaScript. La app pone sus propios controles y teclas encima.
 - En la tele, `EmbedPatch.kt` pide la página del reproductor con OkHttp y le mete scripts al principio,
   para que diga que es Chrome de PC con pantalla grande y no quite los formatos de 60 fps. El tope está
-  en `MAX_LINES`, en `PlayerActivity.kt` (1440). A 2160p60 el Fire TV Stick 4K va a saltos.
+  en `MAX_LINES`, en `PlayerActivity.kt` (1080). A 2160p60 el Fire TV Stick 4K va a saltos, y a 1440p
+  alguna vez se cortaba.
 - Si un vídeo no deja verse insertado, se abre en la app de YouTube (salvo en Kids).
 - Siguiente/anterior y la reproducción continua usan la cola que se pasa al abrir el vídeo (lo que había
   en pantalla a partir de él).

@@ -716,9 +716,10 @@ class PlayerActivity : ComponentActivity() {
 
         /**
          * Lo más alto que se deja reproducir en la tele (en líneas, el lado corto del vídeo). Con 2160p60
-         * el Fire TV va a saltos: los formatos más altos se contestan como no compatibles.
+         * el Fire TV va a saltos, y con 1440p alguna vez se cortaba (el Stick o la wifi no daban abasto):
+         * los formatos más altos se contestan como no compatibles.
          */
-        private const val MAX_LINES = 1440
+        private const val MAX_LINES = 1080
         private const val QUALITY_CAP = "window.__mcMax = $MAX_LINES;"
 
         private const val REAL_SCREEN = """
