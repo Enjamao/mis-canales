@@ -346,7 +346,9 @@ foco "ficha: en Ver"
 enfocar "Ver más tarde" KEYCODE_DPAD_RIGHT 3
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "ficha, ya en Ver más tarde (tele)"
-enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
+# los botones van en varias filas: «Añadir a lista» queda debajo
+tecla KEYCODE_DPAD_DOWN
+enfocar "Añadir a lista" KEYCODE_DPAD_LEFT 4
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "añadir a lista (tele): «Ver más tarde» marcada"
 captura anadir-a-lista
