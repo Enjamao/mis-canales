@@ -170,7 +170,7 @@ fun ChannelsScreen(page: ChannelsPage) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 12.dp),
             ) {
-                Text("Kids:", style = Type.sub.copy(fontSize = 14.sp))
+                Text("Kids:", style = Type.sub.copy(fontSize = 16.sp))
                 // si no, los canales «Para niños» salen solo en Kids (y aquí, para cambiarlos)
                 Pill(
                     if (store.kidsInAdult) "Sus canales también en Inicio: sí" else "Sus canales también en Inicio: no",
@@ -205,7 +205,7 @@ fun ChannelsScreen(page: ChannelsPage) {
         item(key = "#hint") {
             Text(
                 if (store.profile == Profile.Main) "La categoría y «Para niños» se ponen dentro de cada canal." else "La categoría se pone dentro de cada canal.",
-                style = Type.sub.copy(fontSize = 14.sp),
+                style = Type.sub.copy(fontSize = 16.sp),
                 modifier = Modifier.padding(bottom = 12.dp),
             )
         }
@@ -229,7 +229,7 @@ private fun IconsRow(page: ChannelsPage) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(bottom = 12.dp),
     ) {
-        Text("Iconos:", style = Type.sub.copy(fontSize = 14.sp))
+        Text("Iconos:", style = Type.sub.copy(fontSize = 16.sp))
         for ((label, activity) in Launcher.icons) {
             val on = shown[activity] == true
             Pill(
@@ -279,7 +279,7 @@ private fun ChannelRow(channel: Channel, modifier: Modifier = Modifier) {
                         feed.loading -> "Cargando…"
                         else -> "Sin vídeos recientes"
                     },
-                    style = Type.sub.copy(fontSize = 13.sp),
+                    style = Type.sub.copy(fontSize = 15.sp),
                 )
             }
         }
@@ -336,7 +336,7 @@ fun ChannelScreen(page: ChannelPage) {
                     Text(channel?.name ?: "Canal", style = Type.pageTitle)
                     Text(
                         "Sus últimos vídeos. Al quitarlo, deja de salir en Inicio.",
-                        style = Type.sub.copy(fontSize = 14.sp),
+                        style = Type.sub.copy(fontSize = 16.sp),
                     )
                 }
                 if (channel != null) {
@@ -451,14 +451,14 @@ fun AddChannelScreen(page: AddChannelPage) {
             )
         }
         Spacer(Modifier.height(28.dp))
-        Text("Vale cualquiera de estas formas:", style = Type.sub.copy(fontSize = 14.sp))
+        Text("Vale cualquiera de estas formas:", style = Type.sub.copy(fontSize = 16.sp))
         for (example in listOf("@NombreDelCanal", "youtube.com/@NombreDelCanal", "youtube.com/channel/UC…")) {
             Text("•  $example", style = Type.sub.copy(fontSize = 14.sp, lineHeight = 22.sp))
         }
         Spacer(Modifier.height(12.dp))
         Text(
             "Tienes ${store.channels.size} ${if (store.channels.size == 1) "canal" else "canales"}.",
-            style = Type.sub.copy(fontSize = 14.sp),
+            style = Type.sub.copy(fontSize = 16.sp),
         )
     }
 }
@@ -513,7 +513,7 @@ fun CategoryScreen(page: CategoryPage) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        Text("O una nueva:", style = Type.sub.copy(fontSize = 14.sp), modifier = Modifier.padding(bottom = 8.dp))
+        Text("O una nueva:", style = Type.sub.copy(fontSize = 16.sp), modifier = Modifier.padding(bottom = 8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvTextField(
                 page.text,

@@ -228,7 +228,7 @@ private fun KidsTvSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
         }
         Text(
             "Hoy llevan ${KidsTime.text(KidsTime.used(context))} en esta tele. Al acabarse, el vídeo se para; con el PIN, media hora más.",
-            style = Type.sub.copy(fontSize = 14.sp),
+            style = Type.sub.copy(fontSize = 16.sp),
         )
         Text("Modo peque", style = Type.title.copy(fontSize = 18.sp), modifier = Modifier.padding(top = 12.dp))
         Pill(
@@ -248,7 +248,7 @@ private fun KidsTvSettings(onClose: () -> Unit, onChangePin: () -> Unit) {
         }
         Text(
             "Los canales para niños se eligen en Mis Canales (la app de los mayores): Mis canales → un canal → «Para niños».",
-            style = Type.sub.copy(fontSize = 14.sp),
+            style = Type.sub.copy(fontSize = 16.sp),
             modifier = Modifier.padding(top = 12.dp),
         )
     }

@@ -52,9 +52,9 @@ object Tele {
             val found = HomeAssistant.tvs(config)
             when (found.size) {
                 0 -> return "No encuentro la tele en Home Assistant: añade el Fire TV con la integración " +
-                    "Android Debug Bridge (en Canales → Ajustes está explicado)."
+                    "Android Debug Bridge (en ⚙ Ajustes está explicado)."
                 1 -> found[0].entity.also(remember)
-                else -> return "Home Assistant tiene varias teles: elige cuál en Canales → Ajustes."
+                else -> return "Home Assistant tiene varias teles: elige cuál en ⚙ Ajustes."
             }
         }
         HomeAssistant.adb(config, tv, command(vid, start, profile))

@@ -84,9 +84,11 @@ Abajo hay cinco pestañas:
   (ver [Inicio](#inicio-filtros-aleatorio-siguiente-y-anterior)).
 - **Buscar**: en tus canales o en todo YouTube.
 - **Listas**: tus listas de reproducción.
-- **Canales**: tus canales (con «Categoría», «Para niños» y la ✕ para quitarlo) y, debajo, todos los
-  **Ajustes**.
+- **Canales**: tus canales, con «Categoría», «Para niños» y la papelera para quitarlo.
 - **Añadir**: añadir un canal.
+
+Arriba, en Inicio y en Canales, la rueda **⚙** abre los **Ajustes** (ver
+[Todos los ajustes](#todos-los-ajustes)).
 
 **Con un vídeo**:
 
@@ -178,11 +180,18 @@ Los vídeos vienen del feed público de cada canal: sus 15 últimos, sin cuenta 
 vuelve a mirar los canales al abrirse si hace más de 15 minutos; **Actualizar** lo hace al momento.
 **Shorts**: se ocultan o se ven según el ajuste.
 
+**Lo que dura cada vídeo** sale en la esquina de la miniatura. El feed no lo trae, así que, después de
+cargar, la app lo mira en la página de vídeos de cada canal y lo apunta para no volver a buscarlo. En
+los vídeos recién publicados puede tardar un rato en salir.
+
+**Seguir viendo**: si tienes vídeos empezados y sin acabar, salen en una fila arriba del todo (en el
+móvil, de lado), el último que viste primero. **Ver todos** los enseña todos.
+
 **Filtros** (arriba de Inicio):
 
 - Primera fila: **Todas**, una pastilla por categoría y **Otros** (los canales sin categoría).
-- Segunda fila: **Todos**, **Canales ▾**, **Sin ver** (con el número de vídeos nuevos), **Seguir
-  viendo**, **Aleatorio** y, en la tele, **Actualizar** (en el móvil va arriba, junto al título).
+- Segunda fila: **Todos**, **Canales ▾**, **Sin ver** (con el número de vídeos nuevos), **Aleatorio** y,
+  en la tele, **Actualizar** (en el móvil va arriba, junto al título).
 - Al elegir una categoría, solo salen los vídeos de sus canales.
 
 **Canales ▾** abre un panel con todos tus canales en cuadrícula, con su foto. En el móvil sale desde
@@ -215,7 +224,7 @@ principio del vídeo si ya lleva un rato, y si no, al que sonó antes.
 - Al abrir un vídeo se marca como visto. Se puede cambiar a mano: en el móvil, manteniéndolo pulsado; en
   la tele, en su ficha.
 - La app apunta **por dónde vas** en cada vídeo. La miniatura lleva una barra roja, y al volver a abrirlo
-  sigue desde ahí. **Seguir viendo** reúne los empezados y sin acabar.
+  sigue desde ahí. La fila **Seguir viendo**, arriba en Inicio, reúne los empezados y sin acabar.
 - **Entre aparatos**: con la lista de progreso en Home Assistant (ver [Home Assistant](#home-assistant)),
   lo que empiezas en el móvil sigue en la tele en el mismo punto, y al revés. Se guardan los 400 vídeos
   más recientes.
@@ -262,7 +271,7 @@ nota porque el título sale como «Canales **M**», con la M en morado.
 | Reproducción continua, segundo plano, avisos | El PIN y «Pedir PIN al abrir» |
 | Sus listas de Home Assistant | Los ajustes de Kids |
 
-**Iconos en este aparato**: en el móvil, Canales → Ajustes → **Iconos en este móvil**. En la tele,
+**Iconos en este aparato**: en el móvil, ⚙ Ajustes → **Iconos en este móvil**. En la tele,
 Mis canales → fila **Iconos**. Quitar un icono no borra nada. El que estás usando no se puede quitar
 desde sí mismo: se quita desde otro.
 
@@ -271,8 +280,8 @@ desde sí mismo: se quita desde otro.
 1. Antes, en Home Assistant, crea sus tres listas (ver [Las listas](#las-listas)). Al recibir la
    conexión se prueba con su lista de canales, y si no existe no se guarda nada.
 2. Instala el APK y abre **Canales M**.
-3. En ese móvil: Canales → **Recibir de otro móvil**. Sale un código.
-4. En el móvil que ya está conectado (el de Mis Canales): Canales → **Pasar a la tele o a otro móvil** → elige el otro móvil y escribe el
+3. En ese móvil: ⚙ Ajustes → **Recibir de otro móvil**. Sale un código.
+4. En el móvil que ya está conectado (el de Mis Canales): ⚙ Ajustes → **Pasar a la tele o a otro móvil** → elige el otro móvil y escribe el
    código.
    Los dos móviles tienen que estar en la wifi de casa.
 5. En el otro móvil, en **Iconos en este móvil**, quita «Mis Canales» y «Mis Canales Kids». En el otro,
@@ -303,7 +312,7 @@ cifras, que se crea la primera vez. En la tele se escribe con el teclado de la p
 **En la app de los mayores** (solo Mis Canales):
 
 - Los canales «Para niños» no salen en Inicio, en el buscador ni en los avisos (sí en Canales, para
-  cambiarlos). Se pueden ver también con **Ver aquí también los canales de niños** (móvil: Ajustes; tele:
+  cambiarlos). Se pueden ver también con **Ver aquí también los canales de niños** (móvil: ⚙ Ajustes; tele:
   Mis canales → «Sus canales también en Inicio»).
 - **Pedir PIN al abrir**: tapa la app de los mayores con el PIN al abrirla y al volver a ella con Home.
   Es para los aparatos que usan también los niños.
@@ -341,7 +350,7 @@ Si falta la de progreso o la de listas, eso se queda en cada aparato y lo demás
 ### Conectar el móvil
 
 1. En Home Assistant: tu perfil → Seguridad → **Tokens de acceso de larga duración** → Crear token.
-2. En el móvil: Canales → **Sincronizar con Home Assistant**. Rellena:
+2. En el móvil: ⚙ Ajustes → **Sincronizar con Home Assistant**. Rellena:
    - **Dirección de fuera**: la de DuckDNS, por ejemplo `https://micasa.duckdns.org:8123`.
    - **Dirección de casa** (opcional): la de dentro de casa, por ejemplo `http://192.168.1.10:8123`.
      Se prueba primero (es más rápida), y si no contesta, por ejemplo fuera de casa, la de fuera.
@@ -360,9 +369,9 @@ o cambiar algo se guarda en Home Assistant al momento.
 Va por la wifi de casa, con un código de 4 cifras:
 
 - **A una tele**: en la tele, Mis canales → **Conectar con Home Assistant** (o, sin canales aún, en
-  Inicio, **Traer mis canales de Home Assistant**). Sale un código. En el móvil: Canales → Sincronizar con
+  Inicio, **Traer mis canales de Home Assistant**). Sale un código. En el móvil: ⚙ Ajustes → Sincronizar con
   Home Assistant → **Pasar a la tele o a otro móvil**, elige la tele y escribe el código.
-- **A otro móvil**: en el otro, Canales → **Recibir de otro móvil**, y lo mismo.
+- **A otro móvil**: en el otro, ⚙ Ajustes → **Recibir de otro móvil**, y lo mismo.
 
 El aparato que recibe se anuncia en la red solo mientras esa pantalla está abierta. Tras cinco códigos mal
 deja de escuchar. Se pasa la conexión (direcciones y token), y cada icono usa sus listas: si se recibe
@@ -395,7 +404,7 @@ Lo que hace falta:
 2. En Home Assistant: Añadir integración → **Android Debug Bridge**, con la IP del Fire TV y el puerto
    5555. La primera vez sale en la tele un aviso de depuración: marca «Permitir siempre desde este
    ordenador» y acepta.
-3. En el móvil: Canales → Sincronizar con Home Assistant → **Ver en la tele**: **Buscar** y luego
+3. En el móvil: ⚙ Ajustes → Sincronizar con Home Assistant → **Ver en la tele**: **Buscar** y luego
    **Guardar**. Si Home Assistant solo tiene una tele, se encuentra sola la primera vez.
 
 Por dentro, Home Assistant ejecuta en la tele (acción `androidtv.adb_command`):
@@ -412,7 +421,7 @@ El móvil mira tus canales cada media hora, más o menos (Android junta estas ta
 batería), y avisa de cada vídeo nuevo con su miniatura. Al tocar el aviso, el vídeo se abre en la app, no
 en la de YouTube.
 
-- Se enciende o se apaga en Ajustes → **Avisar de vídeos nuevos**. Ahí mismo, **Probar con el último
+- Se enciende o se apaga en ⚙ Ajustes → **Avisar de vídeos nuevos**. Ahí mismo, **Probar con el último
   vídeo** enseña cómo queda.
 - Para que avise también con el móvil en reposo, la batería de la app tiene que estar «Sin
   restricciones». El botón **Quitar la restricción de batería** abre ese ajuste.
@@ -438,7 +447,7 @@ vez solo los apunta.
 
 ## Todos los ajustes
 
-En el móvil, en la pestaña **Canales**, debajo de los canales. En la tele, en **Mis canales**, las
+En el móvil, con la rueda **⚙** de arriba (en Inicio o en Canales). En la tele, en **Mis canales**, las
 pastillas de arriba.
 
 | Ajuste | Móvil | Tele | Qué hace | Es de |
@@ -468,7 +477,7 @@ Cada cambio en el código publica la versión nueva en
 - La app (Mis Canales o Canales M; Kids no) mira al abrirse, como mucho cada 6 horas, si hay una
   más nueva. Si la hay, en Inicio sale un botón **Actualizar a la …**: la baja y abre el instalador de
   Android, donde hay que confirmar.
-- También en Ajustes (móvil) o Mis canales (tele): la versión que tienes y **Buscar actualizaciones**.
+- También en ⚙ Ajustes (móvil) o Mis canales (tele): la versión que tienes y **Buscar actualizaciones**.
 - La primera vez hay que dar permiso para instalar (ver [Instalar](#instalar)).
 
 ## Problemas frecuentes
@@ -488,14 +497,14 @@ Kids no se abren.
 Falta el permiso para instalar apps de Mis Canales (ver [Instalar](#instalar)).
 
 **Los avisos del móvil no llegan con el móvil en reposo**
-Pon la batería de la app «Sin restricciones» (Ajustes → Avisar de vídeos nuevos → Quitar la restricción
+Pon la batería de la app «Sin restricciones» (⚙ Ajustes → Avisar de vídeos nuevos → Quitar la restricción
 de batería).
 
 **El mando de la Samsung no hace caso a play/pausa**
 Pulsa antes otro botón del mando, y luego play/pausa.
 
 **Ha desaparecido un icono**
-Se ha quitado en «Iconos». Vuelve a ponerlo desde otro icono de la app: Ajustes → Iconos en este móvil
+Se ha quitado en «Iconos». Vuelve a ponerlo desde otro icono de la app: ⚙ Ajustes → Iconos en este móvil
 (en la tele, Mis canales → Iconos).
 
 **Kids no enseña un canal nuevo**

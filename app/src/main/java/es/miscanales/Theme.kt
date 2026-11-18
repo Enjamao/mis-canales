@@ -21,10 +21,11 @@ object Colors {
 
 object Type {
     val pageTitle = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Colors.text)
-    val title = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, color = Colors.text)
-    val body = TextStyle(fontSize = 14.sp, lineHeight = 21.sp, color = Colors.text)
-    val sub = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, color = Colors.muted)
-    val badge = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    // en la tele se lee a unos metros: nada por debajo de 14
+    val title = TextStyle(fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium, color = Colors.text)
+    val body = TextStyle(fontSize = 16.sp, lineHeight = 24.sp, color = Colors.text)
+    val sub = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, color = Colors.muted)
+    val badge = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
 }
 
 @Composable

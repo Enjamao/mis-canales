@@ -69,7 +69,7 @@ fun HaScreen(page: HaPage) {
             Column(Modifier.weight(1f)) {
                 Text("Desde el móvil (lo más fácil)", style = Type.pageTitle.copy(fontSize = 20.sp))
                 Text(
-                    "En Mis Canales del móvil: Canales → Sincronizar con Home Assistant → «Pasar a la tele o a otro móvil». " +
+                    "En Mis Canales del móvil: ⚙ Ajustes → «Pasar a la tele o a otro móvil». " +
                         "Elige «${Pairing.deviceName(context)}» y escribe este código:",
                     style = Type.body.copy(fontSize = 16.sp, lineHeight = 23.sp),
                     modifier = Modifier.padding(top = 8.dp),
@@ -81,7 +81,7 @@ fun HaScreen(page: HaPage) {
                 )
                 Text(
                     "El móvil y la tele tienen que estar en la misma wifi.",
-                    style = Type.sub.copy(fontSize = 14.sp),
+                    style = Type.sub.copy(fontSize = 16.sp),
                 )
                 page.message?.let {
                     Text(it, style = Type.body.copy(fontSize = 16.sp, lineHeight = 23.sp), modifier = Modifier.padding(top = 16.dp))
@@ -91,7 +91,7 @@ fun HaScreen(page: HaPage) {
                 Text("O a mano", style = Type.pageTitle.copy(fontSize = 20.sp))
                 Text(
                     "Con el teclado de la app Amazon Fire TV del móvil se puede pegar el token.",
-                    style = Type.sub.copy(fontSize = 14.sp),
+                    style = Type.sub.copy(fontSize = 16.sp),
                     modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
                 )
                 TvTextField(page.url, { page.url = it }, "Dirección de fuera (https://…duckdns.org:8123)", onDone = {}, modifier = Modifier.restoreFocus(page, "url"))

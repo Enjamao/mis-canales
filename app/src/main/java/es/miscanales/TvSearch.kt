@@ -122,7 +122,7 @@ fun SearchScreen(page: SearchPage) {
             fullWidth("hint") {
                 Text(
                     "Escribe con el teclado de la tele o con el del móvil (app Amazon Fire TV) y pulsa Buscar.",
-                    style = Type.sub.copy(fontSize = 14.sp),
+                    style = Type.sub.copy(fontSize = 16.sp),
                 )
             }
         }
@@ -160,13 +160,13 @@ private fun TvFoundChannelRow(found: FoundChannel, modifier: Modifier = Modifier
                 Text(found.name, style = Type.title.copy(fontSize = 18.sp, lineHeight = 24.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOf(found.handle, found.subscribers).filter { it.isNotEmpty() }.joinToString(" • "),
-                    style = Type.sub.copy(fontSize = 13.sp),
+                    style = Type.sub.copy(fontSize = 15.sp),
                     maxLines = 1,
                 )
             }
             Text(
                 if (store.has(found.id)) "Ya es de tus canales" else "Pulsa para ver sus vídeos y añadirlo",
-                style = Type.sub.copy(fontSize = 13.sp),
+                style = Type.sub.copy(fontSize = 15.sp),
             )
         }
     }
@@ -213,7 +213,7 @@ fun FoundChannelScreen(page: FoundChannelPage) {
                     Text(
                         listOf(found.handle, found.subscribers).filter { it.isNotEmpty() }
                             .ifEmpty { listOf("Sus vídeos, del más nuevo al más viejo.") }.joinToString(" • "),
-                        style = Type.sub.copy(fontSize = 14.sp),
+                        style = Type.sub.copy(fontSize = 16.sp),
                     )
                 }
                 Pill(

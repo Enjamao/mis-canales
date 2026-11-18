@@ -3,6 +3,17 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.21 — 18 nov 2026
+
+- **0.21.0**:
+  - **Lo que dura cada vídeo**, también en los recientes. Se saca de la página de vídeos de cada canal y
+    se apunta para no volver a buscarlo.
+  - **Fila «Seguir viendo»** arriba del todo en Inicio, con los empezados (en el móvil, de lado). Sustituye
+    a la pastilla «Seguir viendo».
+  - **Letra más grande en la tele**, también en el reproductor.
+  - **Ajustes aparte en el móvil**, con la rueda ⚙ de Inicio o de Canales. La pestaña Canales queda solo
+    con los canales.
+
 ## 0.20 — 17 nov 2026
 
 - **0.20.0**: **Panel de canales**. En Inicio, en vez de una pastilla por canal, una sola, **Canales ▾**,

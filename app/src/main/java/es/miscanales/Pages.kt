@@ -7,8 +7,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -167,6 +173,10 @@ class DetailsPage(val video: Video) : Page()
  * Se guardan en [dir], para enseñarlos nada más abrir la app y cuando YouTube no responde.
  */
 class Feed(private val store: Store, dir: File) {
+    init {
+        Durations.init(dir)
+    }
+
     // (cada perfil, la suya; Kids comparte la del principal, que tiene sus canales)
     private val cache = File(dir, store.profile.cacheFile)
     private val json = Json { ignoreUnknownKeys = true }
@@ -174,7 +184,8 @@ class Feed(private val store: Store, dir: File) {
 
     var videos by mutableStateOf(
         runCatching { json.decodeFromString(videoList, cache.readText()) }.getOrDefault(emptyList())
-            .filter { store.has(it.channelId) },
+            .filter { store.has(it.channelId) }
+            .map { it.withDuration() },
     )
         private set
     var loading by mutableStateOf(false)
@@ -214,7 +225,7 @@ class Feed(private val store: Store, dir: File) {
         if (loading || cache.lastModified() == cacheStamp) return
         cacheStamp = cache.lastModified()
         val saved = runCatching { json.decodeFromString(videoList, cache.readText()) }.getOrNull() ?: return
-        videos = saved.filter { store.has(it.channelId) }
+        videos = saved.filter { store.has(it.channelId) }.map { it.withDuration() }
     }
 
     private var again = false
@@ -251,6 +262,7 @@ class Feed(private val store: Store, dir: File) {
             val badIds = bad.map { it.id }.toSet()
             val kept = videos.filter { it.channelId in badIds }
             videos = (fresh + kept)
+                .map { it.withDuration() }
                 .distinctBy { it.vid }
                 .sortedByDescending { it.published }
                 // un canal que se ha quitado mientras cargaba ya no sale
@@ -258,10 +270,50 @@ class Feed(private val store: Store, dir: File) {
             failed = bad
             loadedAt = System.currentTimeMillis()
             save()
+            fillDurations()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             error = e
+        }
+    }
+
+    private var filling: Job? = null
+
+    /**
+     * Pone lo que dura a los vídeos que no lo traen (el feed RSS no lo trae): lo saca de la primera página
+     * de la pestaña Vídeos de sus canales (30 vídeos, de sobra para los 15 del feed), de 4 en 4, y lo
+     * apunta en [Durations] para no volver a buscarlo. Va aparte, después de enseñar los vídeos.
+     */
+    private fun fillDurations() {
+        if (filling?.isActive == true) return
+        filling = scope.launch {
+            val missing = videos.filter { it.duration.isBlank() && !Durations.knows(it.vid) }
+            if (missing.isEmpty()) return@launch
+            val ids = missing.map { it.channelId }.toSet()
+            val channels = store.channels.filter { it.id in ids }
+            val gate = Semaphore(4)
+            val pages = coroutineScope {
+                channels.map { channel ->
+                    async { gate.withPermit { runCatching { Search.channelVideos(channel, null).videos }.getOrNull() } }
+                }.awaitAll()
+            }
+            val learned = mutableMapOf<String, String>()
+            val now = System.currentTimeMillis()
+            channels.zip(pages).forEach { (channel, page) ->
+                // si ha fallado, se prueba en la próxima carga
+                if (page == null) return@forEach
+                page.filter { it.duration.isNotBlank() && it.duration != LIVE }.forEach { learned[it.vid] = it.duration }
+                // los que no salen en la pestaña Vídeos (Shorts, directos): sin duración, y no se vuelven a
+                // buscar; los recién publicados, sí (la pestaña puede tardar un poco en tenerlos)
+                missing.filter { it.channelId == channel.id && it.vid !in learned && now - it.published > SETTLED }
+                    .forEach { learned[it.vid] = "" }
+            }
+            Durations.putAll(learned)
+            if (learned.values.any { it.isNotBlank() }) {
+                videos = videos.map { it.withDuration() }
+                save()
+            }
         }
     }
 
@@ -282,5 +334,9 @@ class Feed(private val store: Store, dir: File) {
 
     private companion object {
         const val STALE = 15L * 60 * 1000
+
+        /** Lo que tarda un vídeo nuevo en salir en la pestaña Vídeos de su canal, de sobra. */
+        const val SETTLED = 6L * 60 * 60 * 1000
+        const val LIVE = "EN DIRECTO"
     }
 }

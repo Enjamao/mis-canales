@@ -853,6 +853,15 @@ class PlayerActivity : ComponentActivity() {
               @media (orientation: portrait) { .phone #next { left: 16px; right: 16px; top: calc(56.25vw + 12px); bottom: auto; } }
               #info .desc { white-space: pre-wrap; font-size: 14px; line-height: 1.45; color: #ddd; margin-top: 16px;
                             overflow-wrap: anywhere; }
+              /* en la tele, letra más grande: se lee a unos metros */
+              .tv #title { font-size: 26px; }
+              .tv #channel, .tv #row { font-size: 18px; }
+              .tv #hint { font-size: 16px; color: #ccc; }
+              .tv #toast { font-size: 18px; }
+              .tv #next { max-width: 560px; }
+              .tv #next .label { font-size: 16px; }
+              .tv #nexttitle { font-size: 22px; }
+              .tv #nextcount { font-size: 17px; }
             </style>
             </head><body>
             <div id="wrap"><div id="p"></div>
@@ -878,6 +887,7 @@ class PlayerActivity : ComponentActivity() {
             var subs = $subtitles, subsDone = false, note = '', noteUntil = 0;
             // en el móvil: los controles táctiles de YouTube, sin el panel del mando
             var tv = $tv;
+            if (tv) document.body.className = 'tv';
             if (!tv) {
               document.getElementById('top').style.display = 'none';
               document.getElementById('bottom').style.display = 'none';

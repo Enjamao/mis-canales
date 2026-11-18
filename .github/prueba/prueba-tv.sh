@@ -180,12 +180,12 @@ fallos "Inicio por filas (tele)"
 
 # arriba, la fila de los filtros: «Canales» abre el panel con todos los canales (por categorías)
 # arriba: la fila de los filtros, y encima la de las categorías
-tecla KEYCODE_DPAD_UP
-foco "fila de filtros"
-tecla KEYCODE_DPAD_UP
-foco "fila de categorías"
-enfocar "Todas" KEYCODE_DPAD_LEFT 6
-tecla KEYCODE_DPAD_DOWN
+# sube hasta la fila de los filtros (encima de las filas puede estar «Seguir viendo») y, en ella, a «Canales»
+for i in 1 2 3 4 5; do
+  rm -f foco.txt; foco "subiendo a los filtros"
+  grep -qE "^(Todos|Canales|Sin ver|Actualizar|Aleatorio)" foco.txt && break
+  tecla KEYCODE_DPAD_UP
+done
 enfocar "Todos" KEYCODE_DPAD_LEFT 6
 enfocar "Canales" KEYCODE_DPAD_RIGHT 4
 tecla KEYCODE_DPAD_CENTER; sleep 3

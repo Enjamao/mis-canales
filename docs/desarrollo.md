@@ -43,7 +43,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `ChannelScreens.kt` | Mis canales en la tele: la lista, la página de un canal, añadir canal, categorías y todos los ajustes. |
 | `DetailsScreen.kt` | La ficha de un vídeo en la tele. |
 | `TvSearch.kt`, `TvLists.kt`, `TvHa.kt` | Buscar, Listas y Home Assistant en la tele. |
-| `PhoneApp.kt` | Toda la app del móvil: pestañas, Inicio, Canales con los ajustes, Añadir, Home Assistant, pasar y recibir la conexión. |
+| `PhoneApp.kt` | Toda la app del móvil: pestañas, Inicio (con «Seguir viendo»), Canales, los Ajustes (con la rueda ⚙), Añadir, Home Assistant, pasar y recibir la conexión. |
 | `PhoneLists.kt` | Listas en el móvil. |
 | `PhonePicker.kt` | El panel «Canales» en el móvil, desde abajo. |
 | `KidsTv.kt`, `KidsPhone.kt` | Mis Canales Kids en la tele y en el móvil, con sus ajustes. |
@@ -54,6 +54,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | Archivo | Qué hay |
 |---|---|
 | `YouTube.kt` | El feed RSS de cada canal y cómo encontrar un canal a partir de un `@nombre`, un enlace o un vídeo. |
+| `Durations.kt` | Lo que dura cada vídeo (el feed no lo trae): lo apuntado, para todo el aparato. `Feed` lo busca en la pestaña Vídeos de cada canal. |
 | `Search.kt`, `SearchState.kt` | Buscar en YouTube y los vídeos anteriores de un canal, leyendo los datos de sus páginas. |
 | `PlayerActivity.kt` | El reproductor: el de YouTube para webs dentro de una WebView, con los mandos, siguiente/anterior, reproducción continua, ventana flotante, «Ver en la tele», progreso, SponsorBlock y el tiempo de Kids. |
 | `EmbedPatch.kt` | En la tele, la app pide la página del reproductor y le mete unos scripts antes que los de YouTube, para que se porte como el Chrome de un PC. Así se consigue más calidad. |
@@ -93,7 +94,7 @@ En `SharedPreferences`:
 | `nuevos` | Los vídeos y canales ya vistos por los avisos, por perfil (`videos`, `videos_montse`…) |
 
 Y en archivos: `videos.json` y `videos_montse.json`, la última carga de vídeos de cada perfil, para que
-Inicio salga al momento.
+Inicio salga al momento, y `duraciones.json`, lo que dura cada vídeo (hasta 4000, para todo el aparato).
 
 La conexión con Home Assistant se guarda con la lista base (`todo.mis_canales`). Cada perfil le añade su
 sufijo al usarla (`Profile.forProfile`: `todo.mis_canales_montse`). Las de progreso y listas son la de
@@ -108,6 +109,10 @@ canales más `_progreso` y `_listas`.
 - `Feed` (en `Pages.kt`) carga todos los canales a la vez. Guarda la carga en `videos*.json` y vuelve a
   cargar al abrir la app si hace más de 15 minutos.
 - «NUEVO»: no visto, y publicado después de añadir el canal o en la semana de antes.
+- Lo que dura: el feed no lo trae. Después de cada carga, `Feed.fillDurations` pide la primera página de la
+  pestaña Vídeos de los canales con vídeos sin duración (de 4 en 4) y la apunta en `Durations`. Los que no
+  salen ahí (Shorts, directos) se apuntan sin duración para no volver a buscarlos, salvo los de las
+  últimas 6 horas.
 
 ### Buscar y vídeos anteriores
 

@@ -216,11 +216,13 @@ fallos "revisión 2 (con avisos)"
 echo "--- avisos de la app ---"
 adb shell dumpsys notification --noredact | grep -A40 "pkg=$PKG" | grep -E "android.title=|android.text=|android.summaryText=|key=" | head -30
 
-# 3. El botón de probar el aviso: Canales → bajar a Ajustes → Probar con el último vídeo
+# 3. El botón de probar el aviso: la rueda de Inicio (Ajustes) → Probar con el último vídeo
 adb shell am start -W -n $PKG/.MainActivity
 sleep 5
-pulsar "Canales"
+pulsar "Ajustes"
 sleep 3
+textos "los ajustes, en su pantalla"
+captura ajustes
 SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=${SIZE#*x}; echo "pantalla $W x $H"
 # baja poco a poco hasta que aparezca el botón (los ajustes de HA van después)
 for i in $(seq 1 20); do
@@ -343,6 +345,7 @@ fallos "ver un vídeo en Kids"
 # 13. «Pedir PIN al abrir» en la app de los mayores
 adb shell am start -W -n $PKG/.MainActivity; sleep 3
 pulsar_abajo "Canales"; sleep 2
+pulsar "Ajustes"; sleep 2
 bajar_hasta "Pedir PIN al abrir Mis Canales"
 pulsar "Pedir PIN al abrir Mis Canales"; sleep 3
 adb shell input text 1234; sleep 3
@@ -428,6 +431,7 @@ adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 3
 pulsar_abajo "Canales"; sleep 3
+pulsar "Ajustes"; sleep 2
 bajar_hasta "Pasar a la tele"
 pulsar "Pasar a la tele"; sleep 6
 textos "Pasar a la tele: buscando teles"
@@ -446,7 +450,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.20.0"; sleep 25
+pulsar "Actualizar a la 0.21.0"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -568,6 +572,7 @@ captura montse-inicio
 pulsar_abajo "Canales"; sleep 3
 textos "Canales M: sin canales"
 captura montse-canales
+pulsar "Ajustes"; sleep 2
 bajar_hasta "Iconos en este móvil"
 textos "Iconos en este móvil"
 captura montse-iconos

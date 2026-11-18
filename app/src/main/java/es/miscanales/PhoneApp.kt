@@ -24,11 +24,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -120,6 +122,8 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
             // la categoría elegida arriba en Inicio (null: todas)
             var category by rememberSaveable { mutableStateOf<String?>(null) }
             var details by remember { mutableStateOf<Video?>(null) }
+            // los ajustes, en su pantalla (desde la rueda de Inicio o de Canales)
+            var settings by rememberSaveable { mutableStateOf(false) }
             val search = remember { SearchState() }
             // al compartir un vídeo o un canal con la app, a "Añadir"
             val sharedText = shared.value
@@ -132,8 +136,11 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                     NavigationBar(containerColor = Colors.bg2) {
                         for (t in Tab.entries) {
                             NavigationBarItem(
-                                selected = tab == t,
-                                onClick = { tab = t },
+                                selected = tab == t && !settings,
+                                onClick = {
+                                    tab = t
+                                    settings = false
+                                },
                                 icon = { Icon(painterResource(if (tab == t) t.currentIcon else t.icon), contentDescription = null) },
                                 label = { Text(t.label) },
                             )
@@ -142,7 +149,9 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                 },
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
-                    when (tab) {
+                    if (settings) {
+                        PhoneSettings(onBack = { settings = false })
+                    } else when (tab) {
                         Tab.Home -> PhoneHome(
                             filter,
                             category,
@@ -156,14 +165,18 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                                 if (filter.channelIds().isNotEmpty()) filter = Filter.All
                             },
                             onDetails = { details = it },
+                            onSettings = { settings = true },
                         )
                         Tab.Search -> PhoneSearch(search, onDetails = { details = it })
                         Tab.Lists -> PhoneLists(onDetails = { details = it })
-                        Tab.Channels -> PhoneChannels(onOpen = { id ->
-                            filter = Filter.OneChannel(id)
-                            category = null
-                            tab = Tab.Home
-                        })
+                        Tab.Channels -> PhoneChannels(
+                            onOpen = { id ->
+                                filter = Filter.OneChannel(id)
+                                category = null
+                                tab = Tab.Home
+                            },
+                            onSettings = { settings = true },
+                        )
                         Tab.Add -> PhoneAdd(shared)
                     }
                 }
@@ -191,6 +204,7 @@ private fun PhoneHome(
     onFilter: (Filter) -> Unit,
     onCategory: (String?) -> Unit,
     onDetails: (Video) -> Unit,
+    onSettings: () -> Unit,
 ) {
     val store = LocalStore.current
     val feed = LocalFeed.current
@@ -236,6 +250,9 @@ private fun PhoneHome(
                 if (feed.loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 IconButton(onClick = { feed.reload() }) {
                     Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Actualizar")
+                }
+                IconButton(onClick = onSettings) {
+                    Icon(painterResource(R.drawable.ic_settings), contentDescription = "Ajustes")
                 }
             }
         }
@@ -314,7 +331,8 @@ private fun PhoneHome(
                         label = { Text(if (newOnes.isEmpty()) "Sin ver" else "Sin ver · ${newOnes.size}") },
                     )
                 }
-                if (continuing.isNotEmpty() || filter == Filter.Continue) {
+                // los empezados van en su fila, arriba; la pastilla solo sale al verlos todos («Ver todos»)
+                if (filter == Filter.Continue) {
                     item(key = "continue") {
                         FilterChip(
                             selected = filter == Filter.Continue,
@@ -337,6 +355,12 @@ private fun PhoneHome(
                         )
                     }
                 }
+            }
+        }
+        // arriba del todo, los empezados y sin acabar (el último que viste primero), de lado
+        if (filter == Filter.All && continuing.isNotEmpty()) {
+            item(key = "#continue") {
+                ContinueRow(continuing, onAll = { onFilter(Filter.Continue) }, onDetails = onDetails)
             }
         }
         val message = when {
@@ -386,6 +410,49 @@ private fun PhoneHome(
 }
 
 /** El botón del final de una lista para cargar más, con su "cargando" y su "no hay más". */
+/** En Inicio, los vídeos empezados y sin acabar, de lado, con «Ver todos». */
+@Composable
+private fun ContinueRow(videos: List<Video>, onAll: () -> Unit, onDetails: (Video) -> Unit) {
+    val context = LocalContext.current
+    val store = LocalStore.current
+    Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Seguir viendo", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (videos.size > 1) TextButton(onClick = onAll) { Text("Ver todos") }
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(videos.take(20), key = { it.vid }) { video ->
+                Column(
+                    Modifier.width(220.dp).clip(RoundedCornerShape(10.dp)).combinedClickable(
+                        onClick = { playVideo(context, store, video, queue = videos.after(video)) },
+                        onLongClick = { onDetails(video) },
+                    ),
+                ) {
+                    Thumbnail(video, Modifier.clip(RoundedCornerShape(10.dp)))
+                    Text(
+                        video.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
+                    )
+                    Text(
+                        video.channelName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Colors.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 2.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun MoreButton(loading: Boolean, done: Boolean, label: String, doneText: String, error: String?, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -708,7 +775,7 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
 }
 
 @Composable
-private fun PhoneChannels(onOpen: (String) -> Unit) {
+private fun PhoneChannels(onOpen: (String) -> Unit, onSettings: () -> Unit) {
     val store = LocalStore.current
     val feed = LocalFeed.current
     val library = LocalLibrary.current
@@ -722,7 +789,12 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item(key = "#head") {
-            Text("Mis canales", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 8.dp))
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Mis canales", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = onSettings) {
+                    Icon(painterResource(R.drawable.ic_settings), contentDescription = "Ajustes")
+                }
+            }
         }
         if (store.channels.isEmpty()) {
             item(key = "#empty") { Hint("Aún no tienes ninguno.") }
@@ -772,60 +844,6 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
                 }
             }
         }
-        item(key = "#settings") {
-            Column(Modifier.padding(top = 24.dp)) {
-                Text("Ajustes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 4.dp))
-                SettingSwitch("Ocultar Shorts", store.hideShorts) {
-                    store.toggleShorts()
-                    feed.reload()
-                }
-                SettingSwitch("Ver en la app de YouTube", store.useYouTubeApp) { store.togglePlayer() }
-                SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
-                SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
-                SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
-                SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
-                Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
-                if (store.profile == Profile.Main) KidsAdultSettings()
-                IconsSetting()
-                UpdateSetting()
-                SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
-                    store.toggleNotifyNew()
-                    NewVideos.schedule(context, NewVideos.wanted(context))
-                    if (store.notifyNew) (context as? MainActivity)?.askNotifications()
-                }
-                if (store.notifyNew) {
-                    Hint(
-                        "Cada media hora, más o menos, el móvil mira tus canales. Al tocar el aviso, el vídeo se " +
-                            "abre aquí. Si también te llegan los avisos de Telegram, puedes apagar la automatización " +
-                            "\"Mis Canales: aviso de vídeos nuevos\" en Home Assistant.",
-                    )
-                    if (!NewVideos.unrestricted(context)) {
-                        Hint(
-                            "Para que avise también con el móvil en reposo, la batería de la app tiene que estar " +
-                                "\"Sin restricciones\".",
-                        )
-                        TextButton(onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                        Uri.parse("package:${context.packageName}"),
-                                    ),
-                                )
-                            }
-                        }) { Text("Quitar la restricción de batería") }
-                    }
-                    val latest = feed.videos.firstOrNull()
-                    if (latest != null) {
-                        TextButton(onClick = {
-                            (context as? MainActivity)?.askNotifications()
-                            NewVideos.preview(context, latest, store.profile)
-                        }) { Text("Probar con el último vídeo") }
-                    }
-                }
-            }
-        }
-        item(key = "#ha") { HaSettings() }
     }
     val toCategorize = categorizing
     if (toCategorize != null) {
@@ -876,6 +894,84 @@ private fun PhoneChannels(onOpen: (String) -> Unit) {
 }
 
 /** En Inicio, cuando hay una versión nueva en GitHub: un botón para bajarla e instalarla. */
+/**
+ * Los ajustes del móvil, en su pantalla (desde la rueda de Inicio o de Canales): cómo se ven los
+ * vídeos, avisos, Kids, iconos, versión y Home Assistant.
+ */
+@Composable
+private fun PhoneSettings(onBack: () -> Unit) {
+    val store = LocalStore.current
+    val feed = LocalFeed.current
+    val context = LocalContext.current
+    BackHandler(onBack = onBack)
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+    ) {
+        item(key = "#head") {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Volver") }
+                Text("Ajustes", style = MaterialTheme.typography.headlineSmall)
+            }
+        }
+        item(key = "#settings") {
+            Column(Modifier.padding(top = 8.dp)) {
+                Text("Vídeos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 4.dp))
+                SettingSwitch("Ocultar Shorts", store.hideShorts) {
+                    store.toggleShorts()
+                    feed.reload()
+                }
+                SettingSwitch("Ver en la app de YouTube", store.useYouTubeApp) { store.togglePlayer() }
+                SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
+                SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
+                SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
+                SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
+                Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
+                Text("Avisos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                SettingSwitch("Avisar de vídeos nuevos", store.notifyNew) {
+                    store.toggleNotifyNew()
+                    NewVideos.schedule(context, NewVideos.wanted(context))
+                    if (store.notifyNew) (context as? MainActivity)?.askNotifications()
+                }
+                if (store.notifyNew) {
+                    Hint(
+                        "Cada media hora, más o menos, el móvil mira tus canales. Al tocar el aviso, el vídeo se " +
+                            "abre aquí. Si también te llegan los avisos de Telegram, puedes apagar la automatización " +
+                            "\"Mis Canales: aviso de vídeos nuevos\" en Home Assistant.",
+                    )
+                    if (!NewVideos.unrestricted(context)) {
+                        Hint(
+                            "Para que avise también con el móvil en reposo, la batería de la app tiene que estar " +
+                                "\"Sin restricciones\".",
+                        )
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.parse("package:${context.packageName}"),
+                                    ),
+                                )
+                            }
+                        }) { Text("Quitar la restricción de batería") }
+                    }
+                    val latest = feed.videos.firstOrNull()
+                    if (latest != null) {
+                        TextButton(onClick = {
+                            (context as? MainActivity)?.askNotifications()
+                            NewVideos.preview(context, latest, store.profile)
+                        }) { Text("Probar con el último vídeo") }
+                    }
+                }
+                if (store.profile == Profile.Main) KidsAdultSettings()
+                IconsSetting()
+                UpdateSetting()
+            }
+        }
+        item(key = "#ha") { HaSettings() }
+    }
+}
+
 @Composable
 private fun UpdateBanner() {
     val context = LocalContext.current
@@ -1134,12 +1230,12 @@ private fun HaSettings() {
             OutlinedButton(onClick = { passing = true }) { Text("Pasar a la tele o a otro móvil") }
             Hint(
                 "Para conectar un Fire TV con Mis Canales: en la tele, Mis canales → Home Assistant, y aquí el código " +
-                    "que sale. A otro móvil: en el otro, Canales → \"Recibir de otro móvil\".",
+                    "que sale. A otro móvil: en el otro, ⚙ Ajustes → \"Recibir de otro móvil\".",
             )
         } else {
             // o desde otro móvil que ya lo tenga (así no hay que copiar el token)
             OutlinedButton(onClick = { receiving = true }) { Text("Recibir de otro móvil") }
-            Hint("Si otro móvil de casa ya tiene Mis Canales conectado: allí, Canales → \"Pasar a la tele o a otro móvil\".")
+            Hint("Si otro móvil de casa ya tiene Mis Canales conectado: allí, ⚙ Ajustes → \"Pasar a la tele o a otro móvil\".")
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -1175,7 +1271,7 @@ private fun ReceiveDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "En el otro móvil: Canales → \"Pasar a la tele o a otro móvil\". Elige \"${Pairing.deviceName(context)}\" " +
+                    "En el otro móvil: ⚙ Ajustes → \"Pasar a la tele o a otro móvil\". Elige \"${Pairing.deviceName(context)}\" " +
                         "y escribe este código:",
                 )
                 Text(receiver.code, style = MaterialTheme.typography.displaySmall, letterSpacing = 8.sp)

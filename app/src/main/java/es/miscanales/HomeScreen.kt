@@ -147,7 +147,7 @@ fun HomeScreen(page: HomePage) {
                     )
                 }
                 val updated = if (feed.loading) "Actualizando…" else ago(feed.loadedAt)?.let { "Actualizado $it" }
-                if (updated != null) Text(updated, style = Type.sub.copy(fontSize = 13.sp))
+                if (updated != null) Text(updated, style = Type.sub.copy(fontSize = 15.sp))
             }
         }
         if (categories.isNotEmpty()) {
@@ -213,7 +213,8 @@ fun HomeScreen(page: HomePage) {
                         trailing = if (newOnes.isNotEmpty()) "${newOnes.size}" else null,
                     )
                 }
-                if (continuing.isNotEmpty() || filter == Filter.Continue) {
+                // los empezados van en su fila, arriba; la pastilla solo sale al verlos todos («Ver todos»)
+                if (filter == Filter.Continue) {
                     item(key = "continue") {
                         Chip(
                             "Seguir viendo",
@@ -248,21 +249,32 @@ fun HomeScreen(page: HomePage) {
                 }
             }
         }
+        // arriba del todo, los empezados y sin acabar, el último que viste primero
+        if (filter == Filter.All && continuing.isNotEmpty()) {
+            fullWidth("row:#continue") {
+                VideoRow(page, "#continue", "Seguir viendo", continuing.take(ROW_SIZE), focusPrefix = "continue:") {
+                    page.show(Filter.Continue)
+                }
+            }
+        }
         rows.forEach { (key, list) ->
             fullWidth("row:$key") {
-                CategoryRow(page, key, list.take(ROW_SIZE))
+                VideoRow(page, key, categoryFor(key) ?: OTHERS, list.take(ROW_SIZE)) { page.showCategory(key) }
             }
         }
     }
 }
 
-/** Una fila de Inicio en la tele: los últimos vídeos de una categoría y, al final, "Ver todos". */
+/**
+ * Una fila de Inicio en la tele: los últimos vídeos de una categoría (o los empezados) y, al final, "Ver
+ * todos" ([onAll]). [focusPrefix] separa el foco de un vídeo que sale también en otra fila.
+ */
 @Composable
-private fun CategoryRow(page: HomePage, key: String, videos: List<Video>) {
+private fun VideoRow(page: HomePage, key: String, title: String, videos: List<Video>, focusPrefix: String = "", onAll: () -> Unit) {
     val state = page.rows.getOrPut(key) { LazyListState() }
     Column {
         Text(
-            categoryFor(key) ?: OTHERS,
+            title,
             style = Type.pageTitle.copy(fontSize = 20.sp),
             modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
         )
@@ -273,16 +285,12 @@ private fun CategoryRow(page: HomePage, key: String, videos: List<Video>) {
         ) {
             itemsIndexed(videos, key = { _, video -> video.vid }) { _, video ->
                 Box(Modifier.width(CARD_WIDTH)) {
-                    VideoCard(video, Modifier.restoreFocus(page, video.vid), list = videos)
+                    VideoCard(video, Modifier.restoreFocus(page, focusPrefix + video.vid), list = videos)
                 }
             }
             item(key = "#all") {
                 Box(Modifier.width(CARD_WIDTH).aspectRatio(16f / 9f), contentAlignment = Alignment.Center) {
-                    Chip(
-                        "Ver todos",
-                        { page.showCategory(key) },
-                        Modifier.restoreFocus(page, "all:$key"),
-                    )
+                    Chip("Ver todos", onAll, Modifier.restoreFocus(page, "all:$key"))
                 }
             }
         }
@@ -369,7 +377,7 @@ fun LazyGridScope.fullWidth(key: String, content: @Composable () -> Unit) =
 @Composable
 fun Failed(retry: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("No se ha podido conectar con YouTube. Mira la conexión a internet de la tele.", style = Type.sub.copy(fontSize = 14.sp))
+        Text("No se ha podido conectar con YouTube. Mira la conexión a internet de la tele.", style = Type.sub.copy(fontSize = 16.sp))
         Spacer(Modifier.height(12.dp))
         Chip("Volver a probar", retry)
     }

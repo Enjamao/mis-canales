@@ -163,7 +163,7 @@ fun ListScreen(page: ListPage) {
                 }
                 Text(
                     "Para quitar un vídeo de la lista: mantén OK sobre él (o pulsa play/pausa) y «Añadir a lista».",
-                    style = Type.sub.copy(fontSize = 13.sp),
+                    style = Type.sub.copy(fontSize = 15.sp),
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
@@ -221,12 +221,12 @@ fun AddToListScreen(page: AddToListPage) {
             }
             Text(
                 "Las marcadas ya lo tienen: OK lo añade o lo quita.",
-                style = Type.sub.copy(fontSize = 13.sp),
+                style = Type.sub.copy(fontSize = 15.sp),
                 modifier = Modifier.padding(top = 4.dp),
             )
             Spacer(Modifier.height(24.dp))
         }
-        Text("Una lista nueva:", style = Type.sub.copy(fontSize = 14.sp), modifier = Modifier.padding(bottom = 8.dp))
+        Text("Una lista nueva:", style = Type.sub.copy(fontSize = 16.sp), modifier = Modifier.padding(bottom = 8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvTextField(
                 page.text,

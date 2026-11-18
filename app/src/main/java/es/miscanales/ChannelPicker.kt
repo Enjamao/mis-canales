@@ -143,7 +143,7 @@ fun ChannelPickerScreen(page: ChannelPickerPage) {
                 Text(pickerTitle(store, home.category), style = Type.pageTitle)
                 Text(
                     "OK: ver solo ese canal. Mantener OK o play/pausa: elegir varios.",
-                    style = Type.sub.copy(fontSize = 14.sp),
+                    style = Type.sub.copy(fontSize = 16.sp),
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }

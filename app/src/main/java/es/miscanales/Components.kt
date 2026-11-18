@@ -220,8 +220,8 @@ fun Chip(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (icon != null) Icon(painterResource(icon), contentDescription = null, Modifier.size(20.dp))
-            Text(text, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            if (trailing != null) Text(trailing, fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = .6f))
+            Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            if (trailing != null) Text(trailing, fontSize = 14.sp, color = LocalContentColor.current.copy(alpha = .6f))
         }
     }
 }
@@ -257,7 +257,7 @@ fun Wordmark(modifier: Modifier = Modifier) {
 fun PageHead(title: String, subtitle: String? = null) {
     Column(Modifier.padding(top = 8.dp, bottom = 12.dp)) {
         Text(title, style = Type.pageTitle)
-        if (subtitle != null) Text(subtitle, style = Type.sub.copy(fontSize = 14.sp), modifier = Modifier.padding(top = 4.dp))
+        if (subtitle != null) Text(subtitle, style = Type.sub.copy(fontSize = 16.sp), modifier = Modifier.padding(top = 4.dp))
     }
 }
 
@@ -265,7 +265,7 @@ fun PageHead(title: String, subtitle: String? = null) {
 fun Status(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = Type.sub.copy(fontSize = 14.sp, lineHeight = 20.sp),
+        style = Type.sub.copy(fontSize = 16.sp, lineHeight = 22.sp),
         modifier = modifier.fillMaxWidth().padding(vertical = 32.dp),
         textAlign = TextAlign.Center,
     )

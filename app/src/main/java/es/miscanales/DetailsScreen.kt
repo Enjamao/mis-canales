@@ -109,7 +109,7 @@ fun DetailsScreen(page: DetailsPage) {
 private fun Description(text: String) {
     val paragraphs = text.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
     if (paragraphs.isEmpty()) {
-        Text("Este vídeo no tiene descripción.", style = Type.sub.copy(fontSize = 14.sp))
+        Text("Este vídeo no tiene descripción.", style = Type.sub.copy(fontSize = 16.sp))
         return
     }
     LazyColumn(state = rememberLazyListState(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
