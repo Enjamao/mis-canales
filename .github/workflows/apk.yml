@@ -9,6 +9,12 @@ on:
 permissions:
   contents: write
 
+# una sola compilación a la vez: si llega otro cambio, la anterior se cancela, para que una más vieja que
+# acabe después no deje publicada su versión encima de la nueva
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
