@@ -342,11 +342,16 @@ tecla KEYCODE_MEDIA_PLAY_PAUSE; sleep 3
 textos "ficha del vídeo (tele)"
 captura ficha
 foco "ficha: en Ver"
+# «Ver más tarde», con un OK (pasa a «En Ver más tarde»)
+enfocar "Ver más tarde" KEYCODE_DPAD_RIGHT 3
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "ficha, ya en Ver más tarde (tele)"
 enfocar "Añadir a lista" KEYCODE_DPAD_RIGHT 5
 tecla KEYCODE_DPAD_CENTER; sleep 3
-textos "añadir a lista (tele)"
+textos "añadir a lista (tele): «Ver más tarde» marcada"
 captura anadir-a-lista
-foco "añadir a lista: en Crear"
+foco "añadir a lista: en la primera"
+enfocar "Crear" KEYCODE_DPAD_DOWN 3
 tecla KEYCODE_DPAD_LEFT
 foco "en la caja"
 adb shell input text "Rock"; sleep 1
@@ -362,9 +367,19 @@ tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_DOWN
 tecla KEYCODE_DPAD_CENTER
 sleep 3
-textos "Listas (tele)"
+textos "Listas (tele): Ver más tarde, Historial y las tuyas"
 captura listas
-foco "en la primera lista"
+foco "en Ver más tarde"
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "Ver más tarde (tele)"
+captura ver-mas-tarde
+tecla KEYCODE_BACK; sleep 2
+enfocar "Historial" KEYCODE_DPAD_DOWN 3
+tecla KEYCODE_DPAD_CENTER; sleep 3
+textos "Historial (tele)"
+captura historial
+tecla KEYCODE_BACK; sleep 2
+enfocar "Rock" KEYCODE_DPAD_DOWN 4
 tecla KEYCODE_DPAD_CENTER; sleep 3
 textos "la lista Rock (tele)"
 captura lista-rock

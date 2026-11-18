@@ -13,10 +13,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -31,7 +33,10 @@ fun DetailsScreen(page: DetailsPage) {
     val store = LocalStore.current
     val library = LocalLibrary.current
     val nav = LocalNavigator.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val watched = store.isWatched(video.vid)
+    val later = store.playlists.inWatchLater(video.vid)
     Row(
         Modifier.fillMaxSize().padding(start = 24.dp, end = 32.dp, top = 28.dp),
         horizontalArrangement = Arrangement.spacedBy(32.dp),
@@ -65,6 +70,14 @@ fun DetailsScreen(page: DetailsPage) {
                     Modifier.restoreFocus(page, "play", first = true),
                     icon = R.drawable.ic_play_arrow_filled,
                     selected = true,
+                )
+                // «Ver más tarde», con un OK; para otras listas, «Añadir a lista»
+                Pill(
+                    if (later) "En Ver más tarde" else "Ver más tarde",
+                    { scope.playlistChange(context) { store.playlists.toggleWatchLater(context.applicationContext, video) } },
+                    Modifier.restoreFocus(page, "later"),
+                    icon = if (later) R.drawable.ic_check else R.drawable.ic_watch_later,
+                    selected = later,
                 )
                 Pill(
                     "Añadir a lista",

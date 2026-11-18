@@ -32,6 +32,12 @@ data class PlaylistEntry(
  */
 class Playlists private constructor(val profile: Profile) {
     companion object {
+        /**
+         * La lista fija para guardar vídeos y verlos luego: una lista más (se sincroniza igual), pero sale
+         * siempre la primera y se añade con un toque desde las opciones del vídeo.
+         */
+        const val WATCH_LATER = "Ver más tarde"
+
         private const val TAG = "MisCanales"
         private const val KEY = "playlists"
 
@@ -59,8 +65,24 @@ class Playlists private constructor(val profile: Profile) {
     private var loaded = false
     private var pulledAt = 0L
 
-    /** Los nombres de las listas, por orden alfabético. */
-    val names: List<String> get() = entries.map { it.list }.distinct().sortedBy { it.lowercase() }
+    /** Los nombres de las listas, por orden alfabético (sin «Ver más tarde», que va aparte). */
+    val names: List<String> get() = entries.map { it.list }.distinct().filter { it != WATCH_LATER }.sortedBy { it.lowercase() }
+
+    /** Las listas para elegir al guardar un vídeo: «Ver más tarde» (aunque esté vacía) y las demás. */
+    val choices: List<String> get() = listOf(WATCH_LATER) + names
+
+    /** Si [vid] está en «Ver más tarde». */
+    fun inWatchLater(vid: String): Boolean = entries.any { it.list == WATCH_LATER && it.video.vid == vid }
+
+    /** Lo pone en «Ver más tarde», o lo quita si ya estaba. */
+    suspend fun toggleWatchLater(context: Context, video: Video) {
+        if (inWatchLater(video.vid)) remove(context, WATCH_LATER, video.vid) else add(context, WATCH_LATER, video)
+    }
+
+    /** Quita de una lista los vídeos ya vistos ([watched]). */
+    suspend fun removeWatched(context: Context, name: String, watched: (String) -> Boolean) {
+        videos(name).filter { watched(it.vid) }.forEach { remove(context, name, it.vid) }
+    }
 
     /** Los vídeos de una lista, en el orden en que se añadieron. */
     fun videos(name: String): List<Video> = entries.filter { it.list == name }.sortedBy { it.at }.map { it.video }
@@ -83,7 +105,7 @@ class Playlists private constructor(val profile: Profile) {
     /** El nombre limpio; si ya hay una lista que se llama igual con otras mayúsculas, ese. */
     fun clean(name: String): String? {
         val tidy = name.trim().replace(Regex("\\s+"), " ").ifEmpty { return null }
-        return names.firstOrNull { it.equals(tidy, ignoreCase = true) } ?: tidy
+        return choices.firstOrNull { it.equals(tidy, ignoreCase = true) } ?: tidy
     }
 
     /** Trae las listas de Home Assistant (y sube las que se guardaron solo aquí). Sin Home Assistant no hace nada. */

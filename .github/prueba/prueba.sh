@@ -578,6 +578,9 @@ SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${SIZE%x*}; H=
 adb shell input swipe $((W/2)) $((H*3/5)) $((W/2)) $((H*3/5)) 1000; sleep 2
 textos "opciones del vídeo"
 captura opciones
+# «Ver más tarde», con un toque (el cuadro sigue abierto, y pasa a «En Ver más tarde»)
+pulsar "Ver más tarde"; sleep 2
+textos "opciones del vídeo, ya en Ver más tarde"
 pulsar "Añadir a lista"; sleep 2
 escribir "Rock"; sleep 4
 textos "las listas del vídeo"
@@ -586,11 +589,19 @@ pulsar "Hecho"; sleep 1
 textos "opciones del vídeo, ya en una lista"
 adb shell input keyevent KEYCODE_BACK; sleep 1
 pulsar_abajo "Listas"; sleep 3
-textos "Listas"
+textos "Listas: Ver más tarde, Historial y las tuyas"
 captura listas
 pulsar "Rock"; sleep 2
 textos "la lista Rock"
 captura lista-rock
+adb shell input keyevent KEYCODE_BACK; sleep 2
+pulsar "Historial"; sleep 2
+textos "el historial"
+captura historial
+adb shell input keyevent KEYCODE_BACK; sleep 2
+pulsar "Ver más tarde"; sleep 2
+textos "Ver más tarde"
+captura ver-mas-tarde
 adb logcat -d | grep "MisCanales: Listas" | tail -3
 fallos "listas"
 

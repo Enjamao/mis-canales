@@ -3,6 +3,13 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.22 — 18 nov 2026
+
+- **0.22.0**: **Ver más tarde** e **Historial**, siempre arriba en Listas.
+  - «Ver más tarde» se añade con un toque desde las opciones del vídeo. Dentro, «Quitar los vistos» y
+    «Vaciar».
+  - El Historial guarda lo que se abre en cada aparato, el último primero, con «Borrar el historial».
+
 ## 0.21 — 18 nov 2026
 
 - **0.21.1**: En las tarjetas de la tele, «hace 2 horas» va antes que las visualizaciones, para que no se

@@ -45,6 +45,7 @@ class Store(context: Context, val kids: Boolean = false, val profile: Profile = 
 
     /** Las listas de reproducción de este perfil. */
     val playlists: Playlists get() = Playlists.of(profile)
+    val history: History get() = History.of(profile)
     private val json = Json { ignoreUnknownKeys = true }
     private val channelList = ListSerializer(Channel.serializer())
 

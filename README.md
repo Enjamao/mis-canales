@@ -93,8 +93,8 @@ Arriba, en Inicio y en Canales, la rueda **⚙** abre los **Ajustes** (ver
 **Con un vídeo**:
 
 - Un toque lo pone.
-- Mantenerlo pulsado abre sus opciones: **Ver**, **📺 Ver en la tele**, **Añadir a lista**,
-  **Visto / No visto**, **Canal** (ir a él) y **YouTube** (abrirlo en la app de YouTube).
+- Mantenerlo pulsado abre sus opciones: **Ver**, **Ver más tarde**, **Añadir a lista**, **📺 Ver en la
+  tele**, **Visto / No visto**, **Canal** (ir a él) y **YouTube** (abrirlo en la app de YouTube).
 
 **En el reproductor**:
 
@@ -121,9 +121,9 @@ canales. Con «Todas» y «Todos» elegidos, cada categoría tiene su fila de v�
 **Sobre un vídeo**:
 
 - **OK**: lo pone y lo marca como visto.
-- **Mantener OK** o **play/pausa**: abre su ficha, con la descripción y los botones **Ver**,
-  **Añadir a lista**, **Marcar como visto / no visto**, **Ir al canal** y **Abrir en YouTube** (en la
-  app de YouTube de la tele).
+- **Mantener OK** o **play/pausa**: abre su ficha, con la descripción y los botones **Ver**, **Ver más
+  tarde**, **Añadir a lista**, **Marcar como visto / no visto**, **Ir al canal** y **Abrir en YouTube**
+  (en la app de YouTube de la tele).
 
 **En el panel «Canales»** (ver [Inicio](#inicio-filtros-aleatorio-siguiente-y-anterior)): OK en un canal
 lo elige solo y vuelve a Inicio; **mantener OK** o **play/pausa** lo añade a los elegidos o lo quita.
@@ -234,7 +234,23 @@ principio del vídeo si ya lleva un rato, y si no, al que sonó antes.
 ## Listas de reproducción
 
 Vídeos sueltos de cualquier canal (también de la búsqueda), guardados en listas con nombre. Están en la
-pestaña **Listas** del móvil y en la entrada **Listas** del menú de la tele.
+pestaña **Listas** del móvil y en la entrada **Listas** del menú de la tele. Arriba del todo van siempre
+**Ver más tarde** y el **Historial**; debajo, **Tus listas**.
+
+**Ver más tarde**: para guardar un vídeo y verlo luego, con un toque.
+
+- **Añadir**: en las opciones del vídeo (en el móvil, mantenerlo pulsado; en la tele, mantener OK o
+  play/pausa), el botón **Ver más tarde**. Pasa a **En Ver más tarde**; otro toque lo quita.
+- Dentro, los vídeos en el orden en que se guardaron, con **Aleatorio**, **Quitar los vistos** y
+  **Vaciar**.
+- Es una lista más: con Home Assistant, sale igual en todos los aparatos.
+
+**Historial**: los vídeos que has abierto en ese aparato, el último primero (en el móvil, separados por
+días: hoy, ayer, esta semana…). Al volver a abrir uno, sube arriba. Se guardan los 300 últimos, y
+**Borrar el historial** lo vacía (lo visto y por dónde ibas se queda). Cada perfil tiene el suyo; Kids no
+tiene. No va a Home Assistant: cada aparato, lo suyo.
+
+**Las demás listas**:
 
 - **Añadir un vídeo**: en el móvil, mantenerlo pulsado → «Añadir a lista». En la tele, mantener OK (o
   play/pausa) → «Añadir a lista». Marca una lista de las que hay o escribe una nueva. Para quitarlo,

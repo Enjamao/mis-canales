@@ -62,6 +62,7 @@ open class MainActivity : ComponentActivity() {
         feed = Feed(store, filesDir)
         library = Library(store, feed)
         store.playlists.load(applicationContext)
+        store.history.load(applicationContext)
         if (kidsMode) {
             setContent {
                 if (isTv()) MisCanalesTheme { KidsTvApp(store, feed, library) } else KidsPhoneApp(store, feed, library)

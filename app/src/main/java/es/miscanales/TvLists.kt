@@ -40,10 +40,11 @@ internal fun CoroutineScope.playlistChange(context: android.content.Context, blo
     }
 }
 
-/** Las listas de reproducción, en la tele: una fila por lista. */
+/** Las listas de reproducción, en la tele: «Ver más tarde» y el «Historial» arriba, y una fila por lista. */
 @Composable
 fun ListsScreen(page: ListsPage) {
     val playlists = LocalStore.current.playlists
+    val history = LocalStore.current.history
     val nav = LocalNavigator.current
     val context = LocalContext.current
     LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
@@ -56,19 +57,42 @@ fun ListsScreen(page: ListsPage) {
         item(key = "#head") {
             PageHead(
                 "Listas",
-                if (names.isEmpty()) {
-                    "Aún no tienes ninguna. Para guardar un vídeo en una lista: mantén OK sobre él (o pulsa play/pausa) y «Añadir a lista»."
-                } else {
-                    "Tus vídeos guardados. Para añadir uno: mantén OK sobre él (o pulsa play/pausa) y «Añadir a lista»."
-                },
+                "Para guardar un vídeo: mantén OK sobre él (o pulsa play/pausa) y «Ver más tarde» o «Añadir a lista».",
             )
         }
-        itemsIndexed(names, key = { _, name -> name }) { i, name ->
+        item(key = "#later") {
+            val count = playlists.videos(Playlists.WATCH_LATER).size
+            Chip(
+                Playlists.WATCH_LATER,
+                { nav.open(ListPage(Playlists.WATCH_LATER)) },
+                Modifier.restoreFocus(page, "list:#later", first = true),
+                icon = R.drawable.ic_watch_later,
+                shape = CircleShape,
+                trailing = if (count == 1) "1 vídeo" else "$count vídeos",
+            )
+        }
+        item(key = "#history") {
+            val count = history.entries.size
+            Chip(
+                "Historial",
+                { nav.open(HistoryPage()) },
+                Modifier.restoreFocus(page, "list:#history"),
+                icon = R.drawable.ic_history,
+                shape = CircleShape,
+                trailing = if (count == 1) "1 vídeo" else "$count vídeos",
+            )
+        }
+        if (names.isNotEmpty()) {
+            item(key = "#mine") {
+                Text("Tus listas", style = Type.title.copy(fontSize = 18.sp), modifier = Modifier.padding(top = 12.dp))
+            }
+        }
+        itemsIndexed(names, key = { _, name -> name }) { _, name ->
             val count = playlists.videos(name).size
             Chip(
                 name,
                 { nav.open(ListPage(name)) },
-                Modifier.restoreFocus(page, "list:$name", first = i == 0),
+                Modifier.restoreFocus(page, "list:$name"),
                 icon = R.drawable.ic_playlist,
                 shape = CircleShape,
                 trailing = if (count == 1) "1 vídeo" else "$count vídeos",
@@ -87,6 +111,7 @@ fun ListScreen(page: ListPage) {
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val videos = playlists.videos(page.name)
+    val later = page.name == Playlists.WATCH_LATER
 
     fun rename() {
         val to = page.text
@@ -107,7 +132,9 @@ fun ListScreen(page: ListPage) {
         // el foco, en "Aleatorio": arriba, con el nombre a la vista
         focusFirst = false,
         status = {
-            if (videos.isEmpty()) Status("Esta lista ya no tiene vídeos.")
+            if (videos.isEmpty()) {
+                Status(if (later) "Aún no hay nada. Mantén OK sobre un vídeo (o pulsa play/pausa) y «Ver más tarde»." else "Esta lista ya no tiene vídeos.")
+            }
         },
     ) {
         fullWidth("head") {
@@ -120,23 +147,43 @@ fun ListScreen(page: ListPage) {
                         Modifier.restoreFocus(page, "shuffle", first = true),
                         icon = R.drawable.ic_shuffle,
                     )
-                    Pill(
-                        "Cambiar el nombre",
-                        {
-                            page.text = page.name
-                            page.renaming = !page.renaming
+                    if (later) {
+                        if (videos.any { store.isWatched(it.vid) }) {
+                            Pill(
+                                "Quitar los vistos",
+                                {
+                                    scope.playlistChange(context) {
+                                        playlists.removeWatched(context.applicationContext, page.name) { store.isWatched(it) }
+                                    }
+                                },
+                                Modifier.restoreFocus(page, "watched"),
+                            )
+                        }
+                    } else {
+                        Pill(
+                            "Cambiar el nombre",
+                            {
+                                page.text = page.name
+                                page.renaming = !page.renaming
+                            },
+                            Modifier.restoreFocus(page, "rename"),
+                        )
+                    }
+                    if (videos.isNotEmpty()) Pill(
+                        when {
+                            later && page.confirmDelete -> "¿Vaciarla? Sí, vaciar"
+                            later -> "Vaciar"
+                            page.confirmDelete -> "¿Borrar la lista? Sí, borrar"
+                            else -> "Borrar la lista"
                         },
-                        Modifier.restoreFocus(page, "rename"),
-                    )
-                    Pill(
-                        if (page.confirmDelete) "¿Borrar la lista? Sí, borrar" else "Borrar la lista",
                         {
                             if (!page.confirmDelete) {
                                 page.confirmDelete = true
                             } else {
                                 scope.playlistChange(context) {
                                     playlists.delete(context.applicationContext, page.name)
-                                    nav.back()
+                                    page.confirmDelete = false
+                                    if (!later) nav.back()
                                 }
                             }
                         },
@@ -162,10 +209,52 @@ fun ListScreen(page: ListPage) {
                     }
                 }
                 Text(
-                    "Para quitar un vídeo de la lista: mantén OK sobre él (o pulsa play/pausa) y «Añadir a lista».",
+                    if (later) {
+                        "Para quitar uno: mantén OK sobre él (o pulsa play/pausa) y «En Ver más tarde»."
+                    } else {
+                        "Para quitar un vídeo de la lista: mantén OK sobre él (o pulsa play/pausa) y «Añadir a lista»."
+                    },
                     style = Type.sub.copy(fontSize = 15.sp),
                     modifier = Modifier.padding(top = 12.dp),
                 )
+            }
+        }
+    }
+}
+
+/** El historial en la tele: lo que se ha abierto en esta tele, lo último primero; y borrarlo. */
+@Composable
+fun HistoryScreen(page: HistoryPage) {
+    val history = LocalStore.current.history
+    val context = LocalContext.current
+    val videos = history.entries.map { it.video }
+    VideoGrid(
+        page,
+        videos,
+        page.grid,
+        focusFirst = videos.isNotEmpty(),
+        status = {
+            if (videos.isEmpty()) Status("Aquí salen los vídeos que abras en esta tele.")
+        },
+    ) {
+        fullWidth("head") {
+            Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                PageHead("Historial", "Lo que has abierto en esta tele, lo último primero.")
+                if (videos.isNotEmpty()) {
+                    Pill(
+                        if (page.confirmClear) "¿Borrarlo? Sí, borrar" else "Borrar el historial",
+                        {
+                            if (!page.confirmClear) {
+                                page.confirmClear = true
+                            } else {
+                                history.clear(context.applicationContext)
+                                page.confirmClear = false
+                            }
+                        },
+                        Modifier.restoreFocus(page, "clear"),
+                        icon = R.drawable.ic_delete,
+                    )
+                }
             }
         }
     }
@@ -180,7 +269,7 @@ fun AddToListScreen(page: AddToListPage) {
     val keyboard = LocalSoftwareKeyboardController.current
     val video = page.video
     LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
-    val names = playlists.names
+    val names = playlists.choices
     val inLists = playlists.listsOf(video.vid)
 
     fun create() {

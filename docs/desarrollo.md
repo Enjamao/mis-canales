@@ -29,7 +29,8 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `Store.kt` | Lo guardado: canales, vistos, ajustes. Un `Store` por perfil (o Kids); lo del aparato va aparte. |
 | `Library.kt` | Añadir, quitar y sincronizar canales, categorías, «Para niños» y vistos, con Home Assistant si lo hay. |
 | `Progress.kt` | Por dónde vas en cada vídeo (`Progresses`) y su sincronización con Home Assistant (`ProgressSync`). |
-| `Playlists.kt` | Listas de reproducción, una instancia por perfil, con su sincronización. |
+| `Playlists.kt` | Listas de reproducción, una instancia por perfil, con su sincronización. «Ver más tarde» es una lista más (`WATCH_LATER`), que sale siempre la primera. |
+| `History.kt` | El historial: los vídeos abiertos en este aparato, por perfil (no se sincroniza). Lo apunta el reproductor (`PlayerActivity`) al poner cada vídeo. |
 | `Kids.kt` | El PIN (solo se guarda su huella), el tiempo de Kids por día y «Pedir PIN al abrir». |
 
 ### Pantallas
@@ -89,7 +90,7 @@ En `SharedPreferences`:
 
 | Archivo | Qué guarda |
 |---|---|
-| `store` | Mis Canales (canales, vistos, progreso, listas, ajustes) y, además, lo del aparato: `ha` (conexión con Home Assistant, en JSON), `pin`, `askPin`, `kidsLimit`, `kidsSmall`, `kidsInAdult`, y lo de Kids (`kids_progress`…) |
+| `store` | Mis Canales (canales, vistos, progreso, listas, historial, ajustes) y, además, lo del aparato: `ha` (conexión con Home Assistant, en JSON), `pin`, `askPin`, `kidsLimit`, `kidsSmall`, `kidsInAdult`, y lo de Kids (`kids_progress`…) |
 | `store_montse` | Lo de Canales M |
 | `nuevos` | Los vídeos y canales ya vistos por los avisos, por perfil (`videos`, `videos_montse`…) |
 

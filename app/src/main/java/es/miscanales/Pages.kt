@@ -113,6 +113,12 @@ class ListPage(name: String) : Page() {
     var confirmDelete by mutableStateOf(false)
 }
 
+/** El historial, en la tele. */
+class HistoryPage : Page() {
+    val grid = LazyGridState()
+    var confirmClear by mutableStateOf(false)
+}
+
 /** Elegir las listas de un vídeo, en la tele. */
 class AddToListPage(val video: Video) : Page() {
     var text by mutableStateOf("")

@@ -112,6 +112,7 @@ fun App(store: Store, feed: Feed, library: Library) {
                         is HaPage -> HaScreen(page)
                         is ListsPage -> ListsScreen(page)
                         is ListPage -> ListScreen(page)
+                        is HistoryPage -> HistoryScreen(page)
                         is AddToListPage -> AddToListScreen(page)
                         is DetailsPage -> DetailsScreen(page)
                         is SearchPage -> SearchScreen(page)
@@ -266,7 +267,10 @@ fun playVideo(
             context, video, store.subtitles, background = false, sponsorBlock = store.sponsorBlock,
             kids = true, kidsLimit = store.kidsLimit, queue = queue, autoNext = autoNext,
         )
-        store.useYouTubeApp && !own -> context.playOnYouTube(video.vid)
+        store.useYouTubeApp && !own -> {
+            store.history.add(context, video)
+            context.playOnYouTube(video.vid)
+        }
         else -> PlayerActivity.start(
             context, video, store.subtitles, store.backgroundPlay, store.sponsorBlock, start,
             queue = queue, autoNext = autoNext, profile = store.profile,

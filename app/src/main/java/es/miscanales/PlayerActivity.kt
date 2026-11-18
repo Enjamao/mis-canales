@@ -141,7 +141,12 @@ class PlayerActivity : ComponentActivity() {
         val subtitles = intent.getBooleanExtra(EXTRA_SUBTITLES, false)
         val stats = intent.getStringExtra(EXTRA_STATS).orEmpty()
         val description = intent.getStringExtra(EXTRA_DESCRIPTION).orEmpty()
-        item = QueueItem(vid, title, channelName = channel, stats = stats)
+        item = intent.getStringExtra(EXTRA_ITEM)
+            ?.let { runCatching { queueJson.decodeFromString(QueueItem.serializer(), it) }.getOrNull() }
+            ?.takeIf { it.vid == vid }
+            ?: QueueItem(vid, title, channelName = channel, stats = stats)
+        // al historial (Kids no tiene); si solo se ha girado la pantalla, ya estaba
+        if (!kids && savedInstanceState == null) History.of(profile).add(this, item.toVideo())
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         tv = isTv()
@@ -284,11 +289,13 @@ class PlayerActivity : ComponentActivity() {
         lastPos = if (saved != null && saved.started) saved.pos else 0
         markWatched(this, vid, kids, profile)
         NewVideos.dismiss(this, vid, profile)
+        if (!kids) History.of(profile).add(this, next.toVideo())
         if (keepPlaying) PlaybackService.start(this, next.title, next.channelName)
         // para que girar la pantalla o volver desde el aviso sigan con este vídeo y con lo que queda
         setIntent(
             Intent(intent)
                 .putExtra(EXTRA_VID, next.vid)
+                .putExtra(EXTRA_ITEM, queueJson.encodeToString(QueueItem.serializer(), next))
                 .putExtra(EXTRA_TITLE, next.title)
                 .putExtra(EXTRA_CHANNEL, next.channelName)
                 .putExtra(EXTRA_STATS, next.stats)
@@ -583,6 +590,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_PROFILE = "profile"
         private const val EXTRA_QUEUE = "queue"
         private const val EXTRA_HISTORY = "history"
+        private const val EXTRA_ITEM = "item"
         private const val EXTRA_AUTONEXT = "autoNext"
         private const val NEXT_SECONDS = 6
         private const val MAX_QUEUE = 60
@@ -746,7 +754,7 @@ class PlayerActivity : ComponentActivity() {
             autoNext: Boolean = false,
             profile: Profile = Profile.Main,
         ) {
-            val next = queue.take(MAX_QUEUE).map { QueueItem(it.vid, it.title, it.channelId, it.channelName, it.stats()) }
+            val next = queue.take(MAX_QUEUE).map { it.toQueueItem() }
             context.startActivity(
                 Intent(context, PlayerActivity::class.java)
                     // ir al reproductor no cuenta como salir de la app (para "Pedir PIN al abrir")
@@ -758,6 +766,7 @@ class PlayerActivity : ComponentActivity() {
                     .putExtra(EXTRA_PROFILE, profile.key)
                     .putExtra(EXTRA_KIDS_LIMIT, kidsLimit)
                     .putExtra(EXTRA_VID, video.vid)
+                    .putExtra(EXTRA_ITEM, queueJson.encodeToString(QueueItem.serializer(), video.toQueueItem()))
                     .putExtra(EXTRA_TITLE, video.title)
                     .putExtra(EXTRA_CHANNEL, video.channelName)
                     .putExtra(EXTRA_SUBTITLES, subtitles)
@@ -1131,4 +1140,12 @@ data class QueueItem(
     val channelId: String = "",
     val channelName: String = "",
     val stats: String = "",
-)
+    // para el historial: el vídeo entero, menos la descripción
+    val published: Long = 0,
+    val views: Long? = null,
+    val duration: String = "",
+) {
+    fun toVideo(): Video = Video(vid, title, channelId, channelName, published, views = views, duration = duration)
+}
+
+fun Video.toQueueItem(): QueueItem = QueueItem(vid, title, channelId, channelName, stats(), published, views, duration)

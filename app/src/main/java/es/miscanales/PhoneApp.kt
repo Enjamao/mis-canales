@@ -707,6 +707,8 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
     val library = LocalLibrary.current
     val context = LocalContext.current
     val watched = store.isWatched(video.vid)
+    val later = playlists.inWatchLater(video.vid)
+    val scope = rememberCoroutineScope()
     var listing by remember { mutableStateOf(false) }
     if (listing) PlaylistDialog(video, onDismiss = { listing = false })
     AlertDialog(
@@ -715,9 +717,21 @@ private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> U
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(listOf(video.channelName, fullDate(video.published)).filter { it.isNotEmpty() }.joinToString(" • "), color = Colors.muted)
-                // en qué listas de reproducción está
-                val inLists = playlists.listsOf(video.vid)
-                OutlinedButton(onClick = { listing = true }, modifier = Modifier.padding(top = 12.dp)) {
+                // «Ver más tarde», con un toque (y otra vez lo quita)
+                OutlinedButton(
+                    onClick = { scope.playlistChange(context) { playlists.toggleWatchLater(context.applicationContext, video) } },
+                    modifier = Modifier.padding(top = 12.dp),
+                ) {
+                    Icon(
+                        painterResource(if (later) R.drawable.ic_check else R.drawable.ic_watch_later),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(if (later) "En Ver más tarde" else "Ver más tarde", modifier = Modifier.padding(start = 8.dp))
+                }
+                // en qué otras listas de reproducción está
+                val inLists = playlists.listsOf(video.vid) - Playlists.WATCH_LATER
+                OutlinedButton(onClick = { listing = true }, modifier = Modifier.padding(top = 8.dp)) {
                     Icon(painterResource(R.drawable.ic_playlist), contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(
                         if (inLists.isEmpty()) "Añadir a lista" else "En: " + inLists.sortedBy { it.lowercase() }.joinToString(", "),
