@@ -464,7 +464,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.21.0"; sleep 25
+pulsar "Actualizar a la 0.21.1"; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"

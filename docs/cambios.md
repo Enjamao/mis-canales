@@ -5,6 +5,8 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.21 — 18 nov 2026
 
+- **0.21.1**: En las tarjetas de la tele, «hace 2 horas» va antes que las visualizaciones, para que no se
+  corte con la letra más grande.
 - **0.21.0**:
   - **Lo que dura cada vídeo**, también en los recientes. Se saca de la página de vídeos de cada canal y
     se apunta para no volver a buscarlo.
