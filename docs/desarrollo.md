@@ -225,12 +225,10 @@ desinstalar, perdiendo lo guardado en cada aparato.
 1. Cambia el código.
 2. En `app/build.gradle.kts`, sube `versionCode` (de uno en uno) y `versionName` (`0.19.0` → `0.19.1`
    para arreglos, `0.20.0` para cosas nuevas).
-3. En `.github/prueba/prueba.sh`, cambia la línea `pulsar "Actualizar a la …"` por la versión nueva (la
-   prueba de actualizaciones la busca por su texto).
-4. Pon al día el [README](../README.md) y [cambios.md](cambios.md).
-5. Commit y push a `main`. `apk.yml` compila, firma y publica en Releases → latest.
-6. Lanza la prueba en el emulador (abajo) y mira el resultado.
-7. En los aparatos, la app avisa sola de la versión nueva en Inicio.
+3. Pon al día el [README](../README.md) y [cambios.md](cambios.md).
+4. Commit y push a `main`. `apk.yml` compila, firma y publica en Releases → latest.
+5. Lanza la prueba en el emulador (abajo) y mira el resultado.
+6. En los aparatos, la app avisa sola de la versión nueva en Inicio.
 
 Un cambio solo en Home Assistant o en la documentación puede llevar `[skip ci]` en el mensaje del commit,
 para no publicar otra vez el mismo APK.

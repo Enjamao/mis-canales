@@ -13,8 +13,8 @@ Lo esencial:
 
 - Todo en español: textos, comentarios, commits y documentación. Quien la mantiene no es programador:
   explica los cambios con palabras sencillas.
-- Cada versión: sube `versionCode` y `versionName` en `app/build.gradle.kts`, cambia la línea
-  `pulsar "Actualizar a la …"` de `.github/prueba/prueba.sh`, y pon al día el README y `docs/cambios.md`.
+- Cada versión: sube `versionCode` y `versionName` en `app/build.gradle.kts`, y pon al día el README y
+  `docs/cambios.md`.
 - Push a `main` = versión publicada (`apk.yml`). Luego lanza `prueba.yml` y mira los registros y las
   capturas.
 - Nunca cambies la clave de firma (`keystore/mis-canales.p12`, huella `d434e95e…`).

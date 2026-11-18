@@ -33,6 +33,25 @@ else:
 PY
 }
 
+pulsar_empieza() {
+  # el primero cuyo texto empieza por $1 ("Actualizar a la ", sea cual sea la versión)
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 - "$1" <<'PY'
+import re, subprocess, sys
+xml = open('ui.xml', encoding='utf-8').read()
+for m in re.finditer(r'<node [^>]*>', xml):
+    t = re.search(r' text="([^"]*)"', m.group(0))
+    if t and t.group(1).startswith(sys.argv[1]):
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', m.group(0))
+        x, y = (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+        subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+        print('pulsado', t.group(1), x, y)
+        break
+else:
+    print('no está en pantalla:', sys.argv[1] + '…')
+PY
+}
+
 pulsar_abajo() {
   # el más bajo de la pantalla con ese texto (las pestañas de abajo: "Canales", "Inicio"…)
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
@@ -456,7 +475,7 @@ adb shell appops set $PKG REQUEST_INSTALL_PACKAGES allow
 # y un vídeo empezado, para la fila «Seguir viendo» de Inicio
 adb shell run-as $PKG cat shared_prefs/store.xml > store-actual.xml
 adb shell run-as $PKG cat files/videos.json > videos-actual.json
-python3 "$(dirname "$0")/progreso.py" store-actual.xml videos-actual.json > store-nuevo.xml && \
+python3 "$(dirname "$0")/progreso.py" store-actual.xml videos-actual.json Virtumaniacos > store-nuevo.xml && \
   adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store-nuevo.xml
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
@@ -464,7 +483,7 @@ adb shell input text 1234; sleep 6
 arriba_del_todo
 textos "Inicio con el botón de actualizar"
 adb logcat -d | grep "Actualizar:" | tail -3
-pulsar "Actualizar a la 0.21.1"; sleep 25
+pulsar_empieza "Actualizar a la "; sleep 25
 adb logcat -d | grep "Actualizar:" | tail -3
 adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1
 textos "el instalador de Android"
@@ -587,7 +606,7 @@ pulsar_abajo "Canales"; sleep 3
 textos "Canales M: sin canales"
 captura montse-canales
 pulsar "Ajustes"; sleep 2
-bajar_hasta "Iconos en este móvil"
+bajar_hasta "Canales M (el que usas ahora)"
 textos "Iconos en este móvil"
 captura montse-iconos
 # quitar el icono de Kids en este móvil y volverlo a poner; el suyo no se puede quitar desde aquí
