@@ -288,6 +288,15 @@ textos "vídeos del canal encontrado"
 fallos "canal encontrado"
 pulsar_arriba "Añadir"; sleep 10
 textos "tras añadir"
+# si YouTube no ha dado canales en la búsqueda (pasa a veces), Virtumaniacos se añade a mano en «Añadir»
+if ! grep -q 'text="Añadido"' ui.xml; then
+  echo "sin canales en la búsqueda: Virtumaniacos, a mano"
+  pulsar_abajo "Añadir"; sleep 2
+  escribir "@virtumania"; sleep 3
+  # (si Intro no lo ha añadido, el botón; si ya está, la caja está vacía y no hace nada)
+  pulsar_arriba "Añadir"; sleep 15
+  textos "Virtumaniacos añadido a mano"
+fi
 fallos "añadir canal"
 bajar_hasta "Ver más"; pulsar "Ver más"; sleep 12
 textos "más vídeos del canal encontrado"
@@ -444,6 +453,11 @@ fallos "pasar a la tele"
 adb shell am force-stop $PKG; sleep 1
 adb shell "run-as $PKG sed -i 's|</map>|<int name=\"test_version_code\" value=\"1\" /></map>|' shared_prefs/store.xml"
 adb shell appops set $PKG REQUEST_INSTALL_PACKAGES allow
+# y un vídeo empezado, para la fila «Seguir viendo» de Inicio
+adb shell run-as $PKG cat shared_prefs/store.xml > store-actual.xml
+adb shell run-as $PKG cat files/videos.json > videos-actual.json
+python3 "$(dirname "$0")/progreso.py" store-actual.xml videos-actual.json > store-nuevo.xml && \
+  adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store-nuevo.xml
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity; sleep 4
 adb shell input text 1234; sleep 6

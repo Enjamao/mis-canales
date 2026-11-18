@@ -88,7 +88,7 @@ fun VideoCard(video: Video, modifier: Modifier = Modifier, showChannel: Boolean 
             modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
         )
         if (showChannel) Text(video.channelName, style = Type.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(video.stats(), style = Type.sub, maxLines = 1)
+        Text(video.statsWhenFirst(), style = Type.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -167,8 +167,14 @@ textos "Inicio sin los canales de niños (tele): sin Marques Brownlee ni «Otros
 adb shell am force-stop $PKG; sleep 1
 adb shell "run-as $PKG sed -i 's|</map>|<boolean name=\"kidsInAdult\" value=\"true\" /></map>|' shared_prefs/store.xml"
 adb shell run-as $PKG grep -c kidsInAdult shared_prefs/store.xml
+# y un vídeo empezado, para la fila «Seguir viendo», arriba del todo
+adb shell run-as $PKG cat shared_prefs/store.xml > store-actual.xml
+adb shell run-as $PKG cat files/videos.json > videos-actual.json
+python3 "$(dirname "$0")/progreso.py" store-actual.xml videos-actual.json > store-nuevo.xml && \
+  adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store-nuevo.xml
 adb shell am start -W -n $PKG/.MainActivity; sleep 15
-textos "Inicio por filas (tele)"
+textos "Inicio por filas (tele), con «Seguir viendo»"
+captura inicio-seguir
 foco "Inicio por filas: el primer vídeo de la primera fila"
 tecla KEYCODE_DPAD_DOWN
 foco "una fila más abajo (Otros)"

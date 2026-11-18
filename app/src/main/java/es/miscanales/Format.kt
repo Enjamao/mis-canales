@@ -13,6 +13,9 @@ private val spanish: Locale = Locale.forLanguageTag("es-ES")
 /** "12 mil visualizaciones • hace 3 días". */
 fun Video.stats(): String = listOfNotNull(views?.let(::viewCount), ago(published)).joinToString(" • ")
 
+/** Lo mismo, con cuándo primero: en la tele, si no cabe, se corta por las visualizaciones. */
+fun Video.statsWhenFirst(): String = listOfNotNull(ago(published), views?.let(::viewCount)).joinToString(" • ")
+
 private fun viewCount(n: Long): String = when {
     n >= 1_000_000 -> "${oneDecimal(n / 1e6)} M de visualizaciones"
     n >= 1_000 -> "${Math.round(n / 1e3)} mil visualizaciones"
