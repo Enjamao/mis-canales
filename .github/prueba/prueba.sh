@@ -258,6 +258,22 @@ adb shell dumpsys notification --noredact | grep -E "pkg=$PKG|android.title|andr
 # 3b. El aviso lleva «Silenciar este canal»: lo silencia (en Canales, la campana tachada); la campana lo
 #     vuelve a poner
 adb shell cmd statusbar expand-notifications; sleep 3
+# los avisos de la app van juntos: se abre el grupo y luego el primero, hasta que se vea el botón
+for i in 1 2 3; do
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  grep -q 'text="Silenciar este canal"' ui.xml && break
+  python3 - <<'PY'
+import re, subprocess
+for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
+    if 'expand_button' in n and 'content-desc="Expand"' in n:
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+        x, y = (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+        subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+        print('abierto un aviso', x, y)
+        break
+PY
+  sleep 2
+done
 textos "los avisos, con «Silenciar este canal»"
 captura aviso-silenciar
 pulsar "Silenciar este canal"; sleep 5

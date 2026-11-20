@@ -854,28 +854,31 @@ private fun PhoneChannels(onOpen: (String) -> Unit, onSettings: () -> Unit) {
                         )
                     }
                 }
-                // sus avisos: la campana tachada, silenciado (sus vídeos siguen saliendo en Inicio)
-                IconButton(onClick = {
-                    scope.launch {
-                        try {
-                            library.setMuted(channel.id, !channel.muted)
-                            val text = if (channel.muted) "Avisaré otra vez de ${channel.name}" else "Ya no avisaré de ${channel.name}"
-                            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                // a la derecha, una encima de otra (para que quepan los botones de en medio): sus avisos (la
+                // campana tachada, silenciado; sus vídeos siguen saliendo en Inicio) y quitarlo
+                Column {
+                    IconButton(onClick = {
+                        scope.launch {
+                            try {
+                                library.setMuted(channel.id, !channel.muted)
+                                val text = if (channel.muted) "Avisaré otra vez de ${channel.name}" else "Ya no avisaré de ${channel.name}"
+                                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
+                    }) {
+                        Icon(
+                            painterResource(if (channel.muted) R.drawable.ic_notifications_off else R.drawable.ic_notifications),
+                            contentDescription = if (channel.muted) "Avisos de ${channel.name}: silenciados" else "Avisos de ${channel.name}: sí",
+                            tint = if (channel.muted) Colors.muted else LocalContentColor.current,
+                        )
                     }
-                }) {
-                    Icon(
-                        painterResource(if (channel.muted) R.drawable.ic_notifications_off else R.drawable.ic_notifications),
-                        contentDescription = if (channel.muted) "Avisos de ${channel.name}: silenciados" else "Avisos de ${channel.name}: sí",
-                        tint = if (channel.muted) Colors.muted else LocalContentColor.current,
-                    )
-                }
-                IconButton(onClick = { removing = channel }) {
-                    Icon(painterResource(R.drawable.ic_delete), contentDescription = "Quitar ${channel.name}")
+                    IconButton(onClick = { removing = channel }) {
+                        Icon(painterResource(R.drawable.ic_delete), contentDescription = "Quitar ${channel.name}")
+                    }
                 }
             }
         }

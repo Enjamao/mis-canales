@@ -5,6 +5,8 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.23 — 20 nov 2026
 
+- **0.23.1**: En Canales, la campana y la papelera, una encima de otra, para que «Para niños» quepa bien en
+  móviles estrechos.
 - **0.23.0**: **Silenciar un canal**: sus vídeos siguen en Inicio, pero no avisa de ellos. Se hace con el
   botón «Silenciar este canal» del propio aviso o con la campana de cada canal en la pestaña Canales. Se
   guarda en Home Assistant («sin avisos»), así que vale para todos los móviles y para Telegram.
