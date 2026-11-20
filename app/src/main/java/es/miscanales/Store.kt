@@ -12,6 +12,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
+/**
+ * Sube cuando los canales cambian por fuera de la app que está abierta (al silenciar uno desde su aviso):
+ * la app abierta los vuelve a leer.
+ */
+object ChannelsChanged {
+    var version by mutableStateOf(0)
+}
+
 /** Un canal de YouTube que has añadido. */
 @Serializable
 data class Channel(

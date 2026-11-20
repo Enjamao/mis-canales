@@ -161,6 +161,7 @@ object NewVideos {
         val store = Store(context, profile = profile)
         val channel = store.channel(id) ?: return
         store.setMuted(id, true)
+        ChannelsChanged.version++
         val manager = context.getSystemService(NotificationManager::class.java)
         // sus avisos (los de este perfil: los del principal no llevan "perfil:" delante)
         fun mine(tag: String?) = tag != null && if (profile.key.isEmpty()) ':' !in tag else tag.startsWith(profile.key + ":")

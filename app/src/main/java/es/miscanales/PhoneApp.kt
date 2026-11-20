@@ -118,6 +118,9 @@ internal fun phoneColors(accent: Color = Colors.accent) = darkColorScheme(
 fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<String?>) {
     MaterialTheme(colorScheme = phoneColors(store.profile.accent)) {
         CompositionLocalProvider(LocalStore provides store, LocalFeed provides feed, LocalLibrary provides library) {
+            // si se ha silenciado un canal desde su aviso con la app abierta, se vuelven a leer los canales
+            val changed = ChannelsChanged.version
+            LaunchedEffect(changed) { if (changed > 0) store.reloadChannels() }
             var tab by rememberSaveable { mutableStateOf(Tab.Home) }
             var filter by remember { mutableStateOf<Filter>(Filter.All) }
             // la categoría elegida arriba en Inicio (null: todas)
