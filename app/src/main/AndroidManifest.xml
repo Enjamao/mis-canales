@@ -104,6 +104,10 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
         <!-- la alarma de los vídeos nuevos, y volver a ponerla al encender el móvil o actualizar la app -->
+        <!-- el botón «Silenciar este canal» de los avisos -->
+        <receiver
+            android:name=".MuteReceiver"
+            android:exported="false" />
         <receiver
             android:name=".NewVideosReceiver"
             android:exported="true">

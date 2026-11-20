@@ -26,6 +26,8 @@ data class Channel(
     val kids: Boolean = false,
     /** Su categoría (Música, Noticias…), o null si no tiene. */
     val category: String? = null,
+    /** Si sus vídeos nuevos no avisan (siguen saliendo en Inicio). */
+    val muted: Boolean = false,
 )
 
 /**
@@ -157,6 +159,14 @@ class Store(context: Context, val kids: Boolean = false, val profile: Profile = 
         val index = channels.indexOfFirst { it.id == id }
         if (index < 0) return
         channels[index] = channels[index].copy(kids = value)
+        saveChannels()
+    }
+
+    /** Silencia los avisos de un canal (o los vuelve a poner). */
+    fun setMuted(id: String, value: Boolean) {
+        val index = channels.indexOfFirst { it.id == id }
+        if (index < 0) return
+        channels[index] = channels[index].copy(muted = value)
         saveChannels()
     }
 

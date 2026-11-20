@@ -41,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -852,6 +853,26 @@ private fun PhoneChannels(onOpen: (String) -> Unit, onSettings: () -> Unit) {
                             label = { Text("Para niños", fontSize = 12.sp) },
                         )
                     }
+                }
+                // sus avisos: la campana tachada, silenciado (sus vídeos siguen saliendo en Inicio)
+                IconButton(onClick = {
+                    scope.launch {
+                        try {
+                            library.setMuted(channel.id, !channel.muted)
+                            val text = if (channel.muted) "Avisaré otra vez de ${channel.name}" else "Ya no avisaré de ${channel.name}"
+                            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "No se ha podido guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }) {
+                    Icon(
+                        painterResource(if (channel.muted) R.drawable.ic_notifications_off else R.drawable.ic_notifications),
+                        contentDescription = if (channel.muted) "Avisos de ${channel.name}: silenciados" else "Avisos de ${channel.name}: sí",
+                        tint = if (channel.muted) Colors.muted else LocalContentColor.current,
+                    )
                 }
                 IconButton(onClick = { removing = channel }) {
                     Icon(painterResource(R.drawable.ic_delete), contentDescription = "Quitar ${channel.name}")

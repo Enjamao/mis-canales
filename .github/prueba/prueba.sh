@@ -255,6 +255,35 @@ sleep 15
 fallos "probar aviso"
 adb shell dumpsys notification --noredact | grep -E "pkg=$PKG|android.title|android.text" | head -20
 
+# 3b. El aviso lleva «Silenciar este canal»: lo silencia (en Canales, la campana tachada); la campana lo
+#     vuelve a poner
+adb shell cmd statusbar expand-notifications; sleep 3
+textos "los avisos, con «Silenciar este canal»"
+captura aviso-silenciar
+pulsar "Silenciar este canal"; sleep 5
+adb shell cmd statusbar collapse; sleep 1
+echo "silenciados: $(adb shell run-as $PKG cat shared_prefs/store.xml | grep -o 'muted&quot;:true' | wc -l)"
+pulsar_abajo "Canales"; sleep 3
+textos "Canales, con un canal silenciado"
+captura canales-silenciado
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+python3 - <<'PY'
+import re, subprocess
+for n in re.findall(r'<node [^>]*>', open('ui.xml', encoding='utf-8').read()):
+    d = re.search(r'content-desc="(Avisos de [^"]*: silenciados)"', n)
+    if d:
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+        x, y = (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+        subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+        print('pulsado', d.group(1))
+        break
+else:
+    print('no hay ningún canal silenciado en pantalla')
+PY
+sleep 3
+echo "silenciados tras la campana: $(adb shell run-as $PKG cat shared_prefs/store.xml | grep -o 'muted&quot;:true' | wc -l)"
+fallos "silenciar canal"
+
 # 4. Tocar un aviso: abre el vídeo en la app
 adb shell am start -W -n $PKG/.MainActivity --activity-clear-top --activity-single-top \
   --es play dQw4w9WgXcQ --es title "Vídeo de prueba" --es channelName "Canal" --el published 0

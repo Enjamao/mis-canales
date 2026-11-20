@@ -3,6 +3,12 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.23 — 20 nov 2026
+
+- **0.23.0**: **Silenciar un canal**: sus vídeos siguen en Inicio, pero no avisa de ellos. Se hace con el
+  botón «Silenciar este canal» del propio aviso o con la campana de cada canal en la pestaña Canales. Se
+  guarda en Home Assistant («sin avisos»), así que vale para todos los móviles y para Telegram.
+
 ## 0.22 — 18 nov 2026
 
 - **0.22.1**: En la tele, la calidad llega hasta 1080p (antes, 1440p), para que no se corten los vídeos

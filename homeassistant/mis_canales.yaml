@@ -79,12 +79,14 @@ automation:
           entity_id: todo.mis_canales
         response_variable: lista
       - repeat:
-          # cada canal de la lista con su ID (en la descripción del elemento)
+          # cada canal de la lista con su ID (en la descripción del elemento), menos los silenciados en la
+          # app ("sin avisos" en la descripción)
           for_each: >
             {% set ns = namespace(canales=[]) %}
             {% for item in lista['todo.mis_canales']['items'] %}
-              {% set id = (item.description | default('', true)) | regex_findall('UC[A-Za-z0-9_-]{22}') | first | default('') %}
-              {% if id %}{% set ns.canales = ns.canales + [{'id': id, 'nombre': item.summary}] %}{% endif %}
+              {% set texto = item.description | default('', true) %}
+              {% set id = texto | regex_findall('UC[A-Za-z0-9_-]{22}') | first | default('') %}
+              {% if id and 'sin avisos' not in (texto | lower) %}{% set ns.canales = ns.canales + [{'id': id, 'nombre': item.summary}] %}{% endif %}
             {% endfor %}
             {{ ns.canales }}
           sequence:

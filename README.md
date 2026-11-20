@@ -84,7 +84,8 @@ Abajo hay cinco pestañas:
   (ver [Inicio](#inicio-filtros-aleatorio-siguiente-y-anterior)).
 - **Buscar**: en tus canales o en todo YouTube.
 - **Listas**: tus listas de reproducción.
-- **Canales**: tus canales, con «Categoría», «Para niños» y la papelera para quitarlo.
+- **Canales**: tus canales, con «Categoría», «Para niños», la campana de los avisos y la papelera para
+  quitarlo.
 - **Añadir**: añadir un canal.
 
 Arriba, en Inicio y en Canales, la rueda **⚙** abre los **Ajustes** (ver
@@ -358,8 +359,8 @@ Si falta la de progreso o la de listas, eso se queda en cada aparato y lo demás
 **Qué hay dentro** (no hace falta tocarlo, pero se puede):
 
 - **Canales**: un elemento por canal, con su nombre. En la descripción, una línea por dato: el ID del
-  canal (`UC…`), la dirección de su foto y, si los tiene, `niños` y `categoría: Música` (vale también
-  sin tilde). Escribir un elemento nuevo con el `@nombre` de un canal lo añade: la app lo completa.
+  canal (`UC…`), la dirección de su foto y, si los tiene, `niños`, `categoría: Música` (vale también
+  sin tilde) y `sin avisos`. Escribir un elemento nuevo con el `@nombre` de un canal lo añade: la app lo completa.
 - **Progreso**: un elemento por vídeo, `ID · título`, y en la descripción el segundo por el que vas,
   lo que dura y cuándo se apuntó.
 - **Listas**: un elemento por vídeo, `lista · título`, con los datos del vídeo en la descripción.
@@ -447,6 +448,14 @@ en la de YouTube.
 - Si hay muchos a la vez, se juntan en un solo aviso.
 - Cada perfil avisa de lo suyo, y solo si su icono sale en ese móvil. El aviso dice de qué perfil es.
 - No avisa de los canales «Para niños» (salvo con «Ver aquí también los canales de niños»).
+
+**Silenciar un canal**: sus vídeos siguen saliendo en Inicio, pero no avisa de ellos.
+
+- Desde el aviso, con el botón **Silenciar este canal**. Se quitan sus avisos y sale «Ya no avisaré de…».
+- En la pestaña **Canales**, la campana 🔔 de cada canal. Si está silenciado sale tachada 🔕, y un toque lo
+  vuelve a poner.
+- Con Home Assistant se guarda con el canal (`sin avisos` en su descripción), así que vale para todos tus
+  móviles y para los avisos por Telegram.
 
 ### Por Telegram (Home Assistant)
 

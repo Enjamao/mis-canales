@@ -66,7 +66,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 
 | Archivo | Qué hay |
 |---|---|
-| `NewVideos.kt` | Avisos de vídeos nuevos en el móvil: tarea periódica (JobScheduler) y alarma para el reposo, por perfil. |
+| `NewVideos.kt` | Avisos de vídeos nuevos en el móvil: tarea periódica (JobScheduler) y alarma para el reposo, por perfil. El botón «Silenciar este canal» de cada aviso lo recoge `MuteReceiver`. |
 | `HomeAssistant.kt` | La API REST de Home Assistant: listas de tareas (`todo.get_items`, `add_item`, `update_item`, `remove_item`), teles con ADB y `androidtv.adb_command`. Prueba primero la dirección de casa y luego la de fuera. |
 | `Pairing.kt` | Pasar la conexión de un aparato a otro por la wifi (NSD), con código. |
 | `Tele.kt` | «Ver en la tele»: el comando ADB que manda Home Assistant. |
@@ -151,7 +151,7 @@ Un 401 es «no acepta el token». La dirección de casa suele ser `http://` sin 
 lleva `android:usesCleartextTraffic="true"`, que Android pide para eso desde la versión 9.
 
 **Canales**: un elemento por canal; el nombre es el del canal. La descripción tiene una línea por dato:
-el ID `UC…`, la URL de la foto, `niños` y `categoría: X`. Si un elemento no tiene ID (alguien escribió
+el ID `UC…`, la URL de la foto, `niños`, `categoría: X` y `sin avisos` (silenciado). Si un elemento no tiene ID (alguien escribió
 `@nombre` a mano en Home Assistant), la app busca el canal y lo completa.
 
 **Progreso**: un elemento por vídeo; el nombre es `ID · título`, y la descripción el JSON de `Progress`

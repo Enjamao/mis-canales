@@ -137,6 +137,48 @@ object NewVideos {
         scope.launch { show(app, listOf(video), profile) }
     }
 
+    private const val EXTRA_CHANNEL = "channel"
+    private const val EXTRA_PROFILE = "profile"
+
+    /** El botón «Silenciar este canal» del aviso: lo recoge [MuteReceiver]. */
+    private fun muteIntent(context: Context, video: Video, profile: Profile): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            (profile.key + video.channelId).hashCode(),
+            Intent(context, MuteReceiver::class.java)
+                .putExtra(EXTRA_CHANNEL, video.channelId)
+                .putExtra(EXTRA_PROFILE, profile.key),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    /**
+     * Silencia un canal desde su aviso: ya no avisa de lo suyo (en este perfil), se quitan sus avisos y se
+     * guarda en Home Assistant, para los demás móviles. Si no hay conexión, se queda en este.
+     */
+    suspend fun mute(context: Context, intent: Intent) {
+        val id = intent.getStringExtra(EXTRA_CHANNEL) ?: return
+        val profile = Profile.of(intent.getStringExtra(EXTRA_PROFILE))
+        val store = Store(context, profile = profile)
+        val channel = store.channel(id) ?: return
+        store.setMuted(id, true)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        // sus avisos (los de este perfil: los del principal no llevan "perfil:" delante)
+        fun mine(tag: String?) = tag != null && if (profile.key.isEmpty()) ':' !in tag else tag.startsWith(profile.key + ":")
+        manager?.activeNotifications
+            ?.filter { it.notification.extras.getString(EXTRA_CHANNEL) == id && mine(it.tag) }
+            ?.forEach { manager.cancel(it.tag, it.id) }
+        Toast.makeText(context, "Ya no avisaré de ${channel.name}", Toast.LENGTH_SHORT).show()
+        Log.i(TAG, "Avisos: silenciado ${channel.name} (${profile.label})")
+        val config = store.ha ?: return
+        try {
+            Library.pushChannel(config, channel.copy(muted = true))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Avisos: no se ha podido guardar el silencio en Home Assistant: ${e.message}")
+        }
+    }
+
     /** Quita el aviso de un vídeo (al verlo). */
     fun dismiss(context: Context, vid: String, profile: Profile = Profile.Main) {
         context.getSystemService(NotificationManager::class.java)?.cancel(tag(vid, profile), 1)
@@ -183,9 +225,11 @@ object NewVideos {
             emptyList()
         } else {
             val known = knownVideos.toHashSet()
+            // los canales silenciados no avisan (pero lo suyo se apunta igual, para no avisar de lo de antes si se vuelven a poner)
+            val muted = store.channels.filter { it.muted }.map { it.id }.toSet()
             videos.filter {
                 it.vid !in known && it.channelId in knownChannels && it.vid !in store.watched &&
-                    now - it.published < RECENT
+                    now - it.published < RECENT && it.channelId !in muted
             }
         }
         prefs.edit {
@@ -219,6 +263,15 @@ object NewVideos {
                     .setGroup(GROUP + profile.key)
                     .setSubText(who)
                     .setContentIntent(open(context, video, profile))
+                    // un botón para no volver a recibir avisos de este canal
+                    .addAction(
+                        Notification.Action.Builder(
+                            android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_notifications_off),
+                            "Silenciar este canal",
+                            muteIntent(context, video, profile),
+                        ).build(),
+                    )
+                    .setExtras(android.os.Bundle().apply { putString(EXTRA_CHANNEL, video.channelId) })
                     .apply {
                         if (picture != null) {
                             setLargeIcon(picture)
@@ -340,6 +393,23 @@ class NewVideosReceiver : BroadcastReceiver() {
                 // se acabó el tiempo: ya se mirará la próxima vez
             } catch (e: Exception) {
                 // sin red o YouTube caído: ya se mirará la próxima vez
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+}
+
+/** El botón «Silenciar este canal» de un aviso. */
+class MuteReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val app = context.applicationContext
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+            try {
+                withTimeout(20_000) { NewVideos.mute(app, intent) }
+            } catch (e: Exception) {
+                // sin red: queda silenciado en este móvil
             } finally {
                 pending.finish()
             }

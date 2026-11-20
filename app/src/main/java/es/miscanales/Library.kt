@@ -85,6 +85,7 @@ class Library(val store: Store, val feed: Feed) {
                             old?.addedAt ?: System.currentTimeMillis(),
                             kids = kidsOf(item),
                             category = categoryOf(item),
+                            muted = mutedOf(item),
                         )
                     } else if (item.summary.isNotBlank()) {
                         // escrito a mano en Home Assistant (@nombre o un enlace): se busca y se completa
@@ -155,6 +156,13 @@ class Library(val store: Store, val feed: Feed) {
         store.setKids(id, value)
     }
 
+    /** Silencia los avisos de un canal (o los vuelve a poner), aquí y en Home Assistant (así, en todos los móviles). */
+    suspend fun setMuted(id: String, value: Boolean) {
+        val channel = store.channel(id) ?: return
+        store.ha?.let { pushChannel(it, channel.copy(muted = value)) }
+        store.setMuted(id, value)
+    }
+
     /** Le pone a un canal una categoría (null: ninguna), aquí y en Home Assistant. */
     suspend fun setCategory(id: String, category: String?) {
         val channel = store.channel(id) ?: return
@@ -202,8 +210,8 @@ class Library(val store: Store, val feed: Feed) {
 
     companion object {
         /**
-         * En la descripción del elemento: el ID del canal, debajo su foto, si es para niños "niños"
-         * y, si tiene categoría, "categoría: Música".
+         * En la descripción del elemento: el ID del canal, debajo su foto, si es para niños "niños",
+         * si tiene categoría, "categoría: Música", y si no avisa, "sin avisos".
          */
         fun describe(channel: Channel): String =
             listOfNotNull(
@@ -211,10 +219,21 @@ class Library(val store: Store, val feed: Feed) {
                 channel.avatar,
                 if (channel.kids) KIDS_MARK else null,
                 channel.category?.let { "$CATEGORY_MARK: $it" },
+                if (channel.muted) MUTED_MARK else null,
             ).joinToString("\n")
 
         private const val KIDS_MARK = "niños"
         private const val CATEGORY_MARK = "categoría"
+        private const val MUTED_MARK = "sin avisos"
+
+        fun mutedOf(item: HaItem): Boolean = item.description.lines().any { it.trim().equals(MUTED_MARK, ignoreCase = true) }
+
+        /** Guarda en Home Assistant cómo está un canal (su elemento de la lista). */
+        suspend fun pushChannel(config: HaConfig, channel: Channel) {
+            HomeAssistant.items(config).filter { idOf(it) == channel.id }.forEach {
+                HomeAssistant.update(config, it.uid, it.summary.ifBlank { channel.name }, describe(channel))
+            }
+        }
 
         /** La categoría (también escrita a mano en Home Assistant: "categoria: Música", sin tilde, vale). */
         fun categoryOf(item: HaItem): String? = item.description.lines()
