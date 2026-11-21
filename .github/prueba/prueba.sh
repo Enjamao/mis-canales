@@ -323,7 +323,7 @@ for e in re.findall(r"<entry>.*?</entry>", x, re.S):
 for VID in $(doblados); do
   adb logcat -c
   adb shell am start -W -n $PKG/.MainActivity --activity-clear-top --activity-single-top \
-    --es play $VID --es title "Vídeo doblado" --es channelName "MrBeast" --el published 0
+    --es play $VID --es title Doblado --es channelName MrBeast --el published 0
   sleep 30
   echo "--- audio de $VID:"
   adb logcat -d | grep "MisCanales: Audio" | tail -4

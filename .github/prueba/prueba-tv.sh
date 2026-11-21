@@ -452,8 +452,9 @@ for e in re.findall(r"<entry>.*?</entry>", x, re.S):
 adb shell am force-stop $PKG; sleep 1
 adb shell "run-as $PKG sed -i '/test_end_after/d' shared_prefs/store.xml"
 for VID in $(doblados); do
+  adb shell am force-stop $PKG; sleep 1
   adb logcat -c
-  adb shell am start -W -n $PKG/.MainActivity --es play $VID --es title "Vídeo doblado" --es channelName "MrBeast" --el published 0
+  adb shell am start -W -n $PKG/.MainActivity --es play $VID --es title Doblado --es channelName MrBeast --el published 0
   sleep 35
   echo "--- audio de $VID (tele):"
   adb logcat -d | grep "MisCanales: Audio" | tail -4
@@ -464,7 +465,6 @@ for VID in $(doblados); do
   sleep 6
   adb logcat -d | grep "MisCanales: Audio" | tail -2
   adb logcat -d | grep -q "suena:" && break
-  tecla KEYCODE_BACK; sleep 2
 done
 fallos "idioma del audio (tele)"
 exit 0
