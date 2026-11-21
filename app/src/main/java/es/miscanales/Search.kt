@@ -213,22 +213,42 @@ object Search {
         return FoundPlaylist(id, title, unique, mix = false)
     }
 
-    private val playlistKeys = setOf("playlistVideoRenderer", "lockupViewModel", "continuationItemRenderer", "nextContinuationData")
+    private val playlistKeys = setOf(
+        "playlistVideoRenderer", "lockupViewModel", "continuationItemRenderer", "nextContinuationData", "continuationCommand",
+    )
 
+    /**
+     * Los vídeos de una página de una lista y cómo pedir la siguiente. La continuación es la que va justo
+     * detrás del último vídeo: la página trae otras (en el formato nuevo, sin continuationItemRenderer).
+     */
     private fun playlistPage(data: JsonElement, now: Long): Pair<List<Video>, String?> {
         val found = mutableListOf<Pair<String, JsonObject>>()
         collect(data, found, playlistKeys)
         val videos = mutableListOf<Video>()
-        var more: String? = null
-        for ((kind, item) in found) {
-            when (kind) {
-                "playlistVideoRenderer" -> fromPlaylistVideo(item, now)?.let { videos += it }
-                "lockupViewModel" -> fromLockup(item, now)?.let { videos += it }
-                "continuationItemRenderer" -> find(item, "continuationCommand").at("token").str()?.let { more = it }
-                // el formato de antes
-                "nextContinuationData" -> item["continuation"].str()?.let { more = it }
+        var lastVideo = -1
+        found.forEachIndexed { i, (kind, item) ->
+            val video = when (kind) {
+                "playlistVideoRenderer" -> fromPlaylistVideo(item, now)
+                "lockupViewModel" -> fromLockup(item, now)
+                else -> null
+            }
+            if (video != null) {
+                videos += video
+                lastVideo = i
             }
         }
+        val tokens = found.withIndex().mapNotNull { (i, pair) ->
+            val (kind, item) = pair
+            val token = when (kind) {
+                "continuationItemRenderer" -> find(item, "continuationCommand").at("token").str()
+                "continuationCommand" -> item["token"].str()
+                // el formato de antes
+                "nextContinuationData" -> item["continuation"].str()
+                else -> null
+            }
+            token?.let { i to it }
+        }
+        val more = tokens.firstOrNull { it.first > lastVideo }?.second
         return videos to more
     }
 
