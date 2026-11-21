@@ -436,21 +436,26 @@ private fun ContinueRow(videos: List<Video>, onAll: () -> Unit, onDetails: (Vide
                     ),
                 ) {
                     Thumbnail(video, Modifier.clip(RoundedCornerShape(10.dp)))
-                    Text(
-                        video.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
-                    )
-                    Text(
-                        video.channelName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Colors.muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 2.dp),
-                    )
+                    Row {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                video.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 6.dp, start = 2.dp),
+                            )
+                            Text(
+                                video.channelName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Colors.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 2.dp),
+                            )
+                        }
+                        MoreOptions { onDetails(video) }
+                    }
                 }
             }
         }
@@ -611,7 +616,7 @@ private fun FoundChannelRow(found: FoundChannel, onOpen: () -> Unit) {
 
 /** "Añadir" (o "Añadido" si ya es tuyo). */
 @Composable
-private fun AddChannelButton(found: FoundChannel) {
+internal fun AddChannelButton(found: FoundChannel) {
     val store = LocalStore.current
     val library = LocalLibrary.current
     val context = LocalContext.current
@@ -678,6 +683,19 @@ private fun ChannelPreview(found: FoundChannel, onBack: () -> Unit, onDetails: (
 }
 
 /** Un vídeo a todo lo ancho, como en YouTube: tocar lo pone, mantener abre sus opciones. */
+/** El botón ⋮ de un vídeo: abre sus opciones, lo mismo que mantenerlo pulsado. */
+@Composable
+private fun MoreOptions(onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Icon(
+            painterResource(R.drawable.ic_more_vert),
+            contentDescription = "Más opciones",
+            tint = Colors.muted,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
 @Composable
 internal fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Unit) {
     val store = LocalStore.current
@@ -687,7 +705,7 @@ internal fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Un
             .padding(top = 8.dp, bottom = 8.dp),
     ) {
         Thumbnail(video)
-        Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp)) {
+        Row(Modifier.padding(start = 12.dp, end = 0.dp, top = 10.dp)) {
             Avatar(store.channel(video.channelId) ?: Channel(video.channelId, video.channelName), 36.dp)
             Column(Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(video.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -699,97 +717,9 @@ internal fun PhoneVideo(video: Video, onClick: () -> Unit, onLongClick: () -> Un
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            MoreOptions(onLongClick)
         }
     }
-}
-
-/** Mantener pulsado un vídeo: su descripción y qué hacer con él. */
-@Composable
-private fun VideoActions(video: Video, onDismiss: () -> Unit, onChannel: () -> Unit) {
-    val playlists = LocalStore.current.playlists
-    val store = LocalStore.current
-    val library = LocalLibrary.current
-    val context = LocalContext.current
-    val watched = store.isWatched(video.vid)
-    val later = playlists.inWatchLater(video.vid)
-    val scope = rememberCoroutineScope()
-    var listing by remember { mutableStateOf(false) }
-    if (listing) PlaylistDialog(video, onDismiss = { listing = false })
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(video.title, maxLines = 3, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(listOf(video.channelName, fullDate(video.published)).filter { it.isNotEmpty() }.joinToString(" • "), color = Colors.muted)
-                // «Ver más tarde», con un toque (y otra vez lo quita)
-                OutlinedButton(
-                    onClick = { scope.playlistChange(context) { playlists.toggleWatchLater(context.applicationContext, video) } },
-                    modifier = Modifier.padding(top = 12.dp),
-                ) {
-                    Icon(
-                        painterResource(if (later) R.drawable.ic_check else R.drawable.ic_watch_later),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(if (later) "En Ver más tarde" else "Ver más tarde", modifier = Modifier.padding(start = 8.dp))
-                }
-                // en qué otras listas de reproducción está
-                val inLists = playlists.listsOf(video.vid) - Playlists.WATCH_LATER
-                OutlinedButton(onClick = { listing = true }, modifier = Modifier.padding(top = 8.dp)) {
-                    Icon(painterResource(R.drawable.ic_playlist), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        if (inLists.isEmpty()) "Añadir a lista" else "En: " + inLists.sortedBy { it.lowercase() }.joinToString(", "),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                val config = store.ha
-                if (config != null) {
-                    OutlinedButton(
-                        onClick = {
-                            onDismiss()
-                            store.setWatched(video.vid, true)
-                            // desde donde ibas, si lo habías empezado y no acabado
-                            val start = store.progress[video.vid]?.takeIf { it.started && !it.finished }?.pos ?: 0
-                            Tele.sendAndTell(context, config, video.vid, start, store.profile) { tv -> store.saveHa(config.copy(tv = tv)) }
-                        },
-                        modifier = Modifier.padding(top = 12.dp),
-                    ) { Text("📺 Ver en la tele") }
-                }
-                // un vídeo de la búsqueda, de un canal que no es tuyo
-                if (video.channelId.isNotBlank() && !store.has(video.channelId)) {
-                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Su canal no está en los tuyos", color = Colors.muted, modifier = Modifier.weight(1f))
-                        AddChannelButton(FoundChannel(video.channelId, video.channelName, null, "", ""))
-                    }
-                }
-                if (video.description.isNotBlank()) {
-                    Text(video.description, modifier = Modifier.padding(top = 12.dp))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onDismiss()
-                playVideo(context, store, video)
-            }) { Text("Ver") }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = {
-                    library.setWatched(video, !watched)
-                    onDismiss()
-                }) { Text(if (watched) "No visto" else "Visto") }
-                if (store.has(video.channelId)) TextButton(onClick = onChannel) { Text("Canal") }
-                TextButton(onClick = {
-                    onDismiss()
-                    store.setWatched(video.vid, true)
-                    context.playOnYouTube(video.vid)
-                }) { Text("YouTube") }
-            }
-        },
-    )
 }
 
 @Composable

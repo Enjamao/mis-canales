@@ -677,6 +677,11 @@ captura listas-del-video
 pulsar "Hecho"; sleep 1
 textos "opciones del vídeo, ya en una lista"
 adb shell input keyevent KEYCODE_BACK; sleep 1
+# las mismas opciones, con el botón ⋮ del vídeo
+pulsar "Más opciones"; sleep 2
+textos "opciones con el botón ⋮"
+captura opciones-boton
+adb shell input keyevent KEYCODE_BACK; sleep 1
 pulsar_abajo "Listas"; sleep 3
 textos "Listas: Ver más tarde, Historial y las tuyas"
 captura listas

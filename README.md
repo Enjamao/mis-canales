@@ -94,8 +94,10 @@ Arriba, en Inicio y en Canales, la rueda **⚙** abre los **Ajustes** (ver
 **Con un vídeo**:
 
 - Un toque lo pone.
-- Mantenerlo pulsado abre sus opciones: **Ver**, **Ver más tarde**, **Añadir a lista**, **📺 Ver en la
-  tele**, **Visto / No visto**, **Canal** (ir a él) y **YouTube** (abrirlo en la app de YouTube).
+- Mantenerlo pulsado, o tocar su botón **⋮**, abre sus opciones en un panel que sube desde abajo: **Ver**
+  (si lo habías empezado, pone por dónde ibas), **Ver más tarde**, **Añadir a lista**, **Ver en la tele**,
+  **Marcar como visto / no visto**, **Ir al canal** y **Abrir en YouTube**. Debajo va la descripción:
+  unas líneas, y entera al tocarla.
 
 **En el reproductor**:
 
@@ -223,7 +225,7 @@ principio del vídeo si ya lleva un rato, y si no, al que sonó antes.
 
 - **NUEVO** sale en los vídeos que no has visto, publicados después de añadir el canal (o en la semana
   de antes).
-- Al abrir un vídeo se marca como visto. Se puede cambiar a mano: en el móvil, manteniéndolo pulsado; en
+- Al abrir un vídeo se marca como visto. Se puede cambiar a mano: en el móvil, en sus opciones (⋮); en
   la tele, en su ficha.
 - La app apunta **por dónde vas** en cada vídeo. La miniatura lleva una barra roja, y al volver a abrirlo
   sigue desde ahí. La fila **Seguir viendo**, arriba en Inicio, reúne los empezados y sin acabar.

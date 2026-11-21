@@ -5,6 +5,9 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.24 — 21 nov 2026
 
+- **0.24.1**: En el móvil, las **opciones de un vídeo** salen en un panel desde abajo, con una línea
+  grande y un icono por opción (antes, una ventana con botones pequeños). Se abren manteniendo pulsado el
+  vídeo o con el nuevo botón **⋮** que lleva al lado del título.
 - **0.24.0**: **Idioma del audio**. Los vídeos con doblaje (MrBeast, por ejemplo) suenan en español si lo
   traen, y se puede cambiar al original: en el móvil, con el botón 🔊 de debajo del vídeo; en la tele, con
   ▲ dos veces. Se apaga en los ajustes («Audio en español si lo hay»; en la tele, la pastilla «Audio»). En

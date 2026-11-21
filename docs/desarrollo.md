@@ -47,6 +47,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `PhoneApp.kt` | Toda la app del móvil: pestañas, Inicio (con «Seguir viendo»), Canales, los Ajustes (con la rueda ⚙), Añadir, Home Assistant, pasar y recibir la conexión. |
 | `PhoneLists.kt` | Listas en el móvil. |
 | `PhonePicker.kt` | El panel «Canales» en el móvil, desde abajo. |
+| `PhoneVideoSheet.kt` | Las opciones de un vídeo en el móvil (mantenerlo pulsado o su botón ⋮), en un panel desde abajo. |
 | `KidsTv.kt`, `KidsPhone.kt` | Mis Canales Kids en la tele y en el móvil, con sus ajustes. |
 | `Components.kt`, `Theme.kt`, `Format.kt` | Piezas comunes: pastillas, miniaturas («NUEVO» y la barra de progreso), el título con el color del perfil, colores y textos («hace 3 días»). |
 
