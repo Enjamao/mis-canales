@@ -167,7 +167,21 @@ object Search {
         var data: JsonElement = find(all, "playlistVideoListRenderer") ?: all
         var pages = 0
         while (true) {
-            val (page, more) = playlistPage(data, now)
+            val (page, first) = playlistPage(data, now)
+            var more = first
+            // en la primera, la continuación puede ir fuera de la lista de vídeos
+            if (more == null && pages == 0) {
+                more = playlistPage(all, now).second
+                if (more == null) {
+                    val raw = all.toString()
+                    Log.i(
+                        "MisCanales",
+                        "Lista de YouTube: sin continuación (" +
+                            listOf("continuationItemRenderer", "nextContinuationData", "continuationCommand", "playlistVideoRenderer", "lockupViewModel")
+                                .joinToString { "$it ${raw.split("\"$it\"").size - 1}" } + ")",
+                    )
+                }
+            }
             videos += page
             pages++
             Log.i("MisCanales", "Lista de YouTube: página $pages, ${page.size} vídeos" + if (more == null) ", no hay más" else "")
@@ -187,7 +201,7 @@ object Search {
         return FoundPlaylist(id, title, unique, mix = false)
     }
 
-    private val playlistKeys = setOf("playlistVideoRenderer", "lockupViewModel", "continuationItemRenderer")
+    private val playlistKeys = setOf("playlistVideoRenderer", "lockupViewModel", "continuationItemRenderer", "nextContinuationData")
 
     private fun playlistPage(data: JsonElement, now: Long): Pair<List<Video>, String?> {
         val found = mutableListOf<Pair<String, JsonObject>>()
@@ -199,6 +213,8 @@ object Search {
                 "playlistVideoRenderer" -> fromPlaylistVideo(item, now)?.let { videos += it }
                 "lockupViewModel" -> fromLockup(item, now)?.let { videos += it }
                 "continuationItemRenderer" -> find(item, "continuationCommand").at("token").str()?.let { more = it }
+                // el formato de antes
+                "nextContinuationData" -> item["continuation"].str()?.let { more = it }
             }
         }
         return videos to more
