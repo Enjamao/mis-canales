@@ -719,7 +719,7 @@ adb shell "am start -W -a android.intent.action.SEND -t text/plain --activity-cl
 sleep 20
 textos "lista normal compartida"
 captura lista-compartida
-adb logcat -d | grep "MisCanales: Lista de YouTube" | tail -2
+adb logcat -d | grep "MisCanales: Lista de YouTube" | tail -8
 fallos "listas de YouTube"
 
 # 21. Canales M (el perfil "montse"): otro icono, el título en morado y sus canales aparte (vacíos); el PIN es el mismo
