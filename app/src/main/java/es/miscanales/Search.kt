@@ -172,6 +172,18 @@ object Search {
             // en la primera, la continuación puede ir fuera de la lista de vídeos
             if (more == null && pages == 0) {
                 more = playlistPage(all, now).second
+                // y si la página no la trae, la API sí suele traerla
+                if (more == null) {
+                    more = try {
+                        playlistPage(json.parseToJsonElement(YouTube.browse("VL$id")), now).second
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.i("MisCanales", "Lista de YouTube: la API falla (${e.message})")
+                        null
+                    }
+                    if (more != null) Log.i("MisCanales", "Lista de YouTube: la continuación, de la API")
+                }
                 if (more == null) {
                     val raw = all.toString()
                     Log.i(

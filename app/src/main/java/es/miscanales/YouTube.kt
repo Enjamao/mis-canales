@@ -291,7 +291,12 @@ object YouTube {
      * Pide a la API interna de la web de YouTube la continuación de una lista (más resultados de una
      * búsqueda con [endpoint] "search", más vídeos de un canal con "browse").
      */
-    internal suspend fun post(endpoint: String, continuation: String): String = withContext(Dispatchers.IO) {
+    internal suspend fun post(endpoint: String, continuation: String): String = api(endpoint, "continuation", continuation)
+
+    /** Pide a la misma API una página entera por su ID (una lista: "VL" + su ID). */
+    internal suspend fun browse(browseId: String): String = api("browse", "browseId", browseId)
+
+    private suspend fun api(endpoint: String, key: String, value: String): String = withContext(Dispatchers.IO) {
         val body = buildJsonObject {
             put("context", buildJsonObject {
                 put("client", buildJsonObject {
@@ -301,7 +306,7 @@ object YouTube {
                     put("gl", "ES")
                 })
             })
-            put("continuation", continuation)
+            put(key, value)
         }
         val request = Request.Builder().url("https://www.youtube.com/youtubei/v1/$endpoint?prettyPrint=false")
             .header("User-Agent", BROWSER)
