@@ -21,8 +21,8 @@ android {
         // cada cuánto se miran los vídeos nuevos (en la variante de prueba, más a menudo)
         buildConfigField("long", "CHECK_MINUTES", "30")
         targetSdk = 36
-        versionCode = 53
-        versionName = "0.24.1"
+        versionCode = 54
+        versionName = "0.25.0"
     }
 
     signingConfigs {

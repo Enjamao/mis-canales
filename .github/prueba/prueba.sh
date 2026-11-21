@@ -699,6 +699,29 @@ captura ver-mas-tarde
 adb logcat -d | grep "MisCanales: Listas" | tail -3
 fallos "listas"
 
+# 20b. Una lista de YouTube compartida con la app: un mix (se guardan los de ahora) y una lista normal
+# (los vídeos subidos de un canal, más de 200: se leen los 200 primeros)
+adb shell am force-stop $PKG; sleep 1
+adb logcat -c
+adb shell "am start -W -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'https://youtube.com/playlist?list=RDdQw4w9WgXcQ&playnext=1' -n $PKG/.MainActivity"
+sleep 4
+adb shell input text 1234; sleep 12
+textos "mix compartido"
+captura mix-compartido
+pulsar "Guardar en Listas"; sleep 20
+textos "mix guardado"
+adb logcat -d | grep -E "MisCanales: Listas?( de YouTube)?:" | tail -4
+pulsar "Ver la lista"; sleep 3
+textos "el mix en Listas"
+captura mix-en-listas
+adb logcat -c
+adb shell "am start -W -a android.intent.action.SEND -t text/plain --activity-clear-top --activity-single-top --es android.intent.extra.TEXT 'https://www.youtube.com/playlist?list=UUBJycsmduvYEL83R_U4JriQ' -n $PKG/.MainActivity"
+sleep 20
+textos "lista normal compartida"
+captura lista-compartida
+adb logcat -d | grep "MisCanales: Lista de YouTube" | tail -2
+fallos "listas de YouTube"
+
 # 21. Canales M (el perfil "montse"): otro icono, el título en morado y sus canales aparte (vacíos); el PIN es el mismo
 adb shell am force-stop $PKG; sleep 1
 adb logcat -c

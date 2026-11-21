@@ -34,6 +34,12 @@ data class Results(
 )
 
 /**
+ * Una lista de YouTube: la que ha hecho alguien o un mix ([mix]: la hace YouTube sobre la marcha a partir de
+ * una canción y cambia cada vez). Se guarda como copia en las listas de la app.
+ */
+data class FoundPlaylist(val id: String, val title: String, val videos: List<Video>, val mix: Boolean)
+
+/**
  * Buscar en YouTube y ver más vídeos de un canal, leyendo los datos que la web de YouTube trae
  * dentro de sus páginas (ytInitialData) y los de su API interna para las continuaciones. Sin clave,
  * como el resto de la app; si YouTube cambia su web, aquí es donde hay que tocar.
@@ -112,6 +118,116 @@ object Search {
         )
     }
 
+    // ---- listas de YouTube ----
+
+    /** Como mucho, cuántos vídeos se traen de una lista (se guardan uno a uno en Home Assistant). */
+    const val MAX_PLAYLIST = 200
+
+    /** El ID de la lista de un enlace de YouTube (…?list=…), o null si no lleva. */
+    fun playlistIdIn(text: String): String? = Regex("[?&]list=([\\w-]+)").find(text)?.groupValues?.get(1)
+
+    /**
+     * La lista de un enlace, con sus vídeos: las normales, enteras (hasta [MAX_PLAYLIST]); los mixes (RD…),
+     * los que trae YouTube en ese momento (unos 25-50).
+     */
+    suspend fun playlist(link: String): FoundPlaylist {
+        val id = playlistIdIn(link) ?: throw IOException("El enlace no es de una lista")
+        // «Ver más tarde», «Me gusta» y «Mi mix» son de tu cuenta: sin entrar en ella, YouTube no los da
+        if (id == "WL" || id == "LL" || id.startsWith("RDMM")) {
+            throw IOException("Esa lista es de tu cuenta de YouTube y, sin entrar en ella, no se puede ver.")
+        }
+        val now = System.currentTimeMillis()
+        return if (id.startsWith("RD")) mix(id, link) else normal(id, now)
+    }
+
+    /** Un mix: los vídeos del panel de la lista en la página del vídeo con que empieza. */
+    private suspend fun mix(id: String, link: String): FoundPlaylist {
+        // el vídeo con que empieza: el del enlace o, en los de una canción (RD + su ID), esa
+        val seed = Regex("(?:[?&]v=|youtu\\.be/)([\\w-]{11})").find(link)?.groupValues?.get(1)
+            ?: id.removePrefix("RD").takeIf { it.length == 11 }
+        val url = "https://www.youtube.com/watch?" + (seed?.let { "v=$it&" } ?: "") + "list=$id&hl=es&gl=ES"
+        val panel = find(initialData(YouTube.get(url)), "twoColumnWatchNextResults").at("playlist", "playlist")
+            ?: throw IOException("YouTube no da los vídeos de ese mix.")
+        val videos = (panel.at("contents") as? JsonArray).orEmpty()
+            .mapNotNull { (it.at("playlistPanelVideoRenderer") as? JsonObject)?.let(::fromPanel) }
+            .distinctBy { it.vid }
+        if (videos.isEmpty()) throw IOException("YouTube no da los vídeos de ese mix.")
+        val title = panel.at("title").let { it.str() ?: it.text() }.ifBlank { panel.at("titleText").text() }
+        return FoundPlaylist(id, title.ifBlank { "Mix" }, videos, mix = true)
+    }
+
+    /** Una lista normal: su página y, de 100 en 100, las continuaciones. */
+    private suspend fun normal(id: String, now: Long): FoundPlaylist {
+        val all = initialData(YouTube.get("https://www.youtube.com/playlist?list=$id&hl=es&gl=ES"))
+        val title = find(all, "playlistMetadataRenderer").at("title").str()
+            ?: find(all, "microformatDataRenderer").at("title").str()
+            ?: "Lista de YouTube"
+        val videos = mutableListOf<Video>()
+        var data: JsonElement = find(all, "playlistVideoListRenderer") ?: all
+        var pages = 0
+        while (true) {
+            val (page, more) = playlistPage(data, now)
+            videos += page
+            pages++
+            if (more == null || videos.size >= MAX_PLAYLIST || pages >= 10) break
+            data = json.parseToJsonElement(YouTube.post("browse", more))
+        }
+        val unique = videos.distinctBy { it.vid }.take(MAX_PLAYLIST)
+        if (unique.isEmpty()) throw IOException("YouTube no da los vídeos de esa lista (puede que sea privada).")
+        return FoundPlaylist(id, title, unique, mix = false)
+    }
+
+    private val playlistKeys = setOf("playlistVideoRenderer", "lockupViewModel", "continuationItemRenderer")
+
+    private fun playlistPage(data: JsonElement, now: Long): Pair<List<Video>, String?> {
+        val found = mutableListOf<Pair<String, JsonObject>>()
+        collect(data, found, playlistKeys)
+        val videos = mutableListOf<Video>()
+        var more: String? = null
+        for ((kind, item) in found) {
+            when (kind) {
+                "playlistVideoRenderer" -> fromPlaylistVideo(item, now)?.let { videos += it }
+                "lockupViewModel" -> fromLockup(item, now)?.let { videos += it }
+                "continuationItemRenderer" -> find(item, "continuationCommand").at("token").str()?.let { more = it }
+            }
+        }
+        return videos to more
+    }
+
+    /** Un vídeo de una lista normal. Los borrados y los privados (sin canal) se saltan. */
+    private fun fromPlaylistVideo(v: JsonObject, now: Long): Video? {
+        if ((v["isPlayable"] as? JsonPrimitive)?.content == "false") return null
+        val vid = v["videoId"].str() ?: return null
+        val title = v["title"].text().ifBlank { return null }
+        val owner = v["shortBylineText"].at("runs", 0) ?: return null
+        // "1,2 M de visualizaciones", " • ", "hace 3 años"
+        val info = (v.at("videoInfo", "runs") as? JsonArray).orEmpty().mapNotNull { it.at("text").str() }
+        return Video(
+            vid = vid,
+            title = title,
+            channelId = owner.at("navigationEndpoint", "browseEndpoint", "browseId").str().orEmpty(),
+            channelName = owner.at("text").str().orEmpty(),
+            published = info.firstNotNullOfOrNull { ago(it, now) } ?: 0L,
+            views = info.firstOrNull { ago(it, now) == null && count(it) != null }?.let(::count),
+            duration = v["lengthText"].text(),
+        )
+    }
+
+    /** Un vídeo de un mix (sin fecha ni visualizaciones: el panel no las trae). */
+    private fun fromPanel(v: JsonObject): Video? {
+        val vid = v["videoId"].str() ?: return null
+        val title = v["title"].text().ifBlank { return null }
+        val owner = (v["longBylineText"] ?: v["shortBylineText"]).at("runs", 0)
+        return Video(
+            vid = vid,
+            title = title,
+            channelId = owner.at("navigationEndpoint", "browseEndpoint", "browseId").str().orEmpty(),
+            channelName = owner.at("text").str().orEmpty(),
+            published = 0L,
+            duration = v["lengthText"].text(),
+        )
+    }
+
     // ---- leer los datos ----
 
     /** El objeto ytInitialData de una página de YouTube. */
@@ -150,12 +266,12 @@ object Search {
     }
 
     /** Recorre los datos y apunta cada objeto que interesa (sin entrar dentro de ellos). */
-    private fun collect(node: JsonElement, out: MutableList<Pair<String, JsonObject>>) {
+    private fun collect(node: JsonElement, out: MutableList<Pair<String, JsonObject>>, keys: Set<String> = wanted) {
         when (node) {
             is JsonObject -> for ((key, value) in node) {
-                if (key in wanted && value is JsonObject) out += key to value else collect(value, out)
+                if (key in keys && value is JsonObject) out += key to value else collect(value, out, keys)
             }
-            is JsonArray -> node.forEach { collect(it, out) }
+            is JsonArray -> node.forEach { collect(it, out, keys) }
             else -> {}
         }
     }

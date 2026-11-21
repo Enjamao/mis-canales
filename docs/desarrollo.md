@@ -57,7 +57,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 |---|---|
 | `YouTube.kt` | El feed RSS de cada canal y cómo encontrar un canal a partir de un `@nombre`, un enlace o un vídeo. |
 | `Durations.kt` | Lo que dura cada vídeo (el feed no lo trae): lo apuntado, para todo el aparato. `Feed` lo busca en la pestaña Vídeos de cada canal. |
-| `Search.kt`, `SearchState.kt` | Buscar en YouTube y los vídeos anteriores de un canal, leyendo los datos de sus páginas. |
+| `Search.kt`, `SearchState.kt` | Buscar en YouTube, los vídeos anteriores de un canal y las listas de YouTube que se guardan (las normales, de su página; los mixes, del panel de la página del vídeo), leyendo los datos de sus páginas. |
 | `PlayerActivity.kt` | El reproductor: el de YouTube para webs dentro de una WebView, con los mandos, siguiente/anterior, reproducción continua, ventana flotante, «Ver en la tele», progreso, SponsorBlock, el idioma del audio y el tiempo de Kids. |
 | `EmbedPatch.kt` | En la tele, la app pide la página del reproductor y le mete unos scripts antes que los de YouTube, para que se porte como el Chrome de un PC. Así se consigue más calidad. |
 | `PlaybackService.kt` | En el móvil: sigue sonando con la pantalla apagada, con el aviso y los botones multimedia. |

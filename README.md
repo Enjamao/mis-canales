@@ -249,8 +249,8 @@ pestaña **Listas** del móvil y en la entrada **Listas** del menú de la tele. 
 
 **Ver más tarde**: para guardar un vídeo y verlo luego, con un toque.
 
-- **Añadir**: en las opciones del vídeo (en el móvil, mantenerlo pulsado; en la tele, mantener OK o
-  play/pausa), el botón **Ver más tarde**. Pasa a **En Ver más tarde**; otro toque lo quita.
+- **Añadir**: en las opciones del vídeo (en el móvil, mantenerlo pulsado o su botón ⋮; en la tele,
+  mantener OK o play/pausa), el botón **Ver más tarde**. Pasa a **En Ver más tarde**; otro toque lo quita.
 - Dentro, los vídeos en el orden en que se guardaron, con **Aleatorio**, **Quitar los vistos** y
   **Vaciar**.
 - Es una lista más: con Home Assistant, sale igual en todos los aparatos.
@@ -266,6 +266,13 @@ tiene. No va a Home Assistant: cada aparato, lo suyo.
   play/pausa) → «Añadir a lista». Marca una lista de las que hay o escribe una nueva. Para quitarlo,
   igual, desmarcándola.
 - Una lista existe mientras tiene vídeos.
+- **Guardar una lista de YouTube** (la que te comparten o un mix que hace YouTube): en la app de YouTube,
+  en la lista, **Compartir → Mis Canales** (o Canales M), o pega su enlace en **Añadir**. Sale su nombre
+  (se puede cambiar) y cuántos vídeos trae; **Guardar en Listas** guarda una **copia**, que ya no cambia
+  aunque cambie la de YouTube. De una lista normal se guardan sus vídeos (hasta 200); de un mix, los que
+  trae en ese momento (unos 25-50), porque YouTube lo cambia cada vez. Si ya tienes una lista con ese
+  nombre, se le añaden los que le falten. Las listas de tu cuenta («Me gusta», «Ver más tarde» de
+  YouTube, «Mi mix») no se pueden: YouTube solo las da entrando en la cuenta.
 - **Dentro de una lista**: los vídeos en el orden en que se añadieron, seguidos, con «Aleatorio».
   También se le cambia el nombre o se borra (si el nombre nuevo ya existe, se juntan).
 - **En todos los aparatos**: con la lista «Mis Canales listas» en Home Assistant. Sin ella, cada aparato

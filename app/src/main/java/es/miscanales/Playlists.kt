@@ -180,6 +180,53 @@ class Playlists private constructor(val profile: Profile) {
         Log.i(TAG, "Listas: «${video.title.take(40)}» a «$list» (${videos(list).size})")
     }
 
+    /**
+     * Añade de una vez varios vídeos a la lista [name] (nueva, si no existe), en su orden: lo de guardar una
+     * lista de YouTube como copia. [progress] dice cuántos van. Devuelve cuántos eran nuevos en la lista.
+     */
+    suspend fun addAll(context: Context, name: String, items: List<Video>, progress: (Int) -> Unit = {}): Int {
+        load(context)
+        val list = clean(name) ?: return 0
+        val fresh = items.distinctBy { it.vid }.filter { video -> entries.none { it.list == list && it.video.vid == video.vid } }
+        // detrás de los que ya tuviera la lista
+        val base = maxOf(System.currentTimeMillis(), (entries.filter { it.list == list }.maxOfOrNull { it.at } ?: 0L) + 1)
+        mutex.withLock {
+            var config = remote(context)
+            try {
+                fresh.forEachIndexed { i, video ->
+                    var entry = PlaylistEntry(list, video.copy(description = ""), base + i)
+                    val haConfig = config
+                    if (haConfig != null) {
+                        try {
+                            HomeAssistant.add(haConfig, summary(entry), encode(entry), entity(haConfig))
+                            synced = true
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: HaError) {
+                            // no está la lista en Home Assistant: aquí, y se subirán cuando esté
+                            synced = false
+                            config = null
+                            entry = entry.copy(pending = true)
+                        } catch (e: Exception) {
+                            // sin conexión: aquí, y se suben en cuanto la haya
+                            config = null
+                            pulledAt = 0L
+                            entry = entry.copy(pending = true)
+                        }
+                    } else {
+                        entry = entry.copy(pending = true)
+                    }
+                    entries += entry
+                    progress(i + 1)
+                }
+            } finally {
+                save(context)
+            }
+        }
+        Log.i(TAG, "Listas: ${fresh.size} vídeos de una lista de YouTube a «$list» (${videos(list).size})")
+        return fresh.size
+    }
+
     /** Quita un vídeo de una lista. */
     suspend fun remove(context: Context, name: String, vid: String) = change(context) { config ->
         if (config != null) {

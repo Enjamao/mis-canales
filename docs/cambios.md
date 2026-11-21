@@ -3,6 +3,13 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.25 — 21 nov 2026
+
+- **0.25.0**: **Guardar listas de YouTube**. Al compartir una lista desde YouTube (Compartir → Mis
+  Canales) o pegar su enlace en «Añadir», se guarda una copia en Listas, con su nombre o el que le
+  pongas, y sale también en la tele. Vale para las listas que hace alguien (hasta 200 vídeos) y para
+  los mixes de YouTube (los vídeos que trae en ese momento).
+
 ## 0.24 — 21 nov 2026
 
 - **0.24.1**: En el móvil, las **opciones de un vídeo** salen en un panel desde abajo, con una línea

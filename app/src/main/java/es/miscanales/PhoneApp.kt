@@ -87,6 +87,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.background
+import androidx.compose.material3.LinearProgressIndicator
 import kotlin.coroutines.cancellation.CancellationException
 
 // La versión para el móvil: lo mismo que en la tele, con una interfaz táctil (Material 3).
@@ -129,6 +133,8 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
             // los ajustes, en su pantalla (desde la rueda de Inicio o de Canales)
             var settings by rememberSaveable { mutableStateOf(false) }
             val search = remember { SearchState() }
+            // una lista recién guardada desde «Añadir», para abrirla al ir a Listas
+            var openList by remember { mutableStateOf<String?>(null) }
             // al compartir un vídeo o un canal con la app, a "Añadir"
             val sharedText = shared.value
             LaunchedEffect(sharedText) {
@@ -172,7 +178,7 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                             onSettings = { settings = true },
                         )
                         Tab.Search -> PhoneSearch(search, onDetails = { details = it })
-                        Tab.Lists -> PhoneLists(onDetails = { details = it })
+                        Tab.Lists -> PhoneLists(onDetails = { details = it }, start = openList, onStarted = { openList = null })
                         Tab.Channels -> PhoneChannels(
                             onOpen = { id ->
                                 filter = Filter.OneChannel(id)
@@ -181,7 +187,10 @@ fun PhoneApp(store: Store, feed: Feed, library: Library, shared: MutableState<St
                             },
                             onSettings = { settings = true },
                         )
-                        Tab.Add -> PhoneAdd(shared)
+                        Tab.Add -> PhoneAdd(shared, onList = { name ->
+                            openList = name
+                            tab = Tab.Lists
+                        })
                     }
                 }
             }
@@ -1332,20 +1341,80 @@ private fun PassToTvDialog(config: HaConfig, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun PhoneAdd(shared: MutableState<String?>) {
+private fun PhoneAdd(shared: MutableState<String?>, onList: (String) -> Unit) {
     val store = LocalStore.current
     val library = LocalLibrary.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     var query by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
+    // una lista de YouTube (al compartirla o pegar su enlace): se guarda como copia en Listas
+    var playlist by remember { mutableStateOf<FoundPlaylist?>(null) }
+    var listName by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf<Int?>(null) }
+    var saved by remember { mutableStateOf<String?>(null) }
+
+    fun findPlaylist(text: String) {
+        busy = true
+        failed = false
+        saved = null
+        playlist = null
+        message = "Buscando la lista…"
+        scope.launch {
+            try {
+                val found = Search.playlist(text)
+                Log.i("MisCanales", "Lista de YouTube: «${found.title}», ${found.videos.size} vídeos" + if (found.mix) " (mix)" else "")
+                playlist = found
+                listName = found.title
+                query = ""
+                message = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.i("MisCanales", "Lista de YouTube: no se puede leer (${e.message})")
+                failed = true
+                message = e.message?.takeIf { it.endsWith(".") } ?: "No se ha podido leer la lista. Prueba otra vez."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun savePlaylist(found: FoundPlaylist) {
+        val name = store.playlists.clean(listName) ?: return
+        keyboard?.hide()
+        saving = 0
+        scope.launch {
+            // aunque se cambie de pestaña, se acaba de guardar
+            val added = withContext(NonCancellable) {
+                store.playlists.addAll(context.applicationContext, name, found.videos) { saving = it }
+            }
+            saving = null
+            playlist = null
+            failed = false
+            saved = name
+            val total = store.playlists.videos(name).size
+            message = when {
+                added == found.videos.size -> "Guardada «$name»: $added vídeos."
+                added == 0 -> "Esos vídeos ya estaban en «$name»."
+                else -> "Añadidos $added vídeos a «$name» (ya tiene $total)."
+            } + if (store.playlists.synced == true) " También sale en la tele." else ""
+        }
+    }
 
     fun add(input: String) {
         val text = input.trim()
         if (text.isEmpty() || busy) return
         keyboard?.hide()
+        // el enlace de una lista (…?list=…): a guardarla en Listas
+        if (Search.playlistIdIn(text) != null) {
+            findPlaylist(text)
+            return
+        }
+        saved = null
         busy = true
         failed = false
         message = "Buscando el canal…"
@@ -1379,8 +1448,8 @@ private fun PhoneAdd(shared: MutableState<String?>) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Añadir canal", style = MaterialTheme.typography.headlineSmall)
-        Hint("Escribe el @nombre del canal tal como sale en YouTube, o pega su enlace.")
+        Text("Añadir canal o lista", style = MaterialTheme.typography.headlineSmall)
+        Hint("Escribe el @nombre del canal tal como sale en YouTube, o pega su enlace o el de una lista.")
         OutlinedTextField(
             query,
             { query = it },
@@ -1392,10 +1461,77 @@ private fun PhoneAdd(shared: MutableState<String?>) {
         )
         Button(onClick = { add(query) }, enabled = !busy && query.isNotBlank()) { Text("Añadir") }
         message?.let { Text(it, color = if (failed) Colors.accent else Colors.text) }
+        saved?.let { name -> OutlinedButton(onClick = { onList(name) }) { Text("Ver la lista") } }
+        playlist?.let { found ->
+            PlaylistImport(
+                found,
+                listName,
+                onName = { listName = it },
+                saving = saving,
+                exists = store.playlists.clean(listName)?.let { it in store.playlists.names } == true,
+                onSave = { savePlaylist(found) },
+                onCancel = { playlist = null },
+            )
+        }
         Hint(
             "Más fácil: en la app de YouTube, en cualquier vídeo, Compartir → Mis Canales, y se añade su canal." +
                 if (store.ha != null) " Se guarda también en Home Assistant y aparece en la tele." else "",
         )
+        Hint("Con una lista de YouTube (la de alguien o un mix), igual: Compartir → Mis Canales, y se guarda una copia en Listas.")
+    }
+}
+
+/** Una lista de YouTube a punto de guardarse: su nombre (se puede cambiar), cuántos vídeos trae y el botón. */
+@Composable
+private fun PlaylistImport(
+    found: FoundPlaylist,
+    name: String,
+    onName: (String) -> Unit,
+    saving: Int?,
+    exists: Boolean,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Colors.bg2).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(if (found.mix) "Mix de YouTube" else "Lista de YouTube", style = MaterialTheme.typography.labelMedium, color = Colors.muted)
+        Text(found.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            "${found.videos.size} vídeos" + when {
+                found.mix -> ". YouTube cambia los mixes cada vez: se guardan los de ahora."
+                found.videos.size >= Search.MAX_PLAYLIST -> " (los primeros; no se guardan más)."
+                else -> "."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = Colors.muted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            found.videos.take(3).forEach { video ->
+                Thumbnail(video, Modifier.weight(1f).clip(RoundedCornerShape(8.dp)))
+            }
+        }
+        OutlinedTextField(
+            name,
+            onName,
+            label = { Text("Nombre de la lista") },
+            singleLine = true,
+            enabled = saving == null,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (saving != null) {
+            LinearProgressIndicator(progress = { saving / found.videos.size.coerceAtLeast(1).toFloat() }, modifier = Modifier.fillMaxWidth())
+            Text("Guardando $saving de ${found.videos.size}…", style = MaterialTheme.typography.bodySmall, color = Colors.muted)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onSave, enabled = name.isNotBlank()) {
+                    Text(if (exists) "Añadir a esa lista" else "Guardar en Listas")
+                }
+                TextButton(onClick = onCancel) { Text("Cancelar") }
+            }
+            if (exists) Hint("Ya tienes una lista con ese nombre: se añaden los vídeos que no tenga.")
+        }
     }
 }
 

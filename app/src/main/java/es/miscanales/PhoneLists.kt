@@ -57,12 +57,16 @@ private const val HISTORY = "#historial"
  * una abierta, con sus vídeos.
  */
 @Composable
-internal fun PhoneLists(onDetails: (Video) -> Unit) {
+internal fun PhoneLists(onDetails: (Video) -> Unit, start: String? = null, onStarted: () -> Unit = {}) {
     val playlists = LocalStore.current.playlists
     val history = LocalStore.current.history
     val context = LocalContext.current
-    var open by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
+    // [start]: una lista recién guardada desde «Añadir», abierta ya
+    var open by rememberSaveable { mutableStateOf(start) }
+    LaunchedEffect(Unit) {
+        onStarted()
+        playlists.pull(context.applicationContext)
+    }
     val names = playlists.names
     val name = open
     if (name == HISTORY) {
