@@ -1,6 +1,7 @@
 package es.miscanales
 
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -169,8 +170,17 @@ object Search {
             val (page, more) = playlistPage(data, now)
             videos += page
             pages++
+            Log.i("MisCanales", "Lista de YouTube: página $pages, ${page.size} vídeos" + if (more == null) ", no hay más" else "")
             if (more == null || videos.size >= MAX_PLAYLIST || pages >= 10) break
-            data = json.parseToJsonElement(YouTube.post("browse", more))
+            data = try {
+                json.parseToJsonElement(YouTube.post("browse", more))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // si falla la página siguiente, se queda con lo que hay
+                Log.i("MisCanales", "Lista de YouTube: la página ${pages + 1} falla (${e.message})")
+                break
+            }
         }
         val unique = videos.distinctBy { it.vid }.take(MAX_PLAYLIST)
         if (unique.isEmpty()) throw IOException("YouTube no da los vídeos de esa lista (puede que sea privada).")

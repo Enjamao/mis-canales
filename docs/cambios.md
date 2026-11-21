@@ -5,6 +5,8 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.25 — 21 nov 2026
 
+- **0.25.1**: Al compartir una lista, su ficha sale arriba del todo (en móviles pequeños el botón «Guardar
+  en Listas» quedaba por debajo). Si una página de la lista falla, se guarda lo leído.
 - **0.25.0**: **Guardar listas de YouTube**. Al compartir una lista desde YouTube (Compartir → Mis
   Canales) o pegar su enlace en «Añadir», se guarda una copia en Listas, con su nombre o el que le
   pongas, y sale también en la tele. Vale para las listas que hace alguien (hasta 200 vídeos) y para

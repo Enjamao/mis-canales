@@ -1449,20 +1449,9 @@ private fun PhoneAdd(shared: MutableState<String?>, onList: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Añadir canal o lista", style = MaterialTheme.typography.headlineSmall)
-        Hint("Escribe el @nombre del canal tal como sale en YouTube, o pega su enlace o el de una lista.")
-        OutlinedTextField(
-            query,
-            { query = it },
-            label = { Text("@NombreDelCanal o enlace") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { add(query) }),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = { add(query) }, enabled = !busy && query.isNotBlank()) { Text("Añadir") }
-        message?.let { Text(it, color = if (failed) Colors.accent else Colors.text) }
-        saved?.let { name -> OutlinedButton(onClick = { onList(name) }) { Text("Ver la lista") } }
-        playlist?.let { found ->
+        // una lista de YouTube a punto de guardarse: arriba, en vez de la caja de texto (vuelve al cancelar)
+        val found = playlist
+        if (found != null) {
             PlaylistImport(
                 found,
                 listName,
@@ -1472,12 +1461,26 @@ private fun PhoneAdd(shared: MutableState<String?>, onList: (String) -> Unit) {
                 onSave = { savePlaylist(found) },
                 onCancel = { playlist = null },
             )
+        } else {
+            Hint("Escribe el @nombre del canal tal como sale en YouTube, o pega su enlace o el de una lista.")
+            OutlinedTextField(
+                query,
+                { query = it },
+                label = { Text("@NombreDelCanal o enlace") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { add(query) }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(onClick = { add(query) }, enabled = !busy && query.isNotBlank()) { Text("Añadir") }
+            message?.let { Text(it, color = if (failed) Colors.accent else Colors.text) }
+            saved?.let { name -> OutlinedButton(onClick = { onList(name) }) { Text("Ver la lista") } }
+            Hint(
+                "Más fácil: en la app de YouTube, en cualquier vídeo, Compartir → Mis Canales, y se añade su canal." +
+                    if (store.ha != null) " Se guarda también en Home Assistant y aparece en la tele." else "",
+            )
+            Hint("Con una lista de YouTube (la de alguien o un mix), igual: Compartir → Mis Canales, y se guarda una copia en Listas.")
         }
-        Hint(
-            "Más fácil: en la app de YouTube, en cualquier vídeo, Compartir → Mis Canales, y se añade su canal." +
-                if (store.ha != null) " Se guarda también en Home Assistant y aparece en la tele." else "",
-        )
-        Hint("Con una lista de YouTube (la de alguien o un mix), igual: Compartir → Mis Canales, y se guarda una copia en Listas.")
     }
 }
 
