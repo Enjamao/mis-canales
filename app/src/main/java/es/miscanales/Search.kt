@@ -146,15 +146,23 @@ object Search {
         // el vídeo con que empieza: el del enlace o, en los de una canción (RD + su ID), esa
         val seed = Regex("(?:[?&]v=|youtu\\.be/)([\\w-]{11})").find(link)?.groupValues?.get(1)
             ?: id.removePrefix("RD").takeIf { it.length == 11 }
+        val (title, videos) = panel(id, seed) ?: throw IOException("YouTube no da los vídeos de ese mix.")
+        if (videos.isEmpty()) throw IOException("YouTube no da los vídeos de ese mix.")
+        return FoundPlaylist(id, title.ifBlank { "Mix" }, videos, mix = true)
+    }
+
+    /**
+     * El panel de la lista [id] en la página de un vídeo suyo ([seed]): su nombre y sus vídeos. En los mixes
+     * es la única forma; en las listas normales trae hasta unos 200 seguidos.
+     */
+    private suspend fun panel(id: String, seed: String?): Pair<String, List<Video>>? {
         val url = "https://www.youtube.com/watch?" + (seed?.let { "v=$it&" } ?: "") + "list=$id&hl=es&gl=ES"
-        val panel = find(initialData(YouTube.get(url)), "twoColumnWatchNextResults").at("playlist", "playlist")
-            ?: throw IOException("YouTube no da los vídeos de ese mix.")
+        val panel = find(initialData(YouTube.get(url)), "twoColumnWatchNextResults").at("playlist", "playlist") ?: return null
         val videos = (panel.at("contents") as? JsonArray).orEmpty()
             .mapNotNull { (it.at("playlistPanelVideoRenderer") as? JsonObject)?.let(::fromPanel) }
             .distinctBy { it.vid }
-        if (videos.isEmpty()) throw IOException("YouTube no da los vídeos de ese mix.")
         val title = panel.at("title").let { it.str() ?: it.text() }.ifBlank { panel.at("titleText").text() }
-        return FoundPlaylist(id, title.ifBlank { "Mix" }, videos, mix = true)
+        return title to videos
     }
 
     /** Una lista normal: su página y, de 100 en 100, las continuaciones. */
@@ -184,15 +192,7 @@ object Search {
                     }
                     if (more != null) Log.i("MisCanales", "Lista de YouTube: la continuación, de la API")
                 }
-                if (more == null) {
-                    val raw = all.toString()
-                    Log.i(
-                        "MisCanales",
-                        "Lista de YouTube: sin continuación (" +
-                            listOf("continuationItemRenderer", "nextContinuationData", "continuationCommand", "playlistVideoRenderer", "lockupViewModel")
-                                .joinToString { "$it ${raw.split("\"$it\"").size - 1}" } + ")",
-                    )
-                }
+                if (more == null) Log.i("MisCanales", "Lista de YouTube: sin continuación (${outline(all)})")
             }
             videos += page
             pages++
@@ -208,9 +208,53 @@ object Search {
                 break
             }
         }
-        val unique = videos.distinctBy { it.vid }.take(MAX_PLAYLIST)
+        var unique = videos.distinctBy { it.vid }
+        // la página, en su formato nuevo, a veces no trae cómo pedir más de 100: el panel de la lista, en la
+        // página de su primer vídeo, trae más
+        if (unique.size in 100 until MAX_PLAYLIST && pages == 1) {
+            val fromPanel = try {
+                panel(id, unique.first().vid)?.second.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.i("MisCanales", "Lista de YouTube: el panel falla (${e.message})")
+                emptyList()
+            }
+            Log.i("MisCanales", "Lista de YouTube: el panel trae ${fromPanel.size} vídeos")
+            if (fromPanel.size > unique.size) {
+                // los de la página traen fecha y visualizaciones; los del panel, no
+                val known = unique.associateBy { it.vid }
+                unique = (fromPanel.map { known[it.vid] ?: it } + unique).distinctBy { it.vid }
+            }
+        }
+        unique = unique.take(MAX_PLAYLIST)
         if (unique.isEmpty()) throw IOException("YouTube no da los vídeos de esa lista (puede que sea privada).")
         return FoundPlaylist(id, title, unique, mix = false)
+    }
+
+    /** Para los registros: por orden, qué trae una página (V: vídeos seguidos, L: otras fichas, C: continuaciones). */
+    private fun outline(data: JsonElement): String {
+        val found = mutableListOf<Pair<String, JsonObject>>()
+        collect(data, found, playlistKeys)
+        val parts = mutableListOf<String>()
+        var run = 0
+        for ((kind, item) in found) {
+            val video = kind == "playlistVideoRenderer" || (kind == "lockupViewModel" && item["contentType"].str() == "LOCKUP_CONTENT_TYPE_VIDEO")
+            if (video) {
+                run++
+                continue
+            }
+            if (run > 0) parts += "V×$run"
+            run = 0
+            parts += when (kind) {
+                "lockupViewModel" -> "L(" + item["contentType"].str().orEmpty().removePrefix("LOCKUP_CONTENT_TYPE_") + ")"
+                "continuationCommand" -> "C(" + item["request"].str().orEmpty().removePrefix("CONTINUATION_REQUEST_TYPE_") +
+                    ", " + item.keys.joinToString("/") + ")"
+                else -> kind
+            }
+        }
+        if (run > 0) parts += "V×$run"
+        return parts.joinToString(" ")
     }
 
     private val playlistKeys = setOf(
