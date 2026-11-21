@@ -126,6 +126,11 @@ fun ChannelsScreen(page: ChannelsPage) {
                     { store.togglePlayer() },
                     Modifier.restoreFocus(page, "player"),
                 )
+            }
+        }
+        // lo del reproductor, en su fila (en una sola no cabía todo y lo último no se veía)
+        item(key = "#playback") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                 Pill(
                     if (store.subtitles) "Subtítulos: sí" else "Subtítulos: no",
                     { store.toggleSubtitles() },
@@ -135,6 +140,12 @@ fun ChannelsScreen(page: ChannelsPage) {
                     if (store.sponsorBlock) "Patrocinios: se saltan" else "Patrocinios: se ven",
                     { store.toggleSponsorBlock() },
                     Modifier.restoreFocus(page, "sponsorblock"),
+                )
+                // si el vídeo trae doblaje al español; en el reproductor, ▲ cambia al original
+                Pill(
+                    if (store.spanishAudio) "Audio: en español si lo hay" else "Audio: el original",
+                    { store.toggleSpanishAudio() },
+                    Modifier.restoreFocus(page, "audio"),
                 )
             }
         }

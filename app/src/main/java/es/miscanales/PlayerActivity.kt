@@ -78,6 +78,8 @@ class PlayerActivity : ComponentActivity() {
     private var item = QueueItem("", "")
     private var autoNext = false
     private var sponsorBlock = true
+    /** Si el vídeo trae doblaje al español, ponerlo (el ajuste de "Audio en español"). */
+    private var spanishAudio = true
     private var nextPending = false
     private val handler = Handler(Looper.getMainLooper())
     private val playNextLater = Runnable { playNext() }
@@ -114,6 +116,7 @@ class PlayerActivity : ComponentActivity() {
         sponsorBlock = intent.getBooleanExtra(EXTRA_SPONSORBLOCK, true)
         kids = intent.getBooleanExtra(EXTRA_KIDS, false)
         profile = Profile.of(intent.getStringExtra(EXTRA_PROFILE))
+        spanishAudio = getSharedPreferences(profile.prefs, MODE_PRIVATE).getBoolean(SPANISH_AUDIO, true)
         autoNext = intent.getBooleanExtra(EXTRA_AUTONEXT, false)
         queue.clear()
         intent.getStringExtra(EXTRA_QUEUE)?.let { saved ->
@@ -441,6 +444,10 @@ class PlayerActivity : ComponentActivity() {
         if (this@PlayerActivity.keepPlaying && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(this, KEEP_VISIBLE, setOf("https://www.youtube.com"))
         }
+        // El idioma del audio (en el móvil; en la tele va con lo de abajo): dentro del reproductor de YouTube
+        if (!tv && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(this, audioScript(), setOf("https://www.youtube.com"))
+        }
         // En la tele, para que YouTube ofrezca más de 720p, a su reproductor se le cuenta que está en
         // el Chrome de un PC (también en las pistas que da el navegador, no solo en el nombre), que
         // puede con 1080p o más con soltura (la WebView del Fire TV dice que no aunque pueda) y el
@@ -449,7 +456,7 @@ class PlayerActivity : ComponentActivity() {
         if (tv || kids) webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 if (tv && EmbedPatch.isEmbed(request)) {
-                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + HIDE_BRIDGE + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX)
+                    EmbedPatch.fetch(request, DESKTOP_UA, "$ORIGIN/", QUALITY_CAP + HIDE_BRIDGE + DESKTOP_HINTS + SMOOTH_DECODING + REAL_SCREEN + HFR_FIX + audioScript())
                 } else {
                     null
                 }
@@ -491,8 +498,9 @@ class PlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> "seek(10)"
             // abajo (o el botón de subtítulos, si el mando lo tiene) los pone o los quita
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CAPTIONS -> "toggleSubs()"
-            // arriba solo enseña el panel
-            KeyEvent.KEYCODE_DPAD_UP -> ""
+            // arriba enseña el panel y, si ya se veía, cambia el idioma del audio (si el vídeo trae varios)
+            KeyEvent.KEYCODE_DPAD_UP -> "upKey()"
+            KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK -> "audioToggle()"
             // Atrás, Home, volumen…: lo normal
             else -> return super.dispatchKeyEvent(event)
         }
@@ -527,6 +535,14 @@ class PlayerActivity : ComponentActivity() {
             1, 3 -> PlaybackService.setPlaying(true)
             2 -> PlaybackService.setPlaying(false)
         }
+    }
+
+    /** El script del idioma del audio, con el ajuste de si se prefiere el español. */
+    private fun audioScript() = "window.__mcEs = $spanishAudio;" + AUDIO_TRACKS
+
+    /** Lo que dice el reproductor de las pistas de audio del vídeo (para los registros de las pruebas). */
+    fun onAudio(text: String) {
+        Log.i("MisCanales", "Audio: $text")
     }
 
     /** Se han puesto o quitado los subtítulos con el mando: se queda así para los siguientes vídeos. */
@@ -714,6 +730,90 @@ class PlayerActivity : ComponentActivity() {
             (function () { try { delete window.Android; } catch (e) {} })();
         """
 
+        // El idioma del audio. Algunos vídeos traen doblajes (MrBeast, por ejemplo) y el reproductor
+        // insertado pone el original: aquí, dentro del reproductor de YouTube, se mira qué pistas hay,
+        // se pone la de español si se prefiere (window.__mcEs) y se cuenta a la página de la app cuáles
+        // hay y cuál suena. La página pide cambiar de una a otra con un mensaje (mcAudioToggle).
+        // Usa funciones internas del reproductor (no las oficiales): si YouTube las cambia, no hace nada.
+        private const val AUDIO_TRACKS = """
+            (function () {
+              if (window.top === window) return;
+              var prefer = !!window.__mcEs;
+              // de cada pista: su código (es.3, en-US.4…), su nombre y si es la original
+              function info(t) {
+                var r = { id: '', name: '', orig: false, es: false };
+                if (!t || typeof t != 'object') return r;
+                var objs = [t];
+                for (var k in t) { try { if (t[k] && typeof t[k] == 'object') objs.push(t[k]); } catch (e) {} }
+                for (var i = 0; i < objs.length; i++) {
+                  try {
+                    var o = objs[i];
+                    if (o.isOriginalTrack === true) r.orig = true;
+                    var n = typeof o.displayName == 'string' ? o.displayName : (typeof o.name == 'string' ? o.name : '');
+                    if (n && !r.name) { r.name = n; if (typeof o.id == 'string') r.id = o.id; }
+                  } catch (e) {}
+                }
+                try { if (!r.id && typeof t.id == 'string') r.id = t.id; } catch (e) {}
+                r.es = /^es([-._]|$)/i.test(r.id) || /^(español|spanish)/i.test(r.name);
+                if (/original/i.test(r.name)) r.orig = true;
+                return r;
+              }
+              function tracks(p) { try { return p.getAvailableAudioTracks() || []; } catch (e) { return []; } }
+              function infos(list) { var out = []; for (var i = 0; i < list.length; i++) out.push(info(list[i])); return out; }
+              function current(p, all) {
+                var c; try { c = info(p.getAudioTrack()); } catch (e) { return -1; }
+                for (var i = 0; i < all.length; i++) if (all[i].id == c.id && all[i].name == c.name) return i;
+                return -1;
+              }
+              // la de español (la de España, si hay varias)
+              function spanish(all) {
+                var best = -1;
+                for (var i = 0; i < all.length; i++) {
+                  if (!all[i].es) continue;
+                  if (best < 0 || /españa|spain|^es-es/i.test(all[i].name + ' ' + all[i].id)) best = i;
+                }
+                return best;
+              }
+              function original(all) {
+                for (var i = 0; i < all.length; i++) if (all[i].orig) return i;
+                for (var j = 0; j < all.length; j++) if (!all[j].es) return j;
+                return -1;
+              }
+              var video = '', decided = false, sent = '';
+              function tell(msg) { if (msg != sent) { sent = msg; parent.postMessage(msg, '*'); } }
+              setInterval(function () {
+                var p = document.getElementById('movie_player');
+                if (!p) return;
+                if (typeof p.getAvailableAudioTracks != 'function') { tell(JSON.stringify({ mcAudio: { api: false } })); return; }
+                var vid = ''; try { vid = (p.getVideoData() || {}).video_id || ''; } catch (e) {}
+                if (vid != video) { video = vid; decided = false; }
+                var list = tracks(p), all = infos(list);
+                var playing = false; try { playing = p.getPlayerState() == 1; } catch (e) {}
+                // una vez por vídeo, cuando ya suena (antes, las pistas pueden ser aún las del anterior)
+                if (!decided && playing && list.length >= 2) {
+                  decided = true;
+                  var cur = current(p, all), es = spanish(all);
+                  if (prefer && es >= 0 && (cur < 0 || !all[cur].es)) { try { p.setAudioTrack(list[es]); } catch (e) {} }
+                }
+                tell(JSON.stringify({ mcAudio: { api: true, video: video, tracks: all, current: current(p, all) } }));
+              }, 1000);
+              // de español al original, o al revés (si no hay español, a la siguiente)
+              window.addEventListener('message', function (e) {
+                var d; try { d = typeof e.data == 'string' ? JSON.parse(e.data) : null; } catch (x) { return; }
+                if (!d || !d.mcAudioToggle) return;
+                var p = document.getElementById('movie_player');
+                if (!p || typeof p.getAvailableAudioTracks != 'function') return;
+                var list = tracks(p), all = infos(list);
+                if (list.length < 2) return;
+                var cur = current(p, all);
+                var to = cur >= 0 && all[cur].es ? original(all) : spanish(all);
+                if (to < 0 || to == cur) to = (cur + 1) % list.length;
+                decided = true;
+                try { p.setAudioTrack(list[to]); } catch (x) {}
+              });
+            })();
+        """
+
         /**
          * Lo más alto que se deja reproducir en la tele (en líneas, el lado corto del vídeo). Con 2160p60
          * el Fire TV va a saltos, y con 1440p alguna vez se cortaba (el Stick o la wifi no daban abasto):
@@ -846,6 +946,10 @@ class PlayerActivity : ComponentActivity() {
                       background: #272727; color: #fff; font-size: 14px; }
               #mini { display: none; margin: 12px 0 0 8px; padding: 8px 16px; border: 0; border-radius: 18px;
                       background: #272727; color: #fff; font-size: 14px; }
+              #audiob { display: none; margin: 12px 0 0 8px; padding: 8px 16px; border: 0; border-radius: 18px;
+                        background: #272727; color: #fff; font-size: 14px; }
+              #audioline { display: none; margin-top: 6px; font-size: 14px; color: #ccc; }
+              .tv #audioline { font-size: 18px; }
               /* en el móvil: anterior y siguiente, a los lados de la pausa, al tocar la pantalla */
               .skip { display: none; position: absolute; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
                       padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.5); z-index: 3; }
@@ -880,11 +984,11 @@ class PlayerActivity : ComponentActivity() {
             </div>
             <div id="toast" class="hidden"></div>
             <div id="info"><h1 id="ititle"></h1><div class="sub" id="ichannel"></div><div class="sub" id="istats"></div>
-              <button id="totv" onclick="toTv()">📺 Ver en la tele</button><button id="mini" onclick="Android.minimize()">⌄ Minimizar</button>
+              <button id="totv" onclick="toTv()">📺 Ver en la tele</button><button id="mini" onclick="Android.minimize()">⌄ Minimizar</button><button id="audiob" onclick="audioToggle()"></button>
               <div class="desc" id="idesc"></div></div>
             <div id="next"><div class="label">Siguiente</div><div id="nexttitle"></div><div id="nextcount"></div>
               <div id="nextbuttons"><button onclick="Android.playNext()">Ver ya</button><button onclick="Android.cancelNext()">Cancelar</button></div></div>
-            <div id="top" class="panel"><div id="title"></div><div id="channel"></div></div>
+            <div id="top" class="panel"><div id="title"></div><div id="channel"></div><div id="audioline"></div></div>
             <div id="bottom" class="panel">
               <div id="bar"><div id="fill"></div></div>
               <div id="row"><span id="time"></span><span id="status"></span>
@@ -893,7 +997,7 @@ class PlayerActivity : ComponentActivity() {
             <script>
             document.getElementById('title').textContent = ${js(title)};
             document.getElementById('channel').textContent = ${js(channel)};
-            var player = null, started = false, lastKey = Date.now();
+            var player = null, started = false, lastKey = Date.now(), prevKey = 0;
             var subs = $subtitles, subsDone = false, note = '', noteUntil = 0;
             // en el móvil: los controles táctiles de YouTube, sin el panel del mando
             var tv = $tv;
@@ -954,6 +1058,7 @@ class PlayerActivity : ComponentActivity() {
               document.getElementById('istats').textContent = stats;
               document.getElementById('idesc').textContent = '';
               segs = []; skipped = {}; subsDone = false; started = false;
+              audio = null; showAudio();
               if (ready()) player.loadVideoById({ videoId: id, startSeconds: start || 0 });
             }
             function toTv() {
@@ -1044,7 +1149,51 @@ class PlayerActivity : ComponentActivity() {
               Android.captions(subs);
               flash(subs ? 'Subtítulos: sí' : 'Subtítulos: no');
             }
-            function touched() { lastKey = Date.now(); update(); }
+            function touched() { prevKey = lastKey; lastKey = Date.now(); update(); }
+            // El idioma del audio: lo que cuenta el reproductor de YouTube (ver AUDIO_TRACKS) y el botón
+            // (en la tele, ▲ con el panel a la vista) que cambia del español al original y al revés.
+            var audio = null;
+            function multiAudio() { return !!(audio && audio.tracks && audio.tracks.length >= 2); }
+            function audioName(t) {
+              if (!t) return '';
+              if (t.es) return 'Español';
+              var lang = (t.name || '').replace(/original/i, '').split('(')[0].trim().toLowerCase();
+              if (t.orig) return 'Original' + (lang ? ' (' + lang + ')' : '');
+              return lang ? lang.charAt(0).toUpperCase() + lang.slice(1) : (t.id || 'Otro');
+            }
+            function audioLabel() { return multiAudio() && audio.current >= 0 ? audioName(audio.tracks[audio.current]) : ''; }
+            function showAudio() {
+              var label = audioLabel();
+              var b = document.getElementById('audiob');
+              b.style.display = !tv && multiAudio() ? 'inline-block' : 'none';
+              b.textContent = '🔊 ' + (label || 'Audio');
+              var line = document.getElementById('audioline');
+              line.style.display = tv && multiAudio() ? 'block' : 'none';
+              line.textContent = '🔊 Audio: ' + (label || '…') + '   ·   ▲: cambiar';
+            }
+            window.addEventListener('message', function (e) {
+              var d; try { d = typeof e.data == 'string' ? JSON.parse(e.data) : null; } catch (x) { return; }
+              if (!d || !d.mcAudio) return;
+              var before = audioLabel();
+              audio = d.mcAudio;
+              var now = audioLabel();
+              if (audio.api === false) Android.audio('el reproductor no deja elegir');
+              else Android.audio((audio.tracks || []).map(function (t) { return t.name || t.id; }).join(', ') +
+                                 (now ? ' → suena: ' + now : ''));
+              // al empezar (si trae varios) y al cambiar, cuál suena
+              if (now && before != now) flash('Audio: ' + now);
+              showAudio();
+            });
+            function audioToggle() {
+              if (!multiAudio() || !ready() || !player.getIframe) return;
+              var f = player.getIframe();
+              if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ mcAudioToggle: 1 }), '*');
+            }
+            // ▲ en la tele: si el panel ya se veía, cambia el audio; si no, solo lo enseña
+            function upKey() {
+              var state = ready() ? player.getPlayerState() : -1;
+              if (!started || state != 1 || Date.now() - prevKey < 4000) audioToggle();
+            }
             function two(n) { return (n < 10 ? '0' : '') + n; }
             function quality(q) {
               return { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p',
@@ -1102,6 +1251,9 @@ class PlayerBridge(private val activity: PlayerActivity) {
 
     @JavascriptInterface
     fun captions(on: Boolean) = activity.runOnUiThread { activity.onCaptions(on) }
+
+    @JavascriptInterface
+    fun audio(text: String) = activity.runOnUiThread { activity.onAudio(text) }
 
     @JavascriptInterface
     fun toTv(start: Int) = activity.runOnUiThread { activity.sendToTv(start) }

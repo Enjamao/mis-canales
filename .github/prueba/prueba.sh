@@ -307,6 +307,50 @@ sleep 20
 adb exec-out screencap -p > 4-aviso.png
 fallos "tocar aviso"
 
+doblados() {
+  # el último vídeo de GTA 6 de MrBeast Gaming (trae doblajes) y, por si no, uno de MrBeast que también
+  curl -s --max-time 20 "https://www.youtube.com/feeds/videos.xml?channel_id=UCIPPMRA040LQr5QPyJEbmXA" | python3 -c '
+import re, sys
+x = sys.stdin.read()
+for e in re.findall(r"<entry>.*?</entry>", x, re.S):
+    if "GTA" in e:
+        print(re.search(r"<yt:videoId>([^<]+)", e).group(1)); break
+'
+  echo 0e3GPea1Tyg
+}
+
+# 4b. El idioma del audio: un vídeo doblado tiene que sonar en español, y el botón 🔊 lo cambia al original
+for VID in $(doblados); do
+  adb logcat -c
+  adb shell am start -W -n $PKG/.MainActivity --activity-clear-top --activity-single-top \
+    --es play $VID --es title "Vídeo doblado" --es channelName "MrBeast" --el published 0
+  sleep 30
+  echo "--- audio de $VID:"
+  adb logcat -d | grep "MisCanales: Audio" | tail -4
+  captura "audio-$VID"
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
+  python3 - <<'PY'
+import re, subprocess
+xml = open('ui.xml', encoding='utf-8').read()
+for m in re.finditer(r'<node [^>]*>', xml):
+    n = m.group(0)
+    t = re.search(r' (?:text|content-desc)="(\U0001F50A[^"]*)"', n)
+    if t:
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+        x, y = (int(b.group(1)) + int(b.group(3))) // 2, (int(b.group(2)) + int(b.group(4))) // 2
+        subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)])
+        print('pulsado', t.group(1), x, y)
+        break
+else:
+    print('no está el botón del audio')
+PY
+  sleep 8
+  adb logcat -d | grep "MisCanales: Audio" | tail -2
+  captura "audio-cambiado-$VID"
+  adb logcat -d | grep -q "suena:" && break
+done
+fallos "idioma del audio"
+
 # 5. Buscar en mis canales (lo cargado y lo que YouTube encuentra dentro de cada canal)
 adb shell input keyevent KEYCODE_BACK; sleep 2
 adb shell am start -W -n $PKG/.MainActivity; sleep 3

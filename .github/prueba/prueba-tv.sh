@@ -435,4 +435,36 @@ tecla KEYCODE_DPAD_CENTER; sleep 2
 foco "otra vez con Kids"
 adb shell dumpsys package $PKG | grep -c "disabledComponents"
 fallos "montse (tele)"
+
+doblados() {
+  # el último vídeo de GTA 6 de MrBeast Gaming (trae doblajes) y, por si no, uno de MrBeast que también
+  curl -s --max-time 20 "https://www.youtube.com/feeds/videos.xml?channel_id=UCIPPMRA040LQr5QPyJEbmXA" | python3 -c '
+import re, sys
+x = sys.stdin.read()
+for e in re.findall(r"<entry>.*?</entry>", x, re.S):
+    if "GTA" in e:
+        print(re.search(r"<yt:videoId>([^<]+)", e).group(1)); break
+'
+  echo 0e3GPea1Tyg
+}
+
+# El idioma del audio en la tele: un vídeo doblado en español; ▲ enseña el panel y otra vez ▲ cambia al original
+adb shell am force-stop $PKG; sleep 1
+adb shell "run-as $PKG sed -i '/test_end_after/d' shared_prefs/store.xml"
+for VID in $(doblados); do
+  adb logcat -c
+  adb shell am start -W -n $PKG/.MainActivity --es play $VID --es title "Vídeo doblado" --es channelName "MrBeast" --el published 0
+  sleep 35
+  echo "--- audio de $VID (tele):"
+  adb logcat -d | grep "MisCanales: Audio" | tail -4
+  tecla KEYCODE_DPAD_UP
+  captura "audio-$VID"
+  tecla KEYCODE_DPAD_UP; sleep 2
+  captura "audio-cambiado-$VID"
+  sleep 6
+  adb logcat -d | grep "MisCanales: Audio" | tail -2
+  adb logcat -d | grep -q "suena:" && break
+  tecla KEYCODE_BACK; sleep 2
+done
+fallos "idioma del audio (tele)"
 exit 0

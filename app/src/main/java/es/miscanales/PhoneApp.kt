@@ -966,6 +966,8 @@ private fun PhoneSettings(onBack: () -> Unit) {
                 SettingSwitch("Subtítulos", store.subtitles) { store.toggleSubtitles() }
                 SettingSwitch("Seguir sonando con la pantalla apagada", store.backgroundPlay) { store.toggleBackgroundPlay() }
                 SettingSwitch("Saltar patrocinios (SponsorBlock)", store.sponsorBlock) { store.toggleSponsorBlock() }
+                SettingSwitch("Audio en español si lo hay", store.spanishAudio) { store.toggleSpanishAudio() }
+                Hint("En los vídeos doblados (MrBeast, por ejemplo). En el reproductor, el botón 🔊 cambia entre el español y el original.")
                 SettingSwitch("Reproducción continua", store.autoNext) { store.toggleAutoNext() }
                 Hint("Al acabar un vídeo, el siguiente de la lista desde la que lo abriste. En el reproductor, Atrás lo deja en una ventana pequeña para seguir por la app.")
                 Text("Avisos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))

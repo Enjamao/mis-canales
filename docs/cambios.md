@@ -3,6 +3,14 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.24 — 21 nov 2026
+
+- **0.24.0**: **Idioma del audio**. Los vídeos con doblaje (MrBeast, por ejemplo) suenan en español si lo
+  traen, y se puede cambiar al original: en el móvil, con el botón 🔊 de debajo del vídeo; en la tele, con
+  ▲ dos veces. Se apaga en los ajustes («Audio en español si lo hay»; en la tele, la pastilla «Audio»). En
+  Mis canales de la tele, los ajustes del reproductor van en su propia fila: antes «Subtítulos» y
+  «Patrocinios» no cabían y no se veían.
+
 ## 0.23 — 20 nov 2026
 
 - **0.23.2**: Al silenciar un canal desde su aviso con la app abierta, la campana de Canales sale tachada

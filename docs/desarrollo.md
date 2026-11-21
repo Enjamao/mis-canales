@@ -57,7 +57,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `YouTube.kt` | El feed RSS de cada canal y cómo encontrar un canal a partir de un `@nombre`, un enlace o un vídeo. |
 | `Durations.kt` | Lo que dura cada vídeo (el feed no lo trae): lo apuntado, para todo el aparato. `Feed` lo busca en la pestaña Vídeos de cada canal. |
 | `Search.kt`, `SearchState.kt` | Buscar en YouTube y los vídeos anteriores de un canal, leyendo los datos de sus páginas. |
-| `PlayerActivity.kt` | El reproductor: el de YouTube para webs dentro de una WebView, con los mandos, siguiente/anterior, reproducción continua, ventana flotante, «Ver en la tele», progreso, SponsorBlock y el tiempo de Kids. |
+| `PlayerActivity.kt` | El reproductor: el de YouTube para webs dentro de una WebView, con los mandos, siguiente/anterior, reproducción continua, ventana flotante, «Ver en la tele», progreso, SponsorBlock, el idioma del audio y el tiempo de Kids. |
 | `EmbedPatch.kt` | En la tele, la app pide la página del reproductor y le mete unos scripts antes que los de YouTube, para que se porte como el Chrome de un PC. Así se consigue más calidad. |
 | `PlaybackService.kt` | En el móvil: sigue sonando con la pantalla apagada, con el aviso y los botones multimedia. |
 | `SponsorBlock.kt` | Los tramos de patrocinio. Se pregunta solo por los 4 primeros caracteres de la huella del vídeo, para no decir cuál es. |
@@ -133,6 +133,12 @@ workflow, con lo que quieras buscar. Enseña la estructura de la respuesta.
   para que diga que es Chrome de PC con pantalla grande y no quite los formatos de 60 fps. El tope está
   en `MAX_LINES`, en `PlayerActivity.kt` (1080). A 2160p60 el Fire TV Stick 4K va a saltos, y a 1440p
   alguna vez se cortaba.
+- El idioma del audio va con un script dentro del propio reproductor de YouTube (`AUDIO_TRACKS`, en
+  `PlayerActivity.kt`): en la tele, entre los de `EmbedPatch`; en el móvil, con
+  `addDocumentStartJavaScript`. Usa funciones internas del reproductor (`getAvailableAudioTracks`,
+  `setAudioTrack`), pone el español si se prefiere y le cuenta a la página de la app qué pistas hay con
+  `postMessage`. En los registros sale como `MisCanales: Audio: …`, y la prueba lo mira con un vídeo de
+  MrBeast.
 - Si un vídeo no deja verse insertado, se abre en la app de YouTube (salvo en Kids).
 - Siguiente/anterior y la reproducción continua usan la cola que se pasa al abrir el vídeo (lo que había
   en pantalla a partir de él).

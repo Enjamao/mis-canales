@@ -137,7 +137,7 @@ lo elige solo y vuelve a Inicio; **mantener OK** o **play/pausa** lo añade a lo
 | ◀ ▶ | 10 segundos atrás / adelante |
 | ⏪ ⏩ (retroceso y avance rápido) | vídeo anterior / siguiente de la lista |
 | ▼ (o el botón de subtítulos) | subtítulos sí / no |
-| ▲ | enseña el panel con el título |
+| ▲ | enseña el panel con el título; con el panel a la vista, cambia el idioma del audio (si el vídeo trae varios) |
 | Atrás | sale a la lista |
 
 Al acabar un vídeo sale «Siguiente: …» unos segundos: OK lo pone ya y Atrás sale.
@@ -232,6 +232,12 @@ principio del vídeo si ya lleva un rato, y si no, al que sonó antes.
   más recientes.
 - **Saltar patrocinios**: con el ajuste encendido, la app se salta las partes de patrocinio,
   autopromoción y «suscríbete» que marca la comunidad de [SponsorBlock](https://sponsor.ajay.app).
+- **Idioma del audio**: algunos vídeos traen doblajes (los de MrBeast, por ejemplo). Con el ajuste «Audio
+  en español si lo hay» encendido, suenan en español; si no, en el original. Al empezar sale un aviso con
+  el que suena, y se puede cambiar del español al original y al revés: en el móvil, con el botón **🔊**
+  de debajo del vídeo; en la tele, con **▲** (la primera vez enseña el panel, donde pone el idioma; la
+  segunda, lo cambia). Va con funciones internas del reproductor de YouTube, así que si YouTube las cambia
+  puede dejar de ir (el vídeo se ve igual, en el original).
 
 ## Listas de reproducción
 
@@ -285,7 +291,7 @@ nota porque el título sale como «Canales **M**», con la M en morado.
 | De cada perfil | Del aparato (igual para todos los iconos) |
 |---|---|
 | Canales, categorías, vistos, progreso, listas | La conexión con Home Assistant (dirección y token) |
-| Shorts, reproductor, subtítulos, patrocinios | Qué iconos salen |
+| Shorts, reproductor, subtítulos, patrocinios, audio | Qué iconos salen |
 | Reproducción continua, segundo plano, avisos | El PIN y «Pedir PIN al abrir» |
 | Sus listas de Home Assistant | Los ajustes de Kids |
 
@@ -483,6 +489,7 @@ pastillas de arriba.
 | Subtítulos | sí | sí | empiezan con subtítulos (en la tele, ▼ los cambia) | perfil |
 | Seguir sonando con la pantalla apagada | sí | — | segundo plano y ventana flotante al salir | perfil |
 | Saltar patrocinios (SponsorBlock) | sí | «Patrocinios» | se salta patrocinios y autopromoción | perfil |
+| Audio en español si lo hay | sí | «Audio» | los vídeos doblados, en español (si no, en el original) | perfil |
 | Reproducción continua | sí | sí | al acabar, el siguiente | perfil |
 | Avisar de vídeos nuevos | sí | — | avisos del móvil | perfil |
 | Ver aquí también los canales de niños | sí | «Sus canales también en Inicio» | los de Kids también en Mis Canales | aparato |

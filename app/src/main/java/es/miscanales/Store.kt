@@ -93,6 +93,10 @@ class Store(context: Context, val kids: Boolean = false, val profile: Profile = 
     var sponsorBlock by mutableStateOf(prefs.getBoolean("sponsorBlock", true))
         private set
 
+    /** Si un vídeo tiene audio en español (doblado), ponerlo en vez del original. Lo lee el reproductor. */
+    var spanishAudio by mutableStateOf(prefs.getBoolean(SPANISH_AUDIO, true))
+        private set
+
     /** Al acabar un vídeo, el siguiente de la lista (en Kids, su propio ajuste, apagado de entrada). */
     var autoNext by mutableStateOf(prefs.getBoolean(if (kids) "kidsAutoNext" else "autoNext", !kids))
         private set
@@ -284,6 +288,11 @@ class Store(context: Context, val kids: Boolean = false, val profile: Profile = 
         prefs.edit { putBoolean("sponsorBlock", sponsorBlock) }
     }
 
+    fun toggleSpanishAudio() {
+        spanishAudio = !spanishAudio
+        prefs.edit { putBoolean(SPANISH_AUDIO, spanishAudio) }
+    }
+
     fun appContextForSync(): Context = appContext
 
     /** Vuelve a leer el progreso, que el reproductor escribe por su cuenta. */
@@ -365,6 +374,7 @@ class Store(context: Context, val kids: Boolean = false, val profile: Profile = 
 
 internal const val PREFS = "store"
 private const val SUBTITLES = "subtitles"
+internal const val SPANISH_AUDIO = "spanishAudio"
 
 /** Guarda si se quieren subtítulos desde el reproductor, que no tiene el [Store]. */
 fun saveSubtitles(context: Context, on: Boolean, profile: Profile = Profile.Main) {
