@@ -284,8 +284,9 @@ object Search {
         val tokens = found.withIndex().mapNotNull { (i, pair) ->
             val (kind, item) = pair
             val token = when (kind) {
-                "continuationItemRenderer" -> find(item, "continuationCommand").at("token").str()
-                "continuationCommand" -> item["token"].str()
+                "continuationItemRenderer" -> find(item, "token").str()
+                // en el formato nuevo, el token va más adentro (continuationCommand → innertubeCommand → …)
+                "continuationCommand" -> find(item, "token").str()
                 // el formato de antes
                 "nextContinuationData" -> item["continuation"].str()
                 else -> null
