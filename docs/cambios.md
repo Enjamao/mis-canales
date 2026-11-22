@@ -5,7 +5,9 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.25 — 21 nov 2026
 
-- **0.25.2**: Las listas normales largas se leen enteras (hasta 200 vídeos); antes se quedaban en 100.
+- **0.25.3**: Ahora sí, las listas normales largas se leen hasta 200 vídeos: YouTube ha cambiado sus
+  páginas de listas y se quedaban en 100.
+- **0.25.2**: Registros para ver por qué las listas largas se quedaban en 100.
 - **0.25.1**: Al compartir una lista, su ficha sale arriba del todo (en móviles pequeños el botón «Guardar
   en Listas» quedaba por debajo). Si una página de la lista falla, se guarda lo leído.
 - **0.25.0**: **Guardar listas de YouTube**. Al compartir una lista desde YouTube (Compartir → Mis
