@@ -799,6 +799,7 @@ volcado
 adb shell am start -W -n $PKG/.MainActivity --activity-clear-top --activity-single-top \
   --es play dQw4w9WgXcQ --es title Prueba --es channelName Prueba --el published 0
 sleep 10
+adb logcat -d | grep "MisCanales: Historial" | tail -2
 volcado
 adb shell input keyevent KEYCODE_BACK; sleep 2
 adb shell input keyevent KEYCODE_BACK; sleep 2
@@ -810,7 +811,8 @@ pulsar_abajo "Listas"; sleep 4
 pulsar "Historial"; sleep 3
 pulsar "Borrar el historial"; sleep 2
 textos "borrar el historial (con Home Assistant)"
-pulsar "Borrar"; sleep 4
+pulsar "Borrar"; sleep 8
+adb logcat -d | grep "MisCanales: Historial" | tail -3
 volcado
 kill $HA_FALSO 2>/dev/null
 fallos "historial en Home Assistant"

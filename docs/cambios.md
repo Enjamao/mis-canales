@@ -5,6 +5,7 @@ Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica
 
 ## 0.26 — 22 nov 2026
 
+- **0.26.1**: Borrar el historial (o recortarlo) en Home Assistant va de una vez, en vez de vídeo a vídeo.
 - **0.26.0**: **El historial, en todos tus aparatos**. Con la lista nueva «Mis Canales historial» en Home
   Assistant (y «Mis Canales Montse historial» para Canales M), lo que abres en el móvil sale en el
   historial de la tele y al revés; borrarlo lo borra en todos. Sin la lista, sigue como antes.

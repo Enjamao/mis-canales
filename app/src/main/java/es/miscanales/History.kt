@@ -103,6 +103,7 @@ class History private constructor(val profile: Profile) {
                     sent(app, entry)
                     prune(config, items)
                     synced = true
+                    Log.i("MisCanales", "Historial: «${entry.video.title.take(40)}» subido")
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: HaError) {
@@ -184,7 +185,9 @@ class History private constructor(val profile: Profile) {
         scope.launch {
             mutex.withLock {
                 try {
-                    HomeAssistant.items(config, list(config)).forEach { HomeAssistant.remove(config, it.uid, list(config)) }
+                    val items = HomeAssistant.items(config, list(config))
+                    HomeAssistant.removeAll(config, items.map { it.uid }, list(config))
+                    Log.i("MisCanales", "Historial: borrado, también en Home Assistant (${items.size})")
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -219,9 +222,8 @@ class History private constructor(val profile: Profile) {
     /** Que la lista de Home Assistant no crezca sin fin: fuera los más antiguos. */
     private suspend fun prune(config: HaConfig, items: List<HaItem>) {
         if (items.size < MAX + 30) return
-        items.sortedBy { decode(it.description)?.at ?: 0L }
-            .take(items.size - MAX)
-            .forEach { HomeAssistant.remove(config, it.uid, list(config)) }
+        val old = items.sortedBy { decode(it.description)?.at ?: 0L }.take(items.size - MAX)
+        HomeAssistant.removeAll(config, old.map { it.uid }, list(config))
     }
 
     private fun decode(description: String): HistoryEntry? =

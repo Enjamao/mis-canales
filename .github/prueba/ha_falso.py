@@ -68,9 +68,12 @@ class Handler(BaseHTTPRequestHandler):
                 item["description"] = data["description"]
             return self.answer(200, [])
         if action == "remove_item":
-            item = find(data["item"])
-            if item is not None:
-                items.remove(item)
+            # como en Home Assistant, uno o una lista
+            refs = data["item"] if isinstance(data["item"], list) else [data["item"]]
+            for ref in refs:
+                item = find(ref)
+                if item is not None:
+                    items.remove(item)
             return self.answer(200, [])
         self.answer(400, {"message": "400: Bad Request"})
 

@@ -101,6 +101,26 @@ object HomeAssistant {
         )
     }
 
+    /**
+     * Quita varios de una vez (la acción acepta una lista); si este Home Assistant no la acepta, uno a uno.
+     * Para vaciar listas largas, como el historial, sin cientos de llamadas.
+     */
+    suspend fun removeAll(config: HaConfig, uids: List<String>, list: String = config.entity) {
+        if (uids.isEmpty()) return
+        try {
+            call(
+                config,
+                "remove_item",
+                buildJsonObject {
+                    put("entity_id", list)
+                    put("item", JsonArray(uids.map { JsonPrimitive(it) }))
+                },
+            )
+        } catch (e: HaError) {
+            uids.forEach { remove(config, it, list) }
+        }
+    }
+
     suspend fun remove(config: HaConfig, uid: String, list: String = config.entity) {
         call(
             config,
