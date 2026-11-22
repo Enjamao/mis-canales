@@ -30,7 +30,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `Library.kt` | Añadir, quitar y sincronizar canales, categorías, «Para niños» y vistos, con Home Assistant si lo hay. |
 | `Progress.kt` | Por dónde vas en cada vídeo (`Progresses`) y su sincronización con Home Assistant (`ProgressSync`). |
 | `Playlists.kt` | Listas de reproducción, una instancia por perfil, con su sincronización. «Ver más tarde» es una lista más (`WATCH_LATER`), que sale siempre la primera. |
-| `History.kt` | El historial: los vídeos abiertos en este aparato, por perfil (no se sincroniza). Lo apunta el reproductor (`PlayerActivity`) al poner cada vídeo. |
+| `History.kt` | El historial: los vídeos abiertos, por perfil. Lo apunta el reproductor (`PlayerActivity`) al poner cada vídeo, y si existe la lista `<lista de canales>_historial` en Home Assistant se sube y se junta con la de allí (como el progreso). |
 | `Kids.kt` | El PIN (solo se guarda su huella), el tiempo de Kids por día y «Pedir PIN al abrir». |
 
 ### Pantallas
@@ -83,7 +83,7 @@ versión. Para usarla y configurarla, mira el [README](../README.md).
 | `homeassistant/mis_canales.yaml` | Package de Home Assistant: avisos de vídeos nuevos por Telegram. |
 | `keystore/mis-canales.p12` | La clave de firma. La contraseña no está en el repositorio. |
 | `.github/workflows/` | `apk.yml`, `prueba.yml` y `explorar.yml` (ver abajo). |
-| `.github/prueba/` | Los guiones de las pruebas en el emulador y `explorar.py`. |
+| `.github/prueba/` | Los guiones de las pruebas en el emulador, `explorar.py` y `ha_falso.py` (un Home Assistant de mentira para la prueba). |
 
 ## Lo que se guarda en cada aparato
 
@@ -255,7 +255,8 @@ avisos cada 3 minutos en vez de 30. Luego la prueba en dos emuladores a la vez:
 
 - **prueba** (móvil, Android 15, `.github/prueba/prueba.sh`): Inicio, canales, categorías, Kids, PIN,
   avisos, búsqueda, Home Assistant y pasar a la tele, actualizaciones, aleatorio, varios canales,
-  siguiente/anterior, listas y Canales M.
+  siguiente/anterior, listas, listas de YouTube, Canales M y el historial en Home Assistant (con uno de
+  mentira, `ha_falso.py`, que solo sabe de listas de tareas).
 - **tele** (Android TV 11 a 720p, `.github/prueba/prueba-tv.sh`): lo mismo con el mando (D-pad, OK,
   play/pausa), Kids en la tele, Home Assistant por código, listas, actualizaciones y Canales M.
 

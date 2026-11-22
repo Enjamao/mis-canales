@@ -65,6 +65,7 @@ internal fun PhoneLists(onDetails: (Video) -> Unit, start: String? = null, onSta
     var open by rememberSaveable { mutableStateOf(start) }
     LaunchedEffect(Unit) {
         onStarted()
+        history.refresh(context)
         playlists.pull(context.applicationContext)
     }
     val names = playlists.names
@@ -137,7 +138,7 @@ private fun ListRow(title: String, subtitle: String, first: Video?, icon: Int, o
     }
 }
 
-/** El historial: lo que has abierto en este móvil, lo último primero, por días; y borrarlo. */
+/** El historial: lo que has abierto (en todos tus aparatos, con Home Assistant), lo último primero, por días; y borrarlo. */
 @Composable
 private fun PhoneHistory(onBack: () -> Unit, onDetails: (Video) -> Unit) {
     val store = LocalStore.current
@@ -145,6 +146,9 @@ private fun PhoneHistory(onBack: () -> Unit, onDetails: (Video) -> Unit) {
     val context = LocalContext.current
     var clearing by remember { mutableStateOf(false) }
     BackHandler(onBack = onBack)
+    LaunchedEffect(Unit) { history.refresh(context) }
+    // con la lista del historial en Home Assistant, es el de todos tus aparatos
+    val everywhere = history.synced == true
     val entries = history.entries.toList()
     val videos = entries.map { it.video }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -162,7 +166,12 @@ private fun PhoneHistory(onBack: () -> Unit, onDetails: (Video) -> Unit) {
                 }
             }
             Hint(
-                if (videos.isEmpty()) "Aquí salen los vídeos que abras en este móvil." else "Lo que has abierto en este móvil, lo último primero.",
+                when {
+                    videos.isEmpty() && everywhere -> "Aquí salen los vídeos que abras, en este móvil o en la tele."
+                    videos.isEmpty() -> "Aquí salen los vídeos que abras en este móvil."
+                    everywhere -> "Lo que has abierto en todos tus aparatos, lo último primero."
+                    else -> "Lo que has abierto en este móvil, lo último primero."
+                },
                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
@@ -185,7 +194,12 @@ private fun PhoneHistory(onBack: () -> Unit, onDetails: (Video) -> Unit) {
         AlertDialog(
             onDismissRequest = { clearing = false },
             title = { Text("¿Borrar el historial?") },
-            text = { Text("Solo se borra la lista de lo que has abierto en este móvil. Lo visto y por dónde ibas se queda.") },
+            text = {
+                Text(
+                    (if (everywhere) "Se borra en todos tus aparatos." else "Solo se borra la lista de lo que has abierto en este móvil.") +
+                        " Lo visto y por dónde ibas se queda.",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     clearing = false

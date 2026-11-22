@@ -753,5 +753,67 @@ pulsar_abajo "Canales"; sleep 3
 textos "Mis Canales, después de abrir Canales M"
 fallos "mis canales tras canales m"
 
+# 26. El historial en Home Assistant (uno de mentira, en el ordenador de la prueba: 10.0.2.2 para el
+#     emulador). Trae un vídeo «de otro aparato»; la app sube lo suyo, junta los dos, sube lo que se abre
+#     y, al borrarlo, lo borra también allí
+AHORA=$(($(date +%s) * 1000))
+python3 - "$AHORA" > ha-estado.json <<'PY'
+import json, sys
+now = int(sys.argv[1])
+video = {"vid": "jNQXAC9IVRw", "title": "Me at the zoo", "channelId": "UC4QobU6STFB0P71PMvOGN5A",
+         "channelName": "jawed", "published": 1114000000000, "duration": "0:19"}
+entry = {"video": video, "at": now - 2 * 3600 * 1000}
+print(json.dumps({"todo.mis_canales_historial": [
+    {"summary": "jNQXAC9IVRw · Me at the zoo", "description": json.dumps(entry)}]}))
+PY
+python3 "$(dirname "$0")/ha_falso.py" 8123 ha-estado.json &
+HA_FALSO=$!
+sleep 2
+volcado() { curl -s http://127.0.0.1:8123/volcado | python3 -c '
+import json, sys
+d = json.load(sys.stdin)["todo.mis_canales_historial"]
+print(len(d), "en el historial de Home Assistant:", [i["summary"][:40] for i in d][:6])'; }
+volcado
+adb shell am force-stop $PKG; sleep 1
+adb shell run-as $PKG cat shared_prefs/store.xml > store-ahora.xml
+python3 - <<'PY'
+import re
+x = open('store-ahora.xml', encoding='utf-8').read()
+ha = '{&quot;url&quot;:&quot;http://10.0.2.2:8123&quot;,&quot;token&quot;:&quot;prueba&quot;}'
+x = re.sub(r'<string name="ha">.*?</string>', '<string name="ha">' + ha + '</string>', x)
+if 'name="ha"' not in x:
+    x = x.replace('</map>', '    <string name="ha">' + ha + '</string>\n</map>')
+open('store-ha.xml', 'w', encoding='utf-8').write(x)
+PY
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/store.xml'" < store-ha.xml
+adb logcat -c
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 6
+pulsar_abajo "Listas"; sleep 6
+pulsar "Historial"; sleep 3
+textos "historial juntado con Home Assistant"
+captura historial-ha
+adb logcat -d | grep "MisCanales: Historial" | tail -3
+volcado
+# un vídeo abierto: arriba, también en Home Assistant
+adb shell am start -W -n $PKG/.MainActivity --activity-clear-top --activity-single-top \
+  --es play dQw4w9WgXcQ --es title Prueba --es channelName Prueba --el published 0
+sleep 10
+volcado
+adb shell input keyevent KEYCODE_BACK; sleep 2
+adb shell input keyevent KEYCODE_BACK; sleep 2
+# borrarlo: en todos los aparatos
+adb shell am force-stop $PKG; sleep 1
+adb shell am start -W -n $PKG/.MainActivity; sleep 4
+adb shell input text 1234; sleep 6
+pulsar_abajo "Listas"; sleep 4
+pulsar "Historial"; sleep 3
+pulsar "Borrar el historial"; sleep 2
+textos "borrar el historial (con Home Assistant)"
+pulsar "Borrar"; sleep 4
+volcado
+kill $HA_FALSO 2>/dev/null
+fallos "historial en Home Assistant"
+
 adb shell dumpsys jobscheduler | grep -B2 -A8 "$PKG" | head -40
 exit 0

@@ -255,10 +255,12 @@ pestaña **Listas** del móvil y en la entrada **Listas** del menú de la tele. 
   **Vaciar**.
 - Es una lista más: con Home Assistant, sale igual en todos los aparatos.
 
-**Historial**: los vídeos que has abierto en ese aparato, el último primero (en el móvil, separados por
-días: hoy, ayer, esta semana…). Al volver a abrir uno, sube arriba. Se guardan los 300 últimos, y
-**Borrar el historial** lo vacía (lo visto y por dónde ibas se queda). Cada perfil tiene el suyo; Kids no
-tiene. No va a Home Assistant: cada aparato, lo suyo.
+**Historial**: los vídeos que has abierto, el último primero (en el móvil, separados por días: hoy, ayer,
+esta semana…). Al volver a abrir uno, sube arriba. Se guardan los 300 últimos, y **Borrar el historial**
+lo vacía (lo visto y por dónde ibas se queda). Cada perfil tiene el suyo; Kids no tiene. Con la lista
+**Mis Canales historial** en Home Assistant (ver más abajo), es el mismo en todos tus aparatos: lo que
+abres en el móvil sale en el historial de la tele y al revés, y borrarlo lo borra en todos. Sin ella,
+cada aparato tiene el suyo. La primera vez que se conecta, cada aparato sube sus 100 últimos.
 
 **Las demás listas**:
 
@@ -365,11 +367,14 @@ vez por lista, con estos nombres exactos:
 | Mis Canales | `todo.mis_canales` | los canales de Mis Canales (y los de Kids) | sí, para sincronizar |
 | Mis Canales progreso | `todo.mis_canales_progreso` | vistos y por dónde va cada vídeo | para compartirlos |
 | Mis Canales listas | `todo.mis_canales_listas` | listas de reproducción | para compartirlas |
+| Mis Canales historial | `todo.mis_canales_historial` | el historial | para compartirlo |
 | Mis Canales Montse | `todo.mis_canales_montse` | los canales de Canales M | para Canales M |
 | Mis Canales Montse progreso | `todo.mis_canales_montse_progreso` | sus vistos y progreso | para compartirlos |
 | Mis Canales Montse listas | `todo.mis_canales_montse_listas` | sus listas | para compartirlas |
+| Mis Canales Montse historial | `todo.mis_canales_montse_historial` | su historial | para compartirlo |
 
-Si falta la de progreso o la de listas, eso se queda en cada aparato y lo demás sincroniza igual.
+Si falta la de progreso, la de listas o la del historial, eso se queda en cada aparato y lo demás
+sincroniza igual.
 
 **Qué hay dentro** (no hace falta tocarlo, pero se puede):
 
@@ -379,6 +384,8 @@ Si falta la de progreso o la de listas, eso se queda en cada aparato y lo demás
 - **Progreso**: un elemento por vídeo, `ID · título`, y en la descripción el segundo por el que vas,
   lo que dura y cuándo se apuntó.
 - **Listas**: un elemento por vídeo, `lista · título`, con los datos del vídeo en la descripción.
+- **Historial**: un elemento por vídeo, `ID · título`, con los datos del vídeo y cuándo se abrió en la
+  descripción.
 
 ### Conectar el móvil
 

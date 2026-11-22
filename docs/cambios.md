@@ -3,6 +3,12 @@
 Lo que trae cada versión, de la más nueva a la más vieja. Cada una se publica en
 [Releases → latest](https://github.com/Enjamao/mis-canales/releases/tag/latest), y la app avisa sola.
 
+## 0.26 — 22 nov 2026
+
+- **0.26.0**: **El historial, en todos tus aparatos**. Con la lista nueva «Mis Canales historial» en Home
+  Assistant (y «Mis Canales Montse historial» para Canales M), lo que abres en el móvil sale en el
+  historial de la tele y al revés; borrarlo lo borra en todos. Sin la lista, sigue como antes.
+
 ## 0.25 — 21 nov 2026
 
 - **0.25.3**: Ahora sí, las listas normales largas se leen hasta 200 vídeos: YouTube ha cambiado sus

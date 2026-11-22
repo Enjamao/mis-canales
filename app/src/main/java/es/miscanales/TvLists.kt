@@ -47,7 +47,10 @@ fun ListsScreen(page: ListsPage) {
     val history = LocalStore.current.history
     val nav = LocalNavigator.current
     val context = LocalContext.current
-    LaunchedEffect(Unit) { playlists.pull(context.applicationContext) }
+    LaunchedEffect(Unit) {
+        history.refresh(context)
+        playlists.pull(context.applicationContext)
+    }
     val names = playlists.names
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -222,11 +225,13 @@ fun ListScreen(page: ListPage) {
     }
 }
 
-/** El historial en la tele: lo que se ha abierto en esta tele, lo último primero; y borrarlo. */
+/** El historial en la tele: lo que se ha abierto (en todos los aparatos, con Home Assistant), lo último primero; y borrarlo. */
 @Composable
 fun HistoryScreen(page: HistoryPage) {
     val history = LocalStore.current.history
     val context = LocalContext.current
+    LaunchedEffect(Unit) { history.refresh(context) }
+    val everywhere = history.synced == true
     val videos = history.entries.map { it.video }
     VideoGrid(
         page,
@@ -234,15 +239,19 @@ fun HistoryScreen(page: HistoryPage) {
         page.grid,
         focusFirst = videos.isNotEmpty(),
         status = {
-            if (videos.isEmpty()) Status("Aquí salen los vídeos que abras en esta tele.")
+            if (videos.isEmpty()) Status(if (everywhere) "Aquí salen los vídeos que abras, en la tele o en el móvil." else "Aquí salen los vídeos que abras en esta tele.")
         },
     ) {
         fullWidth("head") {
             Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                PageHead("Historial", "Lo que has abierto en esta tele, lo último primero.")
+                PageHead("Historial", if (everywhere) "Lo que has abierto en todos tus aparatos, lo último primero." else "Lo que has abierto en esta tele, lo último primero.")
                 if (videos.isNotEmpty()) {
                     Pill(
-                        if (page.confirmClear) "¿Borrarlo? Sí, borrar" else "Borrar el historial",
+                        when {
+                            !page.confirmClear -> "Borrar el historial"
+                            everywhere -> "¿Borrarlo en todos los aparatos? Sí, borrar"
+                            else -> "¿Borrarlo? Sí, borrar"
+                        },
                         {
                             if (!page.confirmClear) {
                                 page.confirmClear = true
